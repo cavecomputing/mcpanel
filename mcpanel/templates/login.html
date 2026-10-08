@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% block title %}Sign in · mcpanel{% endblock %}
+{% block body %}
+<main class="cc-signin">
+    {% if step == 'code' %}
+    <form class="cc-settings-card cc-signin__card" method="post" action="{{ url_for('auth.login_code', recovery=1 if recovery else None) }}" autocomplete="off">
+        <span class="cc-brand"><svg class="logo" aria-hidden="true"><use href="#i-cube"/></svg><span class="cc-wordmark">mcpanel</span></span>
+        {% if recovery %}
+        <p>Enter one of your recovery codes. Each works once.</p>
+        {% else %}
+        <p>Enter the 6-digit code from your authenticator app.</p>
+        {% endif %}
+        {% if error %}<p class="cc-signin__error" role="alert">{{ error }}</p>{% endif %}
+        <div class="cc-field cc-field--stack">
+            {% if recovery %}
+            <label for="code">Recovery code</label>
+            <input class="cc-input" id="code" name="code" placeholder="xxxx-xxxx-xxxx" autocapitalize="none" spellcheck="false" required autofocus>
+            {% else %}
+            <label for="code">Code</label>
+            <input class="cc-input code-input" id="code" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="000000" autocomplete="one-time-code" required autofocus>
+            {% endif %}
+        </div>
+        <button class="cc-btn cc-btn--primary cc-btn--block" type="submit"><span>Verify</span></button>
+        <div class="signin-links">
+            <a href="{{ url_for('auth.login') }}">Back</a>
+            <a href="{{ url_for('auth.login_code', recovery=None if recovery else 1) }}">{{ 'Use your authenticator app' if recovery else 'Use a recovery code' }}</a>
+        </div>
+    </form>
+    {% else %}
+    <form class="cc-settings-card cc-signin__card" method="post" action="{{ url_for('auth.login', next=next) }}">
+        <span class="cc-brand"><svg class="logo" aria-hidden="true"><use href="#i-cube"/></svg><span class="cc-wordmark">mcpanel</span></span>
+        <p>Sign in to manage your Minecraft servers.</p>
+        {% if error %}<p class="cc-signin__error" role="alert">{{ error }}</p>{% endif %}
+        <div class="cc-field cc-field--stack">
+            <label for="username">Username</label>
+            <input class="cc-input" id="username" name="username" value="{{ username }}" autocomplete="username" autocapitalize="none" spellcheck="false" required {{ '' if username else 'autofocus' }}>
+        </div>
+        <div class="cc-field cc-field--stack">
+            <label for="password">Password</label>
+            <input class="cc-input" id="password" name="password" type="password" autocomplete="current-password" required {{ 'autofocus' if username }}>
+        </div>
+        <label class="cc-checkbox"><input type="checkbox" name="remember" {{ 'checked' if remember }}> Keep this device signed in for 30 days</label>
+        <button class="cc-btn cc-btn--primary cc-btn--block" type="submit"><span>Sign in</span></button>
+        {% if no_users %}<p>No accounts yet. Make the first one on the server with <code class="cc-code">flask --app app invite &lt;name&gt; --admin</code>.</p>{% endif %}
+    </form>
+    {% endif %}
+</main>
+{% endblock %}
