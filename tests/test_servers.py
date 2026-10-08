@@ -160,7 +160,7 @@ def test_create_refuses_when_every_port_is_taken(docker, data_dir, monkeypatch):
     monkeypatch.setattr(config, 'PORT_RANGE', '25565-25566')
     docker.add('web', ports={'80/tcp': 25565, '443/tcp': 25566})
     assert refused(create) == (409, 'Every port in MCPANEL_PORT_RANGE is taken')
-    assert docker.created == [] and not (data_dir / 'servers').exists()
+    assert docker.pulled == [] and docker.created == [] and not (data_dir / 'servers').exists()
 
 
 def test_a_port_held_outside_docker_is_reported_at_start(docker):
@@ -184,8 +184,25 @@ def test_a_failed_pull_is_reported_and_leaves_no_folder(docker, data_dir, monkey
     def pull(repository, tag=None, stream=False, decode=False):
         raise APIError('500 Server Error', explanation='pull access denied for itzg/minecraft-server\nmore')
     monkeypatch.setattr(docker.api, 'pull', pull)
-    assert refused(create) == (502, 'Docker refused: pull access denied for itzg/minecraft-server')
-    assert list((data_dir / 'servers').iterdir()) == []
+    assert refused(create) == (502, "Couldn't download itzg/minecraft-server:java21: "
+                                    'pull access denied for itzg/minecraft-server')
+    assert docker.created == [] and not (data_dir / 'servers').exists()
+
+
+@pytest.mark.parametrize('pull_error', [
+    APIError('500 Server Error', explanation='toomanyrequests: You have reached your pull rate limit.'),
+    iter([{'error': 'Get "https://registry-1.docker.io/v2/": dial tcp: lookup registry-1.docker.io: no such host'}]),
+])
+def test_a_failed_pull_falls_back_to_the_copy_docker_has(docker, monkeypatch, caplog, pull_error):
+    def pull(repository, tag=None, stream=False, decode=False):
+        if isinstance(pull_error, Exception):
+            raise pull_error
+        return pull_error
+    docker.local_images.add('itzg/minecraft-server:java21')
+    monkeypatch.setattr(docker.api, 'pull', pull)
+    assert create()['status'] == 'stopped'
+    assert [record.getMessage().partition(': ')[0] for record in caplog.records if record.levelno == logging.WARNING] == [
+        "Couldn't pull itzg/minecraft-server:java21, so using the copy Docker has"]
 
 
 def test_a_pull_that_fails_mid_download_says_why(docker, data_dir, monkeypatch):
@@ -195,17 +212,22 @@ def test_a_pull_that_fails_mid_download_says_why(docker, data_dir, monkeypatch):
     monkeypatch.setattr(docker.api, 'pull', pull)
     assert refused(create) == (502, "Couldn't download itzg/minecraft-server:java21: "
                                     'failed to register layer: no space left on device')
-    assert docker.created == [] and list((data_dir / 'servers').iterdir()) == []
+    assert docker.created == [] and not (data_dir / 'servers').exists()
 
 
-def test_the_image_is_pulled_only_when_missing(docker):
+def test_the_image_is_pulled_on_every_create(docker, monkeypatch):
+    # The image's tags move with its fixes and Java patch releases, so a new server gets the newest; one that
+    # exists keeps the image it was made with.
+    docker.local_images.add('itzg/minecraft-server:java21')
+    pull = docker.api.pull
+    def pull_outside_the_lock(*args, **kwargs):  # a first download takes minutes; other creates go on
+        assert not servers.CREATE_LOCK.locked()
+        return pull(*args, **kwargs)
+    monkeypatch.setattr(docker.api, 'pull', pull_outside_the_lock)
     create('One')
     create('Two')
     create('Three', java='java17')
-    assert docker.pulled == ['itzg/minecraft-server:java21', 'itzg/minecraft-server:java17']
-    docker.local_images.add('itzg/minecraft-server:java8')
-    create('Four', java='java8')
-    assert len(docker.pulled) == 2
+    assert docker.pulled == ['itzg/minecraft-server:java21'] * 2 + ['itzg/minecraft-server:java17']
 
 
 def networks_of(docker, name):

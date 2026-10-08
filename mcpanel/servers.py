@@ -179,7 +179,8 @@ def host_ports(container):
 
 def free_port():
     """The lowest port in MCPANEL_PORT_RANGE that no container publishes, running or stopped, the
-    panel's or not. Call under CREATE_LOCK. A port held outside Docker only shows when a server starts."""
+    panel's or not. Call under CREATE_LOCK to claim it. A port held outside Docker only shows when a
+    server starts."""
     first, last = config.port_range()
     taken = {port for container in docker_client().containers.list(all=True, ignore_removed=True)
              for port in host_ports(container)}
@@ -252,6 +253,9 @@ def create_server(name, type, version, java, heap_gb, eula):
     if eula is not True:
         abort(400, 'Accept the Minecraft EULA to create a server')
 
+    with docker_errors():
+        free_port()  # a full range refuses at once, not after a download; the lock below decides the port
+        ensure_image(docker_client(), java)  # before the lock: a first download takes minutes
     with CREATE_LOCK:
         with docker_errors():
             client = docker_client()
@@ -262,7 +266,6 @@ def create_server(name, type, version, java, heap_gb, eula):
         folder.mkdir(parents=True)  # never exist_ok: free_id() saw no folder, so one now is someone else's
         try:
             with docker_errors():
-                ensure_image(client, java)
                 ensure_network(client)
                 spec = container_spec(server_id, name, type, version, java, heap_gb, game_port)
                 # containers.create() doesn't take stop_timeout, so do what it does with the SDK's
@@ -304,16 +307,23 @@ def checked_version(version):
 
 
 def ensure_image(client, java):
-    """Pull the image unless Docker has it already. The first pull of a tag takes a few minutes."""
+    """Pull the image's tag, which its maintainers move along with the image's fixes and Java patch
+    releases. When the pull fails (Docker Hub's rate limit, no internet) a copy Docker already has will do."""
+    logger.info('Pulling %s:%s', IMAGE, java)
+    try:
+        # images.pull() drops an error in the progress stream (a download cut off, a full disk) and
+        # then says "No such image", so read the stream for it.
+        error = next((event['error'] for event in client.api.pull(IMAGE, tag=java, stream=True, decode=True)
+                      if 'error' in event), None)
+    except APIError as e:
+        error = str(e.explanation or e)
+    if error is None:
+        return
     try:
         client.images.get(f'{IMAGE}:{java}')
     except ImageNotFound:
-        logger.info('Pulling %s:%s', IMAGE, java)
-        # images.pull() drops an error in the progress stream (a download cut off, a full disk) and
-        # then says "No such image", so read the stream for it.
-        for event in client.api.pull(IMAGE, tag=java, stream=True, decode=True):
-            if 'error' in event:
-                abort(502, f"Couldn't download {IMAGE}:{java}: {first_line(event['error'])}")
+        abort(502, f"Couldn't download {IMAGE}:{java}: {first_line(error)}")
+    logger.warning("Couldn't pull %s:%s, so using the copy Docker has: %s", IMAGE, java, first_line(error))
 
 
 def ensure_network(client):

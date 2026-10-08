@@ -209,6 +209,9 @@ arbitrary container owns the machine, so:
 - **A new server is created stopped**, and nothing starts it but Start, so mods and files go in
   before the world is generated. Docker never starts a container that has never run, `unless-stopped`
   or not, so a reboot doesn't either.
+- Create pulls the tag every time, since the image's maintainers move it along with the image's
+  fixes and Java patch releases, and uses the copy Docker has when the pull fails. A server keeps
+  the image it was made with.
 - `free_port()` takes the lowest port in the range that no container (running or stopped) has
   published, under a lock. Docker refuses a port something outside Docker holds; report that, don't
   retry blindly.
