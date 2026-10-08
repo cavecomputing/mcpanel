@@ -1,5 +1,6 @@
 """mcpanel: a small web panel for hosting Minecraft servers in Docker."""
 import mimetypes
+import secrets
 from urllib.parse import urlsplit
 
 from flask import Flask, abort, request
@@ -35,7 +36,9 @@ def create_app():
     )
 
     init_db()
-    app.secret_key = auth.signing_key()
+    # Random for each process and never stored: with the key, a copy of the database (the TOTP
+    # secrets) could sign that cookie and skip the password. A restart loses only sign-ins halfway.
+    app.secret_key = secrets.token_bytes(32)
 
     app.before_request(logs.start_timer)
     app.before_request(reject_cross_site_writes)

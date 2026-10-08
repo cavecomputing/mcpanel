@@ -1,7 +1,6 @@
 """Signing in (a password, then a TOTP or recovery code), signing out, invite links, lockouts, the
 session cookie and the guard in front of every other route."""
 import math
-import secrets
 import threading
 import time
 
@@ -41,15 +40,6 @@ class SessionInterface(SecureCookieSessionInterface):
     def get_cookie_secure(self, app):
         """Mark Flask's cookie (a sign-in halfway through) Secure whenever the browser used HTTPS."""
         return request.is_secure
-
-
-def signing_key():
-    """The key that signs Flask's cookie: random, made once and kept in the database, so a sign-in
-    halfway through survives a restart."""
-    with get_db() as conn:
-        conn.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('secret_key', ?)", (secrets.token_hex(32),))
-        conn.commit()
-        return bytes.fromhex(conn.execute("SELECT value FROM settings WHERE key = 'secret_key'").fetchone()['value'])
 
 
 def require_login():

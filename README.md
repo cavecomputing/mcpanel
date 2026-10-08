@@ -92,7 +92,7 @@ Servers keep running while the panel restarts.
 
 ```
 /srv/mcpanel/            # MCPANEL_DATA_DIR
-├── mcpanel.db           # SQLite: users, sessions, invites, recovery codes, server access, settings
+├── mcpanel.db           # SQLite: users, sessions, invites, recovery codes, server access
 ├── logs/
 │   ├── mcpanel.log      # everything on stdout, rotated
 │   └── audit.log        # who did what, rotated

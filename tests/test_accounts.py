@@ -7,7 +7,7 @@ import pytest
 from argon2 import PasswordHasher
 from werkzeug.exceptions import HTTPException
 
-from mcpanel import accounts, auth, create_app
+from mcpanel import accounts, create_app
 from mcpanel.db import get_db
 
 from .conftest import PASSWORD, make_user
@@ -202,6 +202,8 @@ def test_who_may_use_which_server(app):
     assert accounts.may_use(member, 'smp') and not accounts.may_use(member, 'creative')
 
 
-def test_signing_key_survives_a_restart(app):
-    assert auth.signing_key() == create_app().secret_key
-    assert len(app.secret_key) == 32
+def test_the_cookie_signing_key_is_never_stored(app):
+    """With it, a copy of the database could sign a sign-in halfway through and skip the password."""
+    assert len(app.secret_key) == 32 and create_app().secret_key != app.secret_key
+    with get_db() as conn:
+        assert app.secret_key.hex() not in '\n'.join(conn.iterdump()).lower()

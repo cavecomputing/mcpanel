@@ -136,7 +136,7 @@ neighbour.
 | `mcpanel/config.py` | Settings read once from the environment: paths under `MCPANEL_DATA_DIR`, `MCPANEL_PUBLIC_HOST`, `MCPANEL_PORT_RANGE`. |
 | `mcpanel/db.py` | Schema (`init_db()`, idempotent) and `get_db()`, a short-lived connection per use. |
 | `mcpanel/logs.py` | `setup_logging()`: JSON lines on stdout, the same lines in a rotated file, the audit log, and the filter that strips secrets. `audit()` records who did what; `start_timer()` and `log_request()` write one line per request. |
-| `mcpanel/auth.py` | The sign-in pages: `/login` (password), `/login/code` (TOTP or a recovery code), `/logout`, `/invite/<token>`. The session cookie and `require_login()` in front of everything else, `require_admin()`, lockouts and the sign-in throttle (`throttled()`), `signing_key()`, the `invite` command. |
+| `mcpanel/auth.py` | The sign-in pages: `/login` (password), `/login/code` (TOTP or a recovery code), `/logout`, `/invite/<token>`. The session cookie and `require_login()` in front of everything else, `require_admin()`, lockouts and the sign-in throttle (`throttled()`), the `invite` command. |
 | `mcpanel/accounts.py` | Users, sessions, invites and recovery codes in the database: password hashing (argon2id), TOTP secrets and checks, who may see which server. |
 | `mcpanel/servers.py` | Everything that talks to Docker: finding the panel's containers by label, `container_spec()` (the one place a container's settings are decided), `free_port()`, create, start, stop, restart, and `docker_errors()`, which turns Docker's errors into the messages the UI shows. |
 | `mcpanel/views.py` | `index()` serves the page; `healthz()` answers `/healthz`, open to anyone (`auth.OPEN_ENDPOINTS` names it). |
@@ -158,7 +158,7 @@ on its own under it:
 
 ```
 data/                    # MCPANEL_DATA_DIR, default ./data
-├── mcpanel.db           # SQLite: users, sessions, invites, recovery codes, server access, settings
+├── mcpanel.db           # SQLite: users, sessions, invites, recovery codes, server access
 ├── logs/
 │   ├── mcpanel.log      # everything on stdout, rotated
 │   └── audit.log        # who did what, rotated
@@ -173,10 +173,11 @@ data/                    # MCPANEL_DATA_DIR, default ./data
   server's data is a bind mount, and Docker reads bind-mount paths on the host, so the panel passes
   `<data dir>/servers/<id>` as the host path and also reads and writes it itself. `compose.yml`
   mounts `${MCPANEL_DATA_DIR}:${MCPANEL_DATA_DIR}` for that reason. Never translate paths.
-- **The database holds only what Docker doesn't know:** accounts, sessions, invites, recovery codes,
-  which member may see which server, and the cookie-signing secret. A server's state, port and
-  settings are read from Docker every time. A server id that Docker no longer has is stale, not an
-  error.
+- **The database holds only what Docker doesn't know:** accounts, sessions, invites, recovery codes
+  and which member may see which server. A server's state, port and settings are read from Docker
+  every time. A server id that Docker no longer has is stale, not an error. Nothing in it may sign
+  anyone in: the key for Flask's cookie (a sign-in halfway through) is random for each process,
+  since kept there, a copy of the database could sign that cookie and skip the password.
 - Every module reads settings as `config.NAME` at call time, never `from .config import NAME`, so
   the tests can point them at a temporary directory.
 

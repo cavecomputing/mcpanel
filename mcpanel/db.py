@@ -1,5 +1,5 @@
 """SQLite access. The database holds only what Docker doesn't know: accounts, sessions, invites,
-recovery codes, which member may use which server, and settings. Times are Unix seconds."""
+recovery codes, and which member may use which server. Times are Unix seconds."""
 import sqlite3
 from contextlib import contextmanager
 
@@ -52,10 +52,6 @@ SCHEMA = '''
         user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         server TEXT NOT NULL,
         PRIMARY KEY (user_id, server)
-    );
-    CREATE TABLE IF NOT EXISTS settings (
-        key TEXT PRIMARY KEY,
-        value TEXT NOT NULL
     );
 '''
 
