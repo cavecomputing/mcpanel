@@ -13,8 +13,9 @@ mcpanel lets a handful of people run Minecraft servers from a browser. Every ser
 one more container next to them that talks to Docker, the way Portainer does. Servers keep running
 when the panel restarts, and the panel finds them again by their Docker labels.
 
-- Create a server (Vanilla, Paper, Purpur, Fabric, Forge, NeoForge or Quilt; a Minecraft version, a
-  Java version and how much memory), then start, stop and restart it
+- Create a server (Vanilla, Paper, Purpur, Fabric, Forge, NeoForge or Quilt; a Minecraft version,
+  how much memory, and a Java version, which the panel matches to the Minecraft version unless you
+  pick one), then start, stop and restart it
 - A new server stays stopped until you start it, so mods and files can go in its folder first
 - One game port per server, from a range you choose, shown as the address players type
 - Admins manage every server and every user; members see and run only the servers an admin gave them

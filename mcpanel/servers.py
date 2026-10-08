@@ -24,7 +24,12 @@ from . import config
 logger = logging.getLogger(__name__)
 
 IMAGE = 'itzg/minecraft-server'
-JAVA_TAGS = ('java21', 'java17', 'java11', 'java8')  # the image's tags we offer; the first is the default
+# The image's Java tags we offer, newest first. java25 runs current Minecraft; older releases need older
+# Java, which java_tag() picks when the form leaves it to the panel.
+JAVA_TAGS = ('java25', 'java21', 'java17', 'java8')
+# The Java each Minecraft release needs, newest first (the Minecraft wiki's table, which the image's
+# docs point to): 26.1 on needs 25, 1.20.5 on 21, 1.17 on 17 (16 at least), anything older 8.
+JAVA_FOR = (((26,), 'java25'), ((1, 20, 5), 'java21'), ((1, 17), 'java17'), ((), 'java8'))
 TYPES = ('VANILLA', 'PAPER', 'PURPUR', 'FABRIC', 'FORGE', 'NEOFORGE', 'QUILT')
 MAX_HEAP_GB = 32
 MAX_NAME = 40  # characters in a display name
@@ -241,12 +246,15 @@ def container_spec(server_id, name, type, version, java, heap_gb, game_port):
 
 
 def create_server(name, type, version, java, heap_gb, eula):
-    """Create a server from the new-server form's fields, stopped, and return its dict. Nothing starts
-    it but Start: mods and files go in first, before the world is generated."""
+    """Create a server from the new-server form's fields, stopped, and return its dict. java may be
+    empty, for the tag the version needs. Nothing starts it but Start: mods and files go in first,
+    before the world is generated."""
     name, version = checked_name(name), checked_version(version)
     if type not in TYPES:
         abort(400, 'Unknown server type')
-    if java not in JAVA_TAGS:
+    if java in (None, ''):
+        java = java_tag(version)
+    elif java not in JAVA_TAGS:
         abort(400, 'Unknown Java version')
     if not isinstance(heap_gb, int) or isinstance(heap_gb, bool) or not 1 <= heap_gb <= MAX_HEAP_GB:
         abort(400, f'Memory must be a whole number of GB from 1 to {MAX_HEAP_GB}')
@@ -297,13 +305,22 @@ def checked_name(name):
 
 
 def checked_version(version):
-    """LATEST in any case, or a release number like 1.21.4."""
+    """LATEST in any case, or a release number like 26.1 or 1.21.4."""
     version = version.strip() if isinstance(version, str) else ''
     if version.upper() == 'LATEST':
         return 'LATEST'
     if not VERSION.fullmatch(version):
-        abort(400, 'Version must be LATEST or a Minecraft release like 1.21.4')
+        abort(400, 'Version must be LATEST or a Minecraft release like 26.1')
     return version
+
+
+def java_tag(version):
+    """The Java tag that runs a checked Minecraft version, the newest for LATEST. Forge before 1.17
+    gets java8 with the rest, as the image's docs say it must; 1.17 itself needs Java 16."""
+    if version == 'LATEST':
+        return JAVA_TAGS[0]
+    number = tuple(int(part) for part in version.split('.'))
+    return next(tag for first, tag in JAVA_FOR if number >= first)
 
 
 def ensure_image(client, java):

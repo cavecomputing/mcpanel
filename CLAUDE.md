@@ -191,7 +191,8 @@ The panel holds the Docker socket, which is root on the host. Whoever can make t
 arbitrary container owns the machine, so:
 
 - **`servers.container_spec()` is the only place a container's settings are decided**, from checked
-  fields. The image is always `itzg/minecraft-server` with a tag from `JAVA_TAGS`; the only mount is
+  fields. The image is always `itzg/minecraft-server` with a tag from `JAVA_TAGS` (`java_tag()` picks
+  the one a version needs when the form leaves it to the panel); the only mount is
   `<data dir>/servers/<id>:/data`; never `privileged`, never extra mounts, devices, capabilities,
   host networking or the host's PID namespace. Never pass a client's options, env or labels through.
 - Server ids are lowercase `[a-z0-9-]`, checked before they reach a name, label or path
@@ -211,7 +212,8 @@ arbitrary container owns the machine, so:
   or not, so a reboot doesn't either.
 - Create pulls the tag every time, since the image's maintainers move it along with the image's
   fixes and Java patch releases, and uses the copy Docker has when the pull fails. A server keeps
-  the image it was made with.
+  the image it was made with. `VERSION=LATEST` updates Minecraft on every start, but its Java tag
+  stays put.
 - `free_port()` takes the lowest port in the range that no container (running or stopped) has
   published, under a lock. Docker refuses a port something outside Docker holds; report that, don't
   retry blindly.

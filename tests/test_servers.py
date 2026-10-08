@@ -84,7 +84,7 @@ def test_check_id_accepts(server_id):
 
 
 NAME = 'Give the server a name'
-VERSION = 'Version must be LATEST or a Minecraft release like 1.21.4'
+VERSION = 'Version must be LATEST or a Minecraft release like 26.1'
 MEMORY = 'Memory must be a whole number of GB from 1 to 32'
 EULA = 'Accept the Minecraft EULA to create a server'
 
@@ -96,7 +96,7 @@ EULA = 'Accept the Minecraft EULA to create a server'
     ('type', 'paper', 'Unknown server type'), ('type', 'SPIGOT', 'Unknown server type'),
     ('version', '', VERSION), ('version', '1', VERSION), ('version', '1.21.4-pre1', VERSION),
     ('version', 'snapshot', VERSION), ('version', '1.٢١', VERSION), ('version', 1.21, VERSION),
-    ('java', 'java25', 'Unknown Java version'),
+    ('java', 'java11', 'Unknown Java version'), ('java', 'JAVA21', 'Unknown Java version'),
     ('heap_gb', 0, MEMORY), ('heap_gb', 33, MEMORY), ('heap_gb', 4.0, MEMORY), ('heap_gb', '4', MEMORY),
     ('heap_gb', True, MEMORY),
     ('eula', False, EULA), ('eula', 'true', EULA), ('eula', 1, EULA), ('eula', None, EULA),
@@ -117,6 +117,19 @@ def test_create_leaves_the_server_stopped_and_returns_its_dict(docker, data_dir)
     assert docker.actions == []
     assert docker.live('mcpanel-survival')['State']['Status'] == 'created'
     assert list((data_dir / 'servers' / 'survival').iterdir()) == []
+
+
+@pytest.mark.parametrize('type, version, java', [
+    ('PAPER', 'LATEST', 'java25'), ('PAPER', '26.1', 'java25'), ('PAPER', '27.2.1', 'java25'),
+    ('PAPER', '1.21.4', 'java21'), ('PAPER', '1.20.5', 'java21'), ('PAPER', '1.20.4', 'java17'),
+    ('PAPER', '1.20', 'java17'), ('PAPER', '1.17', 'java17'), ('PAPER', '1.16.5', 'java8'),
+    ('PAPER', '1.8.9', 'java8'), ('FORGE', '1.16.5', 'java8'), ('FORGE', '1.17.1', 'java17'),
+    ('FORGE', '1.21.1', 'java21'),
+])
+def test_java_left_to_the_panel_matches_the_version(docker, type, version, java):
+    for left_out in ('', None):
+        assert create(type=type, version=version, java=left_out)['java'] == java
+    assert {spec['image'] for spec in docker.created} == {f'itzg/minecraft-server:{java}'}
 
 
 def test_address_names_the_port_unless_it_is_minecrafts_own():

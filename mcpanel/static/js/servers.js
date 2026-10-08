@@ -156,7 +156,9 @@ async function openNewServer() {
             return;
         }
         $('serverType').innerHTML = options.types.map((type) => `<option value="${esc(type)}">${esc(typeName(type))}</option>`).join('');
-        $('serverJava').innerHTML = options.java.map((java) => `<option value="${esc(java)}">${esc(javaName(java))}</option>`).join('');
+        // Empty leaves it to the panel, which picks the Java the version needs.
+        $('serverJava').innerHTML = '<option value="">Match the version</option>'
+            + options.java.map((java) => `<option value="${esc(java)}">${esc(javaName(java))}</option>`).join('');
         Object.assign($('serverHeap'), { min: options.heap.min, max: options.heap.max, defaultValue: options.heap.default });
     }
     $('newServerForm').reset();

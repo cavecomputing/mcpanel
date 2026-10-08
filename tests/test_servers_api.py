@@ -36,8 +36,9 @@ def test_admin_creates_and_lists_servers(admin):
     assert server['created'] > 0
     assert 'RCON' not in response.text and 'EULA' not in response.text and 'password' not in response.text.lower()
 
-    creative = create(admin, name='Creative', type='VANILLA', version='LATEST').get_json()
+    creative = create(admin, name='Creative', type='VANILLA', version='LATEST', java='').get_json()
     assert (creative['id'], creative['port'], creative['address']) == ('creative', 25566, 'mc.example.com:25566')
+    assert creative['java'] == 'java25'  # left to the panel, which matches it to the version
     response = admin.get('/api/servers')
     assert response.status_code == 200
     assert response.get_json() == {'servers': [creative, server]}  # by name
@@ -47,7 +48,7 @@ def test_admin_creates_and_lists_servers(admin):
 def test_options(admin):
     assert admin.get('/api/servers/options').get_json() == {
         'types': ['VANILLA', 'PAPER', 'PURPUR', 'FABRIC', 'FORGE', 'NEOFORGE', 'QUILT'],
-        'java': ['java21', 'java17', 'java11', 'java8'],
+        'java': ['java25', 'java21', 'java17', 'java8'],
         'heap': {'min': 1, 'max': 32, 'default': 4},
     }
 
@@ -133,7 +134,7 @@ def test_anonymous_gets_401(anon, docker, method, path):
     ({'name': '   '}, 'Give the server a name'),
     ({'name': 'x' * 41}, 'Server names can be at most 40 characters'),
     ({'type': 'SPIGOT'}, 'Unknown server type'),
-    ({'version': 'newest'}, 'Version must be LATEST or a Minecraft release like 1.21.4'),
+    ({'version': 'newest'}, 'Version must be LATEST or a Minecraft release like 26.1'),
     ({'java': 'java99'}, 'Unknown Java version'),
     ({'heap_gb': 0}, 'Memory must be a whole number of GB from 1 to 32'),
     ({'heap_gb': '4'}, 'Memory must be a whole number of GB from 1 to 32'),
