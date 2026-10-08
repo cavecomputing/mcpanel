@@ -33,7 +33,7 @@ def options():
 
 @bp.post('/servers')
 def create():
-    """Create and start a server: {name, type, version, java, heap_gb, eula}. create_server() checks them."""
+    """Create a server, stopped: {name, type, version, java, heap_gb, eula}. create_server() checks them."""
     auth.require_admin()
     data = json_body()
     server = servers.create_server(data.get('name'), data.get('type'), data.get('version'), data.get('java'),

@@ -226,7 +226,8 @@ def container_spec(server_id, name, type, version, java, heap_gb, game_port):
 
 
 def create_server(name, type, version, java, heap_gb, eula):
-    """Create and start a server from the new-server form's fields. Returns its dict."""
+    """Create a server from the new-server form's fields, stopped, and return its dict. Nothing starts
+    it but Start: mods and files go in first, before the world is generated."""
     name, version = checked_name(name), checked_version(version)
     if type not in TYPES:
         abort(400, 'Unknown server type')
@@ -245,9 +246,8 @@ def create_server(name, type, version, java, heap_gb, eula):
             game_port = free_port()
         folder = config.SERVERS_DIR / server_id
         folder.mkdir(parents=True)  # never exist_ok: free_id() saw no folder, so one now is someone else's
-        container = None
         try:
-            with docker_errors(game_port):
+            with docker_errors():
                 ensure_image(client, java)
                 ensure_network(client)
                 spec = container_spec(server_id, name, type, version, java, heap_gb, game_port)
@@ -255,15 +255,10 @@ def create_server(name, type, version, java, heap_gb, eula):
                 # private _create_container_args (uv.lock pins the SDK; the fake uses it too, so the
                 # suite catches a change) and hand the API call stop_timeout as well.
                 stop_timeout = spec.pop('stop_timeout')
-                container = client.containers.get(client.api.create_container(
-                    **_create_container_args({**spec, 'version': client.api.api_version}),
-                    stop_timeout=stop_timeout)['Id'])
-                container.start()
+                client.api.create_container(**_create_container_args({**spec, 'version': client.api.api_version}),
+                                            stop_timeout=stop_timeout)
         except Exception:
-            # Leave nothing behind. The server never ran, so its folder is still empty.
-            if container is not None:
-                with suppress(DockerException, OSError):
-                    container.remove(force=True)
+            # Leave nothing behind: no container was made, and nothing has run in the folder.
             with suppress(OSError):
                 folder.rmdir()
             raise

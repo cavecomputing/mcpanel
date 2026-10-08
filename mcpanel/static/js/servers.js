@@ -179,7 +179,7 @@ async function createServer(event) {
             eula: $('serverEula').checked,
         });
         $('newServerDialog').close();
-        toast(`Created <b>${esc(server.name)}</b>`);
+        toast(`Created <b>${esc(server.name)}</b>. Start it when it's ready.`);
         state.servers = [...state.servers, server]; // so it opens before the next poll
         location.hash = serverHash(server.id);
         loadServers();

@@ -15,6 +15,7 @@ when the panel restarts, and the panel finds them again by their Docker labels.
 
 - Create a server (Vanilla, Paper, Purpur, Fabric, Forge, NeoForge or Quilt; a Minecraft version, a
   Java version and how much memory), then start, stop and restart it
+- A new server stays stopped until you start it, so mods and files can go in its folder first
 - One game port per server, from a range you choose, shown as the address players type
 - Admins manage every server and every user; members see and run only the servers an admin gave them
 - An admin adds each account and hands over a one-time password, valid for 24 hours; signing in
@@ -105,6 +106,9 @@ Servers keep running while the panel restarts.
 └── servers/
     └── <server id>/     # one server's /data, bind-mounted into its container
 ```
+
+To add mods or plugins before a new server's first start, put them in `servers/<server id>/mods/`
+or `plugins/`, owned by `PUID`:`PGID`.
 
 A server's state, port, type, version and memory live on its container, not in the database:
 Docker is the source of truth. Back up the data folder and you have every world and every account.

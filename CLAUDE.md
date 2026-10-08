@@ -203,6 +203,9 @@ arbitrary container owns the machine, so:
   heap plus headroom; json-file logging capped at 3 × 10 MB, because Docker's default never rotates;
   a stop timeout of `STOP_SECONDS` (60 s), so a reboot or an outside `docker stop` gives the world as
   long to save as the panel's Stop does, not Docker's default 10 s.
+- **A new server is created stopped**, and nothing starts it but Start, so mods and files go in
+  before the world is generated. Docker never starts a container that has never run, `unless-stopped`
+  or not, so a reboot doesn't either.
 - `free_port()` takes the lowest port in the range that no container (running or stopped) has
   published, under a lock. Docker refuses a port something outside Docker holds; report that, don't
   retry blindly.

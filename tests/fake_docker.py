@@ -27,7 +27,7 @@ class FakeDocker:
         self.churn = False
         self.created = []         # the arguments of each api.create_container()
         self.pulled = []          # 'repository:tag' of each api.pull()
-        self.actions = []         # (action, container name, argument) of each start, stop, restart, remove
+        self.actions = []         # (action, container name, argument) of each connect, start, stop, restart
         self.local_images = set()
         self.networks_made = {}   # network name -> the options it was created with
         self.network_ids = {}     # network name -> its id, new each time it is made
@@ -64,7 +64,8 @@ class FakeDocker:
             'Created': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%f123Z'),  # nanoseconds
             'Config': {key: value for key, value in config.items() if key not in ('HostConfig', 'NetworkingConfig')},
             'HostConfig': config['HostConfig'],
-            'NetworkSettings': {'Networks': {network: {'NetworkID': self.network_ids.get(network, '')}} if network else {}},
+            # Docker fills in the network's id only when a container first starts.
+            'NetworkSettings': {'Networks': {network: {'NetworkID': ''}} if network else {}},
             'State': {'Status': 'created', 'Running': False, 'ExitCode': 0},
             'RestartCount': 0,
         }
@@ -188,12 +189,6 @@ class Container:
         attrs['State'] = {'Status': 'exited', 'Running': False, 'ExitCode': 0}
         self.fake.start_container(attrs)
         self.fake.actions.append(('restart', self.name, timeout))
-
-    def remove(self, force=False):
-        if self.fake.live(self.id)['State']['Running'] and not force:
-            raise APIError('409 Client Error: Conflict', explanation='You cannot remove a running container')
-        del self.fake.inspect[self.id]
-        self.fake.actions.append(('remove', self.name, force))
 
 
 class Images:

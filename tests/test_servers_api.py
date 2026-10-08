@@ -30,7 +30,7 @@ def test_admin_creates_and_lists_servers(admin):
     assert response.status_code == 201
     server = response.get_json()
     assert set(server) == SERVER_KEYS
-    assert server == {**server, 'id': 'survival', 'name': 'Survival', 'status': 'starting', 'type': 'PAPER',
+    assert server == {**server, 'id': 'survival', 'name': 'Survival', 'status': 'stopped', 'type': 'PAPER',
                       'version': '1.21.4', 'java': 'java21', 'heap_gb': 4, 'port': 25565,
                       'address': 'mc.example.com'}
     assert server['created'] > 0
@@ -64,13 +64,14 @@ def test_members_see_only_their_servers(admin, member):
 def test_a_member_runs_a_granted_server(admin, member, docker):
     create(admin)
     grant(admin, member, 'survival')
-    stopped = member.post('/api/servers/survival/stop')
-    assert stopped.status_code == 200 and stopped.get_json()['status'] == 'stopped'
-    assert set(stopped.get_json()) == SERVER_KEYS
+    started = member.post('/api/servers/survival/start')
+    assert started.status_code == 200 and started.get_json()['status'] == 'starting'
+    assert set(started.get_json()) == SERVER_KEYS
+    assert member.post('/api/servers/survival/stop').get_json()['status'] == 'stopped'
     assert member.post('/api/servers/survival/start').get_json()['status'] == 'starting'
     assert member.post('/api/servers/survival/restart').get_json()['status'] == 'starting'
     assert [action for action, name, _ in docker.actions if name == 'mcpanel-survival'] \
-        == ['start', 'stop', 'start', 'restart']
+        == ['connect', 'start', 'stop', 'start', 'restart']
 
 
 @pytest.mark.parametrize('action', ['start', 'stop', 'restart'])
@@ -92,9 +93,9 @@ def test_writes_from_another_sites_page_are_refused(admin, docker, headers):
     create(admin)
     response = admin.post('/api/servers/survival/stop', headers=headers)
     assert response.status_code == 403 and response.get_json() == {'error': 'Cross-site request blocked'}
-    assert [action for action, _, _ in docker.actions] == ['start']
-    assert admin.post('/api/servers/survival/stop', headers={'Sec-Fetch-Site': 'same-origin'}).status_code == 200
-    assert admin.post('/api/servers/survival/start', headers={'Origin': 'http://localhost'}).status_code == 200
+    assert docker.actions == []
+    assert admin.post('/api/servers/survival/start', headers={'Sec-Fetch-Site': 'same-origin'}).status_code == 200
+    assert admin.post('/api/servers/survival/stop', headers={'Origin': 'http://localhost'}).status_code == 200
 
 
 @pytest.mark.parametrize('server_id', ['nope', 'Bad_Id', 'a' * 40])
@@ -181,10 +182,11 @@ def test_no_free_port_is_409(admin, docker, monkeypatch):
 
 def test_a_port_held_outside_docker_is_409(admin, docker):
     docker.outside_ports = {25565}
-    response = create(admin)
+    assert create(admin).status_code == 201  # the port is claimed at start, not at create
+    response = admin.post('/api/servers/survival/start')
     assert response.status_code == 409
     assert response.get_json() == {'error': 'Port 25565 is in use by something outside Docker'}
-    assert admin.get('/api/servers').get_json() == {'servers': []}
+    assert admin.get('/api/servers').get_json()['servers'][0]['status'] == 'stopped'
 
 
 def test_every_server_action_is_audited(admin, member, data_dir):

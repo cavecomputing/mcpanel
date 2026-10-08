@@ -101,14 +101,17 @@ def test_create_refuses_bad_fields(docker, data_dir, field, value, message):
     assert docker.created == [] and not (data_dir / 'servers').exists()
 
 
-def test_create_starts_the_server_and_returns_its_dict(docker, data_dir):
+def test_create_leaves_the_server_stopped_and_returns_its_dict(docker, data_dir):
     server = create('  Survival  ', version='latest')
     assert abs(server.pop('created') - time.time()) < 5
-    assert server == {'id': 'survival', 'name': 'Survival', 'status': 'starting', 'type': 'PAPER',
+    assert server == {'id': 'survival', 'name': 'Survival', 'status': 'stopped', 'type': 'PAPER',
                       'version': 'LATEST', 'java': 'java21', 'heap_gb': 4, 'port': 25565,
                       'address': 'mc.example.com'}
-    assert docker.actions == [('start', 'mcpanel-survival', None)]
-    assert (data_dir / 'servers' / 'survival').is_dir()
+    # Never started, so mods and files can go in before the world is generated. Docker leaves a
+    # container it never started alone when it starts up, so a reboot doesn't start it either.
+    assert docker.actions == []
+    assert docker.live('mcpanel-survival')['State']['Status'] == 'created'
+    assert list((data_dir / 'servers' / 'survival').iterdir()) == []
 
 
 def test_address_names_the_port_unless_it_is_minecrafts_own():
@@ -155,14 +158,12 @@ def test_create_refuses_when_every_port_is_taken(docker, data_dir, monkeypatch):
     assert docker.created == [] and not (data_dir / 'servers').exists()
 
 
-def test_a_port_held_outside_docker_is_reported_and_nothing_is_left(docker, data_dir):
+def test_a_port_held_outside_docker_is_reported_at_start(docker):
     docker.outside_ports = {25565}
-    assert refused(create) == (409, 'Port 25565 is in use by something outside Docker')
-    assert docker.inspect == {}
-    assert docker.actions == [('remove', 'mcpanel-survival', True)]
-    assert list((data_dir / 'servers').iterdir()) == []
+    assert create()['status'] == 'stopped'  # Docker claims the port only when the server starts
+    assert refused(servers.start_server, 'survival') == (409, 'Port 25565 is in use by something outside Docker')
     docker.outside_ports = set()
-    assert create()['id'] == 'survival'  # nothing in the way of trying again
+    assert servers.start_server('survival')['status'] == 'starting'  # nothing in the way of trying again
 
 
 def test_a_port_another_container_took_while_stopped_is_reported(docker):
@@ -223,6 +224,7 @@ def test_after_a_start_refused_a_port_the_next_start_rejoins_the_network(docker,
 @pytest.mark.parametrize('action', [servers.start_server, servers.restart_server])
 def test_a_start_rejoins_a_network_made_again(docker, action):
     create()
+    servers.start_server('survival')  # so it holds the old network's id
     servers.stop_server('survival')
     docker.networks.create('mcpanel')  # `docker compose down` with every server stopped, then `up`
     assert action('survival')['status'] == 'starting'
@@ -290,15 +292,18 @@ def test_stop_start_and_restart_return_the_fresh_dict(docker, caplog):
     caplog.set_level(logging.INFO)
     create()
     caplog.clear()
+    assert servers.start_server('survival')['status'] == 'starting'
     assert servers.stop_server('survival')['status'] == 'stopped'
     assert servers.start_server('survival')['status'] == 'starting'
     docker.set_state('mcpanel-survival', 'running', health='healthy')
     assert servers.restart_server('survival')['status'] == 'starting'
-    assert docker.actions[1:] == [('stop', 'mcpanel-survival', 60), ('start', 'mcpanel-survival', None),
-                                  ('restart', 'mcpanel-survival', 60)]
+    # The first start joins the network: Docker gives a container it never started no network id.
+    assert docker.actions == [('connect', 'mcpanel-survival', 'mcpanel'), ('start', 'mcpanel-survival', None),
+                              ('stop', 'mcpanel-survival', 60), ('start', 'mcpanel-survival', None),
+                              ('restart', 'mcpanel-survival', 60)]
     assert [(record.getMessage(), record.server) for record in caplog.records] == [
-        ('Stopped server survival', 'survival'), ('Started server survival', 'survival'),
-        ('Restarted server survival', 'survival')]
+        ('Started server survival', 'survival'), ('Stopped server survival', 'survival'),
+        ('Started server survival', 'survival'), ('Restarted server survival', 'survival')]
 
 
 @pytest.mark.parametrize('action', [servers.start_server, servers.stop_server, servers.restart_server])
