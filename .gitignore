@@ -1,0 +1,20 @@
+# Python/cache output
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Local runtime state and secrets
+data/
+*.db
+*.sqlite
+*.sqlite3
+.env
+.env.*
+
+# Local tooling metadata
+.venv/
+.claude/
+
+# OS metadata
+.DS_Store
+._*
