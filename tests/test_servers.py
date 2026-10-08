@@ -210,6 +210,12 @@ def test_the_network_is_made_only_when_missing(docker):
     assert docker.networks_made == {'mcpanel': {'made by': 'compose'}}
 
 
+def test_another_apps_container_removed_meanwhile_fails_nothing(docker):
+    docker.churn = True
+    assert create()['id'] == 'survival'
+    assert [server['id'] for server in servers.list_servers()] == ['survival']
+
+
 def test_list_servers_has_only_the_panels_containers_sorted_by_name(docker):
     for name in ('beta', 'Alpha', 'charlie'):
         create(name)

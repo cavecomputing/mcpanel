@@ -235,7 +235,8 @@ def create_server(name, type, version, java, heap_gb, eula):
     with CREATE_LOCK:
         with docker_errors():
             client = docker_client()
-            server_id = free_id(name, {container.name for container in client.containers.list(all=True)})
+            server_id = free_id(name, {container.name for container in
+                                       client.containers.list(all=True, ignore_removed=True)})
             game_port = free_port()
         folder = config.SERVERS_DIR / server_id
         folder.mkdir(parents=True)  # never exist_ok: free_id() saw no folder, so one now is someone else's

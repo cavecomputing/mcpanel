@@ -17,11 +17,14 @@ API_VERSION = '1.47'
 
 class FakeDocker:
     """Knobs: reachable = False fails every call as when the socket is gone; outside_ports are host
-    ports a program outside Docker holds. created, pulled and actions record what was done."""
+    ports a program outside Docker holds; churn = True has another app remove a container between
+    each listing and its inspect, as a `docker run --rm` job would. created, pulled and actions
+    record what was done."""
 
     def __init__(self):
         self.reachable = True
         self.outside_ports = set()
+        self.churn = False
         self.created = []         # the arguments of each api.create_container()
         self.pulled = []          # 'repository:tag' of each api.pull()
         self.actions = []         # (action, container name, argument) of each start, stop, restart, remove
@@ -135,6 +138,8 @@ class Containers:
 
     def list(self, all=False, filters=None, ignore_removed=False):
         self.fake.answer()
+        if self.fake.churn and not ignore_removed:
+            raise NotFound('No such container: 588b9f20c2a1')
         label = (filters or {}).get('label')
         return [Container(self.fake, container_id) for container_id, attrs in self.fake.inspect.items()
                 if (all or attrs['State']['Running']) and (label is None or label in (attrs['Config']['Labels'] or {}))]
