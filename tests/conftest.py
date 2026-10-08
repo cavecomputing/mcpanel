@@ -82,9 +82,9 @@ def member(app):
 
 @pytest.fixture(autouse=True)
 def no_sign_in_wait(monkeypatch):
-    """A wrong password or code holds every sign-in off for a second; not in tests."""
+    """A wrong password or code holds off that address's sign-ins for a second; not in tests."""
     monkeypatch.setattr(auth, 'WRONG_TRY_WAIT', 0)
-    monkeypatch.setattr(auth, 'next_try', 0.0)
+    monkeypatch.setattr(auth, 'next_try', {})
 
 
 def sign_in(client, username, password=PASSWORD, code=None, remember=False):

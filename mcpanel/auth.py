@@ -29,10 +29,14 @@ WRONG_CODE = "That code didn't work. Codes change every 30 seconds, so use the o
 WRONG_RECOVERY_CODE = "That recovery code didn't work. Each one works once."
 TOO_FAST = 'Too many wrong tries just now. Wait a moment and try again.'
 
-# As in binny: a wrong password or code from any device holds off every sign-in for a second, the
-# right ones included, so guessing goes at one try a second however many requests run side by side.
+# A wrong password or code holds off that address's next try for a second, the right one included,
+# so one address guesses at one try a second however many requests it runs side by side. Keyed by
+# address, so a stranger's wrong tries never hold off anyone else's sign-in; the account lock caps
+# guessing at one account from many addresses. The cost: many addresses (an IPv6 /64), or a server
+# container on the mcpanel network reaching port 5000 with a made-up X-Forwarded-For, can keep more
+# request threads in the one-second sleep than one address could.
 WRONG_TRY_WAIT = 1  # seconds
-next_try = 0.0  # time.monotonic() before which a try is refused unchecked
+next_try = {}  # client address -> time.monotonic() before which its tries are refused unchecked
 next_try_lock = threading.Lock()
 
 
@@ -74,15 +78,19 @@ def local_target(target):
 def throttled(check):
     """check() -> an error message, or None when it let the person through; run one at a time.
 
-    While a wrong try anywhere is under WRONG_TRY_WAIT old, check isn't run and the answer is TOO_FAST.
+    While this address's last wrong try is under WRONG_TRY_WAIT old, check isn't run and the answer
+    is TOO_FAST.
     """
     global next_try
+    address = request.remote_addr
     with next_try_lock:
-        if time.monotonic() < next_try:
+        if time.monotonic() < next_try.get(address, 0):
             return TOO_FAST
         error = check()
         if error:
-            next_try = time.monotonic() + WRONG_TRY_WAIT
+            now = time.monotonic()
+            next_try = {other: until for other, until in next_try.items() if until > now}
+            next_try[address] = now + WRONG_TRY_WAIT
     if error:
         time.sleep(WRONG_TRY_WAIT)  # so whoever mistyped can try again as soon as they see this
     return error

@@ -144,17 +144,20 @@ def test_a_pending_sign_in_expires_after_5_minutes(anon, matt, clock):
     assert anon.get('/login/code').headers['Location'] == '/login'
 
 
-def test_a_wrong_try_holds_off_every_sign_in_for_a_second(anon, matt, monkeypatch):
+def test_a_wrong_try_holds_off_that_address_for_a_second(app, matt, monkeypatch):
     now = 1000.0
     monkeypatch.setattr(auth, 'WRONG_TRY_WAIT', 1)
     monkeypatch.setattr(auth.time, 'monotonic', lambda: now)
     monkeypatch.setattr(auth.time, 'sleep', lambda seconds: None)
-    assert sign_in(anon, 'matt', 'wrong password!').status_code == 401
-    response = sign_in(anon, 'matt')  # even the right one, from anywhere
+    stranger = app.test_client()
+    stranger.environ_base['REMOTE_ADDR'] = '203.0.113.9'
+    assert sign_in(stranger, 'nobody', 'wrong password!').status_code == 401
+    response = sign_in(stranger, 'matt')  # even the right one, from that address
     assert response.status_code == 429 and b'Wait a moment' in response.data
-    assert failed_tries(matt) == 1  # refused unchecked
+    assert failed_tries(matt) == 0  # refused unchecked
+    assert sign_in(app.test_client(), 'matt').status_code == 302  # a stranger's tries hold off nobody else
     now += 1
-    assert sign_in(anon, 'matt').status_code == 302
+    assert sign_in(stranger, 'matt').status_code == 302
 
 
 def test_remembered_cookie(anon, matt):

@@ -24,7 +24,8 @@ def create_app():
 
     app = Flask(__name__)
     # Caddy is the one proxy in front: it says whether the browser used HTTPS (which decides whether
-    # cookies are Secure) and which address the request came from (for the logs).
+    # cookies are Secure) and which address the request came from (for the logs and the sign-in
+    # throttle).
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
     app.session_interface = auth.SessionInterface()
     app.config.update(
