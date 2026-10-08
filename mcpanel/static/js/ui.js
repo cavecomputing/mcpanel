@@ -63,7 +63,8 @@ export async function copyText(text, what) {
  * Ask a question in the dialog. With a value it asks for text (a password with password: true)
  * and resolves to it; without, it asks for a yes and resolves to true. action(answer), if given,
  * runs on submit; when it throws, the dialog stays open so the answer can be fixed. Cancel and
- * Escape resolve to null.
+ * Escape resolve to null, or, while the action runs, to what it comes to, so a change it makes
+ * still gets shown.
  */
 export function ask({ title, iconName, text = '', value = null, password = false, ok = 'OK', danger = false, action }) {
     const dialog = $('askDialog');
@@ -85,19 +86,22 @@ export function ask({ title, iconName, text = '', value = null, password = false
 
     return new Promise((resolve) => {
         let answer = null;
+        let running = null; // the action's promise, once the answer is submitted
         dialog.querySelector('form').onsubmit = async (event) => {
             event.preventDefault();
             const reply = value === null ? true : input.value;
             okButton.disabled = true;
             try {
-                await action?.(reply);
+                running = action?.(reply);
+                await running;
                 answer = reply;
                 dialog.close();
             } catch { /* api.js showed why; let the answer be fixed */ }
             okButton.disabled = false;
         };
-        dialog.onclose = () => {
+        dialog.onclose = async () => {
             input.value = ''; // a password doesn't stay in the page
+            await running?.catch(() => {});
             resolve(answer);
         };
     });
