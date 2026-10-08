@@ -16,6 +16,7 @@ from datetime import datetime
 
 import docker
 from docker.errors import APIError, DockerException, ImageNotFound, NotFound
+from docker.models.containers import _create_container_args
 from flask import abort
 
 from . import config
@@ -187,8 +188,9 @@ def free_id(name, container_names):
 
 
 def container_spec(server_id, name, type, version, java, heap_gb, game_port):
-    """The keyword arguments for containers.create(), from checked fields only. Nothing privileged and
-    no mount but the server's own folder: whoever chooses these settings owns the host."""
+    """The keyword arguments for containers.create(), plus stop_timeout, from checked fields only.
+    Nothing privileged and no mount but the server's own folder: whoever chooses these settings owns
+    the host."""
     heap = heap_gb * GIB
     return {
         'image': f'{IMAGE}:{java}',
@@ -208,6 +210,9 @@ def container_spec(server_id, name, type, version, java, heap_gb, game_port):
         'volumes': {str(config.SERVERS_DIR / server_id): {'bind': '/data', 'mode': 'rw'}},
         'network': NETWORK,
         'restart_policy': {'Name': 'unless-stopped'},
+        # However it is stopped (the panel, a reboot, a `docker stop`), the server gets this long to
+        # save the world before Docker kills it, not Docker's default 10 seconds.
+        'stop_timeout': STOP_SECONDS,
         # The heap plus room for the JVM's own memory. Past this the kernel kills the server.
         'mem_limit': heap + max(GIB, heap // 4),
         # Docker's default json-file log never rotates.
@@ -239,8 +244,14 @@ def create_server(name, type, version, java, heap_gb, eula):
             with docker_errors(game_port):
                 ensure_image(client, java)
                 ensure_network(client)
-                container = client.containers.create(
-                    **container_spec(server_id, name, type, version, java, heap_gb, game_port))
+                spec = container_spec(server_id, name, type, version, java, heap_gb, game_port)
+                # containers.create() doesn't take stop_timeout, so do what it does with the SDK's
+                # private _create_container_args (uv.lock pins the SDK; the fake uses it too, so the
+                # suite catches a change) and hand the API call stop_timeout as well.
+                stop_timeout = spec.pop('stop_timeout')
+                container = client.containers.get(client.api.create_container(
+                    **_create_container_args({**spec, 'version': client.api.api_version}),
+                    stop_timeout=stop_timeout)['Id'])
                 container.start()
         except Exception:
             # Leave nothing behind. The server never ran, so its folder is still empty.

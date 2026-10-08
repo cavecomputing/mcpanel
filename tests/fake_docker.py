@@ -22,13 +22,14 @@ class FakeDocker:
     def __init__(self):
         self.reachable = True
         self.outside_ports = set()
-        self.created = []         # the options of each containers.create()
+        self.created = []         # the arguments of each api.create_container()
         self.pulled = []          # 'repository:tag' of each images.pull()
         self.actions = []         # (action, container name, argument) of each start, stop, restart, remove
         self.local_images = set()
         self.networks_made = {}   # network name -> the options it was created with
         self.inspect = {}         # container id -> attrs, as docker inspect reports them
         self.containers, self.images, self.networks = Containers(self), Images(self), Networks(self)
+        self.api = Api(self)
 
     def answer(self):
         if not self.reachable:
@@ -43,11 +44,14 @@ class FakeDocker:
     def add(self, name, image='nginx:latest', **options):
         """A container made from containers.create() options, skipping the image and network checks.
         add('web', ports={'80/tcp': 25566}) is another app's container holding port 25566."""
+        return Container(self, self.make(name, _create_container_args({**options, 'image': image, 'version': API_VERSION})))
+
+    def make(self, name, options):
+        """A new container's id, from api.create_container() arguments."""
         if any(attrs['Name'] == f'/{name}' for attrs in self.inspect.values()):
             raise APIError('409 Client Error: Conflict',
                            explanation=f'Conflict. The container name "/{name}" is already in use')
-        config = ContainerConfig(API_VERSION, **_create_container_args(
-            {**options, 'image': image, 'command': None, 'version': API_VERSION}))
+        config = ContainerConfig(API_VERSION, **{'command': None, **options})
         container_id = uuid.uuid4().hex + uuid.uuid4().hex
         self.inspect[container_id] = {
             'Id': container_id,
@@ -57,7 +61,7 @@ class FakeDocker:
             'HostConfig': config['HostConfig'],
             'State': {'Status': 'created', 'Running': False, 'ExitCode': 0},
         }
-        return Container(self, container_id)
+        return container_id
 
     def set_state(self, name, status, exit_code=0, health=None):
         """Put a container in a state: set_state('mcpanel-x', 'exited', exit_code=1), or 'running'
@@ -99,18 +103,28 @@ def host_ports(attrs):
     return ports
 
 
-class Containers:
+class Api:
+    """The low-level APIClient calls that servers.py makes."""
+    api_version = API_VERSION
+
     def __init__(self, fake):
         self.fake = fake
 
-    def create(self, image, command=None, **options):
+    def create_container(self, image, name=None, **options):
+        """For stop_timeout, which containers.create() doesn't take."""
         self.fake.answer()
-        self.fake.created.append({'image': image, **options})
+        self.fake.created.append({'image': image, 'name': name, **options})
         if image not in self.fake.local_images:
             raise ImageNotFound(f'No such image: {image}')
-        if options.get('network') not in (None, *self.fake.networks_made):
-            raise NotFound(f'network {options["network"]} not found')
-        return self.fake.add(image=image, **options)
+        network = options['host_config'].get('NetworkMode')
+        if network not in (None, *self.fake.networks_made):
+            raise NotFound(f'network {network} not found')
+        return {'Id': self.fake.make(name, {'image': image, **options})}
+
+
+class Containers:
+    def __init__(self, fake):
+        self.fake = fake
 
     def list(self, all=False, filters=None, ignore_removed=False):
         self.fake.answer()

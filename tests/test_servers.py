@@ -27,10 +27,9 @@ def create(name='Survival', type='PAPER', version='1.21.4', java='java21', heap_
 
 
 def test_container_spec_is_the_image_one_mount_and_nothing_privileged(docker, data_dir):
-    create()
-    [spec] = docker.created
+    spec = servers.container_spec('survival', 'Survival', 'PAPER', '1.21.4', 'java21', 4, 25565)
     assert set(spec) == {'image', 'name', 'labels', 'environment', 'ports', 'volumes', 'network',
-                         'restart_policy', 'mem_limit', 'log_config'}
+                         'restart_policy', 'stop_timeout', 'mem_limit', 'log_config'}
     assert spec['image'] == 'itzg/minecraft-server:java21'
     assert spec['name'] == 'mcpanel-survival'
     assert spec['labels'] == {'mcpanel.server': 'survival', 'mcpanel.name': 'Survival'}
@@ -38,6 +37,7 @@ def test_container_spec_is_the_image_one_mount_and_nothing_privileged(docker, da
     assert spec['ports'] == {'25565/tcp': 25565}
     assert spec['network'] == 'mcpanel'
     assert spec['restart_policy'] == {'Name': 'unless-stopped'}
+    assert spec['stop_timeout'] == 60
     assert spec['mem_limit'] == 5 * GIB
     assert spec['log_config'] == {'type': 'json-file', 'config': {'max-size': '10m', 'max-file': '3'}}
     env = spec['environment']
@@ -46,9 +46,11 @@ def test_container_spec_is_the_image_one_mount_and_nothing_privileged(docker, da
         'EULA': 'TRUE', 'TYPE': 'PAPER', 'VERSION': '1.21.4', 'MEMORY': '4G',
         'UID': str(os.getuid()), 'GID': str(os.getgid())}
     # What the daemon is asked for, after the SDK's translation: nothing beyond these.
+    create()
     [attrs] = docker.inspect.values()
     assert set(attrs['HostConfig']) == {'Binds', 'PortBindings', 'NetworkMode', 'RestartPolicy', 'Memory', 'LogConfig'}
     assert attrs['HostConfig']['Binds'] == [f'{data_dir}/servers/survival:/data:rw']
+    assert attrs['Config']['StopTimeout'] == 60  # so Docker waits that long however the server is stopped
 
 
 @pytest.mark.parametrize('heap_gb, limit', [(1, 2 * GIB), (4, 5 * GIB), (6, 7.5 * GIB), (32, 40 * GIB)])

@@ -196,7 +196,9 @@ arbitrary container owns the machine, so:
   `mcpanel-<id>`; the `mcpanel` network; restart `unless-stopped`; `EULA=TRUE` only after the user
   ticked the EULA box; `TYPE`, `VERSION` and `MEMORY` from the form; `UID`/`GID` matching the panel's,
   so the panel can read and edit the server's files; a random `RCON_PASSWORD`; a memory limit of the
-  heap plus headroom; json-file logging capped at 3 × 10 MB, because Docker's default never rotates.
+  heap plus headroom; json-file logging capped at 3 × 10 MB, because Docker's default never rotates;
+  a stop timeout of `STOP_SECONDS` (60 s), so a reboot or an outside `docker stop` gives the world as
+  long to save as the panel's Stop does, not Docker's default 10 s.
 - `free_port()` takes the lowest port in the range that no container (running or stopped) has
   published, under a lock. Docker refuses a port something outside Docker holds; report that, don't
   retry blindly.
