@@ -152,3 +152,15 @@ def test_request_lines_name_the_signed_in_user(capsys, admin):
     admin.get('/api/me')
     [line] = request_lines(capsys.readouterr().out)
     assert line['user'] == 'admin'
+
+
+def test_the_dev_server_says_where_it_is_but_not_each_request(capsys, data_dir):
+    logs.setup_logging()
+    logs.setup_logging()  # again, as every create_app() does: still one filter
+    werkzeug = logging.getLogger('werkzeug')
+    werkzeug.info(' * Running on http://127.0.0.1:5000')
+    werkzeug.info(' * Debugger PIN: 123-456-789')
+    werkzeug.info('127.0.0.1 - - [08/Oct/2026 10:00:00] "%s" %s %s', 'GET /api/me?next=/x HTTP/1.1', '200', '-')
+    assert [line['msg'] for line in lines(capsys.readouterr().out)] == [
+        ' * Running on http://127.0.0.1:5000', ' * Debugger PIN: 123-456-789']
+    assert werkzeug.filters.count(logs.not_request_line) == 1

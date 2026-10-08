@@ -58,8 +58,13 @@ def setup_logging():
         logger.addHandler(handler)
         installed_handlers.append((logger, handler))
     root.setLevel(logging.INFO)
-    # The dev server's request lines would repeat ours, with invite tokens and query strings in them.
-    logging.getLogger('werkzeug').setLevel(logging.WARNING)
+    logging.getLogger('werkzeug').addFilter(not_request_line)  # the same function each time, so added once
+
+
+def not_request_line(record):
+    """Logger filter: drop the dev server's request lines, which would repeat ours with query strings
+    in them, and keep the rest of what it says (its address, reloads, the debugger PIN)."""
+    return not record.msg.endswith('"%s" %s %s')
 
 
 def log_file(name):
