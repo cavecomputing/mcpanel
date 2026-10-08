@@ -24,7 +24,7 @@ MAX_TRIES = 5  # wrong passwords or codes in a row before the account locks
 LOCK_FOR = 15 * 60
 PENDING_FOR = 5 * 60  # from the right password to the code
 
-WRONG_PASSWORD = 'Wrong username or password.'
+WRONG_PASSWORD = f'Wrong username or password. {MAX_TRIES} wrong tries in a row lock an account for {LOCK_FOR // 60} minutes.'
 WRONG_CODE = "That code didn't work. Codes change every 30 seconds, so use the one showing now."
 WRONG_RECOVERY_CODE = "That recovery code didn't work. Each one works once."
 TOO_FAST = 'Too many wrong tries just now. Wait a moment and try again.'
@@ -97,7 +97,7 @@ def throttled(check):
 
 
 def lock_message(locked_until):
-    """What someone who got the password right is told while the account is locked; None when it isn't."""
+    """What the code step says while the account is locked; None when it isn't."""
     minutes = math.ceil((locked_until - time.time()) / 60)
     if minutes > 0:
         return f'Too many wrong tries locked this account. Try again in {minutes} minute{"" if minutes == 1 else "s"}.'
@@ -149,16 +149,16 @@ def login():
     def check():
         nonlocal user
         user = accounts.user_named(username)
-        if not accounts.password_matches(user, request.form.get('password', '')):
+        # A locked account checks the dummy hash: every password is wrong and takes as long, so the
+        # lock stops guessing rather than telling the guesser when they got the password right.
+        locked = user and lock_message(user['locked_until'])
+        if not accounts.password_matches(None if locked else user, request.form.get('password', '')):
             if user:
                 failed_try(user, 'password')  # even the try that locks it gets the plain message
             else:
                 logs.audit('sign_in_failed', step='password', known_user=False)
             return WRONG_PASSWORD
-        error = lock_message(user['locked_until'])
-        if error:
-            logs.audit('sign_in_failed', user_id=user['id'], username=user['username'], step='password', locked=True)
-        return error
+        return None
 
     error = throttled(check)
     if error:

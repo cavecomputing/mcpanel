@@ -68,19 +68,24 @@ def test_wrong_password_and_unknown_username_look_the_same(anon, matt):
     assert 'mcpanel_session=' not in str(wrong.headers) and anon.get_cookie('mcpanel_signin') is None
 
 
-def test_fifth_wrong_password_locks_the_account_for_15_minutes(anon, matt, clock):
+def test_fifth_wrong_password_locks_the_account_for_15_minutes(anon, matt, clock, monkeypatch):
     for _ in range(4):
         sign_in(anon, 'matt', 'wrong password!')
     assert failed_tries(matt) == 4
-    response = sign_in(anon, 'matt', 'wrong password!')
-    assert b'Wrong username or password.' in response.data  # not the lock message: that would say "matt" exists
-    response = sign_in(anon, 'matt')  # the right password is refused while locked, and says why
-    assert response.status_code == 401 and b'Try again in 15 minutes.' in response.data
+    wrong = sign_in(anon, 'matt', 'wrong password!')
+    # Not the lock message, which would say "matt" exists; the rule instead.
+    assert b'Wrong username or password. 5 wrong tries in a row lock an account for 15 minutes.' in wrong.data
+    # While locked, the right password gets the very same answer, checked against the dummy hash so
+    # it takes as long: the lock doesn't tell a guesser when they got it right.
+    real_password_matches, checked = accounts.password_matches, []
+    monkeypatch.setattr(accounts, 'password_matches',
+                        lambda user, password: checked.append(user) or real_password_matches(user, password))
+    right = sign_in(anon, 'matt')
+    assert right.status_code == 401 and right.data == wrong.data and checked == [None]
     assert anon.get_cookie('mcpanel_signin') is None
-    assert b'Wrong username or password.' in sign_in(anon, 'matt', 'still wrong!').data
 
     clock['now'] += 14 * 60
-    assert b'Try again in 1 minute.' in sign_in(anon, 'matt').data
+    assert sign_in(anon, 'matt').data == wrong.data
     clock['now'] += 60
     response = sign_in(anon, 'matt', code=code_at(matt, clock['now']))
     assert response.status_code == 302 and response.headers['Location'] == '/'

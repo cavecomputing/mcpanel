@@ -213,8 +213,10 @@ the whole perimeter:
   `require_admin()`; anything a member does to a server checks `accounts.may_use(user, server_id)`.
 - Passwords are argon2id hashes (at least 12 characters). TOTP is required on every account: a
   sign-in is password, then a 6-digit code (a code already used is refused) or a single-use recovery
-  code. 5 wrong passwords or codes in a row lock that account for 15 minutes; an unknown username
-  costs the same time as a wrong password, so names can't be probed.
+  code. 5 wrong passwords or codes in a row lock that account for 15 minutes, and while it is locked
+  every password is wrong (the dummy hash is checked), so the lock stops guessing instead of
+  confirming the right one. An unknown username costs the same time as a wrong password, so names
+  can't be probed.
 - Sessions live in the database, so signing out other devices, removing a user and changing a
   password take effect at once. The cookie (`mcpanel_session`) holds only a random token, stored
   hashed; it is `HttpOnly`, `SameSite=Lax`, `Secure` behind HTTPS (`X-Forwarded-Proto` via
