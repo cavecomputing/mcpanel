@@ -17,6 +17,7 @@ const ACTIONS = {
     restart: { label: 'Restart', when: ['running', 'starting'], doing: 'Restarting…', done: 'Restarted' },
 };
 let latest = 0;     // only the newest list gets drawn
+let polling = null; // the poll's list call while it runs: one at a time, so a slow Docker's answers still get drawn
 let options = null; // /api/servers/options, fetched when the new-server dialog first opens
 
 const typeName = (type) => TYPE_NAMES[type] ?? type;
@@ -47,6 +48,12 @@ async function loadServers() {
     const where = route();
     if (where.page === 'server') showServer(where.id);
     else if (where.page === 'home') showHome();
+}
+
+/** The poll: load the list unless the last poll's call hasn't come back yet. */
+function poll() {
+    polling ??= loadServers().finally(() => { polling = null; });
+    return polling;
 }
 
 /** The sidebar's server rows, each with its status in a dot and in words. Keeps focus on the row it was on. */
@@ -215,7 +222,7 @@ export function initServers() {
         $('newServerForm').addEventListener('submit', createServer);
     }
 
-    setInterval(() => document.visibilityState === 'visible' && loadServers(), POLL_MS);
-    document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && loadServers());
-    state.firstLoad = loadServers();
+    setInterval(() => document.visibilityState === 'visible' && poll(), POLL_MS);
+    document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && poll());
+    state.firstLoad = poll();
 }
