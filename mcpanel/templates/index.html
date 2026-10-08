@@ -20,7 +20,6 @@
     <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M16 7l3 3M14 9l2 2"/></symbol>
     <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l7.5 3v5.5c0 4.5-3.2 8.2-7.5 9.5-4.3-1.3-7.5-5-7.5-9.5V6z"/></symbol>
     <symbol id="i-device" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="11" rx="1.5"/><path d="M8 19.5h8M12 15.5v4"/></symbol>
-    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
 </svg>
 
 <div class="cc-shell app" id="shell" data-username="{{ g.user.username }}" data-role="{{ g.user.role }}">
@@ -93,17 +92,13 @@
             <section class="view" id="usersView" hidden>
                 <header class="head">
                     <div class="head__title"><h1>Users</h1></div>
-                    <div class="head__actions"><button class="cc-btn cc-btn--primary" type="button" id="inviteBtn"><svg class="i"><use href="#i-plus"/></svg><span>Invite someone</span></button></div>
+                    <div class="head__actions"><button class="cc-btn cc-btn--primary" type="button" id="addUserBtn"><svg class="i"><use href="#i-plus"/></svg><span>Add someone</span></button></div>
                     <p class="head__sub">People who can sign in to this panel. Admins manage every server and every user; members see and run only the servers you give them.</p>
                 </header>
                 <div class="page">
                     <section class="cc-settings-card" aria-labelledby="usersTitle">
                         <div class="cc-card-header"><svg><use href="#i-users"/></svg><h4 id="usersTitle">Accounts</h4></div>
                         <div class="rows" id="userRows"></div>
-                    </section>
-                    <section class="cc-settings-card" id="invitesCard" aria-labelledby="invitesTitle" hidden>
-                        <div class="cc-card-header"><svg><use href="#i-link"/></svg><h4 id="invitesTitle">Pending invites</h4><p>Links not used yet. Revoke one to stop it working.</p></div>
-                        <div class="rows" id="inviteRows"></div>
                     </section>
                 </div>
             </section>
@@ -186,7 +181,7 @@
     <div class="stack">
         <header class="cc-card-header"><svg><use href="#i-users"/></svg><h4 id="userTitle"></h4><p id="userIntro"></p></header>
         <form id="userForm" autocomplete="off">
-            <div class="cc-field" id="inviteNameField"><div><label for="inviteName">Username</label><span class="cc-field__hint">What they sign in with</span></div><input class="cc-input" id="inviteName" maxlength="32" autocapitalize="none" spellcheck="false"></div>
+            <div class="cc-field" id="newUsernameField"><div><label for="newUsername">Username</label><span class="cc-field__hint">What they sign in with</span></div><input class="cc-input" id="newUsername" maxlength="32" autocapitalize="none" spellcheck="false"></div>
             <div class="cc-field"><label for="userRole">Role</label><select class="cc-input" id="userRole"><option value="member">Member</option><option value="admin">Admin</option></select></div>
             <fieldset class="picks" id="serverPicks"><legend>Servers they may use</legend><div id="serverPickList"></div></fieldset>
             <div class="row-btns">
@@ -194,9 +189,9 @@
                 <button class="cc-btn cc-btn--primary" id="userSubmit" type="submit"><span></span></button>
             </div>
         </form>
-        <div class="stack" id="inviteDone" hidden>
-            <div class="secret"><code id="inviteLink"></code><button class="cc-icon-btn copy-btn" type="button" id="copyInvite" title="Copy the link" aria-label="Copy the link"><svg><use href="#i-copy"/></svg></button></div>
-            <p>Valid for 24 hours, and shown only this once. Send it privately: whoever opens it first sets up the account.</p>
+        <div class="stack" id="passwordDone" hidden>
+            <div class="secret"><code id="oneTimePassword"></code><button class="cc-icon-btn copy-btn" type="button" id="copyPassword" title="Copy the password" aria-label="Copy the password"><svg><use href="#i-copy"/></svg></button></div>
+            <p>They sign in with it, then choose their own password and set up two-factor sign-in. It works for 24 hours and is shown only this once, so give it to them privately.</p>
             <div class="row-btns"><button class="cc-btn cc-btn--primary" type="button" data-close><span>Done</span></button></div>
         </div>
     </div>

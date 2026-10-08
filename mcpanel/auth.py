@@ -1,5 +1,8 @@
-"""Signing in (a password, then a TOTP or recovery code), signing out, invite links, lockouts, the
-session cookie and the guard in front of every other route."""
+"""Signing in (a password, then a TOTP or recovery code, or on the first sign-in setting both up),
+signing out, lockouts, the session cookie and the guard in front of every other route, and the
+commands that make an account and reset one."""
+import base64
+import hmac
 import math
 import threading
 import time
@@ -7,7 +10,8 @@ import time
 import click
 import pyotp
 import segno
-from flask import Blueprint, abort, g, jsonify, make_response, redirect, render_template, request, session, url_for
+from flask import (Blueprint, abort, current_app, g, jsonify, make_response, redirect, render_template, request,
+                   session, url_for)
 from flask.sessions import SecureCookieSessionInterface
 from markupsafe import Markup
 from werkzeug.exceptions import HTTPException
@@ -19,15 +23,20 @@ bp = Blueprint('auth', __name__)
 
 COOKIE = 'mcpanel_session'
 # Everything else needs a signed-in session, so a new route is protected without opting in.
-OPEN_ENDPOINTS = {'auth.login', 'auth.login_code', 'auth.logout', 'auth.invite', 'views.healthz', 'static'}
+OPEN_ENDPOINTS = {'auth.login', 'auth.login_code', 'auth.login_setup', 'auth.logout', 'views.healthz', 'static'}
 MAX_TRIES = 5  # wrong passwords or codes in a row before the account locks
 LOCK_FOR = 15 * 60
-PENDING_FOR = 5 * 60  # from the right password to the code
+# From the right password to the code, or on a first sign-in to finishing the set-up, which may mean
+# installing an authenticator app first.
+PENDING_FOR = {'code': 5 * 60, 'setup': 15 * 60}
 
 WRONG_PASSWORD = f'Wrong username or password. {MAX_TRIES} wrong tries in a row lock an account for {LOCK_FOR // 60} minutes.'
 WRONG_CODE = "That code didn't work. Codes change every 30 seconds, so use the one showing now."
 WRONG_RECOVERY_CODE = "That recovery code didn't work. Each one works once."
 TOO_FAST = 'Too many wrong tries just now. Wait a moment and try again.'
+EXPIRED = 'This one-time password has expired. Ask an admin for a new one.'
+TOO_SLOW = 'That took too long. Sign in again.'
+CHANGED = 'This account changed while you were signing in. Sign in again.'
 
 # A wrong password or code holds off that address's next try for a second, the right one included,
 # so one address guesses at one try a second however many requests it runs side by side. Keyed by
@@ -120,6 +129,18 @@ def failed_try(user, step):
     return None
 
 
+def pending(step):
+    """Whether this browser is halfway through signing in, at step ('code' or 'setup'), and in time."""
+    return session.get('step') == step and time.time() - session['when'] <= PENDING_FOR[step]
+
+
+def pending_user():
+    """The account signing in halfway through, read afresh, or None when it has been removed or its
+    password changed since the password step: a reset, a set-up finished in another tab."""
+    user = accounts.user_by_id(session['user_id'])
+    return user if user and user['password_changed'] == session['password_changed'] else None
+
+
 def login_page(status=200, **context):
     """login.html: the password step, or the code step with step='code'."""
     with get_db() as conn:
@@ -137,7 +158,8 @@ def signed_in(response, user_id, remember):
 
 @bp.route('/login', methods=['GET', 'POST'])
 def login():
-    """The first step: username and password. The right ones lead on to the code step."""
+    """The first step: username and password. The right ones lead on to the code step, or for an
+    account signing in with its one-time password, to the set-up."""
     next_path = local_target(request.args.get('next'))
     if g.user:
         return redirect(next_path)
@@ -158,26 +180,33 @@ def login():
             else:
                 logs.audit('sign_in_failed', step='password', known_user=False)
             return WRONG_PASSWORD
+        if user['totp_secret'] is None and time.time() > user['password_changed'] + accounts.ONE_TIME_FOR:
+            # Said only now, like the lock message: the password was right. Not counted toward the lock.
+            logs.audit('sign_in_failed', user_id=user['id'], username=user['username'], step='expired one-time password')
+            return EXPIRED
         return None
 
     error = throttled(check)
     if error:
         return login_page(429 if error == TOO_FAST else 401, next=next_path, error=error, username=username, remember=remember)
-    # Flask's signed cookie carries the sign-in to the code step, and nothing else ever goes in it.
+    # Flask's signed cookie carries the sign-in to the code step, or for an account without TOTP yet
+    # (signed in with its one-time password) to the set-up, and nothing else ever goes in it.
+    step = 'setup' if user['totp_secret'] is None else 'code'
     session.clear()
-    session.update(user_id=user['id'], remember=remember, when=time.time(), next=next_path)
-    return redirect(url_for('auth.login_code'))
+    session.update(user_id=user['id'], password_changed=user['password_changed'], step=step, remember=remember,
+                   when=time.time(), next=next_path)
+    return redirect(url_for(f'auth.login_{step}'))
 
 
 @bp.route('/login/code', methods=['GET', 'POST'])
 def login_code():
     """The second step: the 6-digit code from the authenticator app, or with ?recovery=1 a recovery code."""
     recovery = request.args.get('recovery') == '1'
-    if 'user_id' not in session or time.time() - session['when'] > PENDING_FOR:
+    if not pending('code'):
         session.clear()
         if request.method == 'GET':
             return redirect(url_for('auth.login'))
-        return login_page(401, error='That took too long. Sign in again.', remember=True)
+        return login_page(401, error=TOO_SLOW, remember=True)
     if request.method == 'GET':
         return login_page(step='code', recovery=recovery)
     code = request.form.get('code', '')
@@ -185,9 +214,9 @@ def login_code():
 
     def check():
         nonlocal user
-        user = accounts.user_by_id(session['user_id'])
+        user = pending_user()
         if user is None:
-            return 'That account no longer exists.'
+            return CHANGED
         error = lock_message(user['locked_until'])
         if error:
             return error
@@ -221,31 +250,49 @@ def logout():
     return response
 
 
-def invite_page(invite, error=None):
-    """The set-up card: a password twice, the QR code and key for the account's TOTP secret, a code."""
-    uri = pyotp.TOTP(invite['totp_secret']).provisioning_uri(name=invite['username'], issuer_name='mcpanel')
+def setup_secret():
+    """The TOTP secret the set-up adds to the authenticator app, for the account signing in halfway
+    through: made from the process's random key and the one-time password's time, never stored
+    until the set-up saves it. A reload shows the same QR code; a restart or a reset, another."""
+    message = f'totp setup {session["user_id"]} {session["password_changed"]!r}'.encode()
+    return base64.b32encode(hmac.digest(current_app.secret_key, message, 'sha256')[:20]).decode()
+
+
+def setup_page(user, secret, error=None):
+    """setup.html's form: a new password twice, the QR code and key for secret, a code. Not cached,
+    since it shows the secret."""
+    uri = pyotp.TOTP(secret).provisioning_uri(name=user['username'], issuer_name='mcpanel')
     qr = Markup(segno.make(uri).svg_inline(scale=4))
-    return render_template('invite.html', invite=invite, qr=qr, error=error), 400 if error else 200
+    response = make_response(render_template('setup.html', username=user['username'], secret=secret, qr=qr, error=error),
+                             429 if error == TOO_FAST else 400 if error else 200)
+    response.headers['Cache-Control'] = 'no-store'
+    return response
 
 
-@bp.route('/invite/<token>', methods=['GET', 'POST'])
-def invite(token):
-    """Set up an invited account. Done, it is signed in and shown its recovery codes, once."""
-    invite = accounts.invite_for(token)
-    if invite is None:
-        return render_template('invite.html'), 404
+@bp.route('/login/setup', methods=['GET', 'POST'])
+def login_setup():
+    """The first sign-in's second step, after the one-time password: choose a password and add TOTP to
+    an authenticator app. Done, the account is signed in and shown its recovery codes, once."""
+    user = pending('setup') and pending_user()
+    if not user:
+        error = CHANGED if pending('setup') else TOO_SLOW
+        session.clear()
+        if request.method == 'GET':
+            return redirect(url_for('auth.login'))
+        return login_page(401, error=error, remember=True)
+    secret = setup_secret()
     if request.method == 'GET':
-        return invite_page(invite)
+        return setup_page(user, secret)
     password = request.form.get('password', '')
-    user_id = None
 
     def check():
-        nonlocal user_id
-        step = accounts.totp_step(invite['totp_secret'], request.form.get('code', ''), 0)
+        if accounts.password_matches(user, password):
+            return 'Choose a new password, not the one-time one.'
+        step = accounts.totp_step(secret, request.form.get('code', ''), 0)
         if step is None:
+            logs.audit('sign_in_failed', user_id=user['id'], username=user['username'], step='setup')
             return WRONG_CODE
-        user_id = accounts.accept_invite(invite, password, step)
-        return None
+        return None if accounts.finish_setup(user, password, secret, step) else CHANGED
 
     if len(password) < accounts.MIN_PASSWORD:
         error = f'Choose a password of at least {accounts.MIN_PASSWORD} characters.'
@@ -254,28 +301,52 @@ def invite(token):
     else:
         error = throttled(check)
     if error:
-        return invite_page(invite, error)
-    if user_id is None:  # used meanwhile, from another tab
-        return render_template('invite.html'), 404
-    codes = accounts.new_recovery_codes(user_id)
+        return setup_page(user, secret, error)
+    codes = accounts.new_recovery_codes(user['id'])
+    remember, next_path = session['remember'], session['next']
     session.clear()
-    logs.audit('invite_used', user_id=user_id, username=invite['username'], role=invite['role'])
-    response = make_response(render_template('invite.html', username=invite['username'], codes=codes))
+    logs.audit('setup_done', user_id=user['id'], username=user['username'], remember=remember)
+    response = make_response(render_template('setup.html', username=user['username'], codes=codes, next=next_path))
     response.headers['Cache-Control'] = 'no-store'
-    return signed_in(response, user_id, remember=False)
+    return signed_in(response, user['id'], remember)
 
 
-@click.command('invite')
+def one_time_note(username, password):
+    """What the commands print: the one-time password and what to do with it."""
+    return (f'The one-time password for {username}, which works for {accounts.ONE_TIME_FOR // 3600} hours:\n\n'
+            f'    {password}\n\n'
+            'They sign in with it, then choose their own password and set up two-factor sign-in.')
+
+
+@click.command('create-user')
 @click.argument('username')
 @click.option('--admin', is_flag=True, help='Make an admin rather than a member.')
-def invite_command(username, admin):
-    """Print a one-time link that sets up an account called USERNAME."""
+def create_user_command(username, admin):
+    """Make an account called USERNAME and print its one-time password.
+
+    A member starts with no servers; an admin gives them some on the Users page.
+    """
     role = 'admin' if admin else 'member'
     try:
         username = accounts.check_username(username)
-        token = accounts.create_invite(username, role, [], None)
+        user_id, password = accounts.create_user(username, role, [])
     except HTTPException as e:
         raise click.ClickException(e.description)
-    logs.audit('invite_created', username=username, role=role, by='command line')
-    click.echo(f'Invite for {username} ({role}). It works once, for 24 hours. Open it on the panel\'s\n'
-               f'address, after the https://... you reach mcpanel at in the browser:\n\n    /invite/{token}')
+    logs.audit('user_created', user_id=user_id, username=username, role=role, servers=[], by='command line')
+    click.echo(one_time_note(username, password))
+
+
+@click.command('reset-user')
+@click.argument('username')
+def reset_user_command(username):
+    """Start USERNAME's sign-in over and print their new one-time password.
+
+    Their password, two-factor set-up and recovery codes stop working, every device of theirs is
+    signed out, and a lock is lifted. For a lost phone, or when every admin is locked out.
+    """
+    user = accounts.user_named(username)
+    if user is None:
+        raise click.ClickException(f'There is no user called {username}')
+    password = accounts.reset_sign_in(user['id'])
+    logs.audit('sign_in_reset', user_id=user['id'], username=user['username'], by='command line')
+    click.echo(one_time_note(user['username'], password))

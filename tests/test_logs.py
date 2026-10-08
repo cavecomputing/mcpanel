@@ -94,14 +94,6 @@ def test_secret_fields_are_masked_everywhere(capsys, data_dir):
     assert (codes['recovery_codes'], codes['totp_secret']) == ('***', '***')
 
 
-def test_invite_tokens_are_cut_out(capsys, data_dir):
-    logs.setup_logging()
-    log.info('Invite for bob: /invite/%s', 'Zm9v-YmFy_x', extra={'url': 'https://mc.example.com/invite/Zm9v-YmFy_x'})
-    [line] = lines(capsys.readouterr().out)
-    assert line['msg'] == 'Invite for bob: /invite/…'
-    assert line['url'] == 'https://mc.example.com/invite/…'
-
-
 def test_log_files_rotate_into_gzip(data_dir, monkeypatch):
     monkeypatch.setattr(logs, 'MAX_BYTES', 300)
     logs.setup_logging()
@@ -136,14 +128,12 @@ def test_requests_are_logged_except_health_checks_and_static_files(capsys, anon)
     status = anon.get('/api/me?next=/somewhere').status_code
     anon.get('/healthz')
     anon.get('/static/css/style.css')
-    anon.get('/invite/Zm9v-YmFy_x')
     anon.post('/api/servers', headers={'Sec-Fetch-Site': 'cross-site'})  # refused by a guard, still logged
-    first, invite, refused = request_lines(capsys.readouterr().out)
+    first, refused = request_lines(capsys.readouterr().out)
     assert first['msg'] == f'GET /api/me {status}'
     assert {k: first[k] for k in ('method', 'path', 'status', 'ip')} == \
         {'method': 'GET', 'path': '/api/me', 'status': status, 'ip': '127.0.0.1'}
     assert isinstance(first['ms'], int) and 'user' not in first
-    assert invite['path'] == '/invite/…'
     assert (refused['method'], refused['path'], refused['status']) == ('POST', '/api/servers', 403)
 
 

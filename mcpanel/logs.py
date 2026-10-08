@@ -32,7 +32,6 @@ TAKEN = set(vars(logging.makeLogRecord({}))) | {'message', 'asctime', 'ts', 'lev
 SECRET_NAME = re.compile(
     r'(?:^|[_-])(?:password|passwd|secret|token|totp|otp|recovery|cookie|rcon|authorization|api[_-]key)s?(?:[_-]|$)',
     re.IGNORECASE)
-INVITE_PATH = re.compile(r'/invite/[^\s?#"\']+')
 
 installed_handlers = []  # (logger, handler) pairs from the last setup_logging()
 
@@ -115,33 +114,24 @@ def extra_fields(record):
 
 
 def mask_secrets(record):
-    """Handler filter: a copy of record with secret-named fields masked and invite tokens cut out.
+    """Handler filter: a copy of record with secret-named fields masked.
 
     A backstop, not permission to log secrets. The original record goes on unchanged to handlers
     this module didn't install.
     """
     record = copy.copy(record)
-    try:
-        record.msg, record.args = redact(record.getMessage()), None
-    except Exception:
-        pass  # a broken format string: the handler reports it as logging always does
     for key, value in extra_fields(record).items():
         setattr(record, key, masked(key, value))
     return record
 
 
 def masked(key, value):
-    """value, or *** when key names a secret. Dicts are checked key by key; strings lose invite tokens."""
+    """value, or *** when key names a secret. Dicts are checked key by key."""
     if SECRET_NAME.search(str(key)):
         return '***'
     if isinstance(value, dict):
         return {k: masked(k, v) for k, v in value.items()}
-    return redact(value) if isinstance(value, str) else value
-
-
-def redact(text):
-    """text with the token cut out of every /invite/<token>."""
-    return INVITE_PATH.sub('/invite/…', text)
+    return value
 
 
 def audit(event, **fields):
@@ -168,11 +158,10 @@ def log_request(response):
     """after_request: one line per request, except health checks and static files."""
     if request.path == '/healthz' or request.path.startswith('/static/'):
         return response
-    path = redact(request.path)
     started = g.get('request_started', time.perf_counter())
-    fields = {'method': request.method, 'path': path, 'status': response.status_code,
+    fields = {'method': request.method, 'path': request.path, 'status': response.status_code,
               'ms': round((time.perf_counter() - started) * 1000), 'ip': request.remote_addr}
     if g.get('user'):
         fields['user'] = g.user['username']
-    logging.getLogger('mcpanel.request').info('%s %s %s', request.method, path, response.status_code, extra=fields)
+    logging.getLogger('mcpanel.request').info('%s %s %s', request.method, request.path, response.status_code, extra=fields)
     return response

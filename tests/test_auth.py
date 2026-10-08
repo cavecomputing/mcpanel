@@ -203,7 +203,7 @@ def test_logout_ends_the_session(app, matt):
 def test_anonymous_api_calls_get_401(anon):
     response = anon.get('/api/me')
     assert response.status_code == 401 and response.get_json() == {'error': 'Sign in first'}
-    assert anon.post('/api/users/invite', json={}).status_code == 401
+    assert anon.post('/api/users', json={}).status_code == 401
 
 
 def test_anonymous_pages_go_to_sign_in(anon):
@@ -215,7 +215,7 @@ def test_open_routes(anon):
     assert anon.get('/login').status_code == 200
     assert anon.get('/healthz').status_code == 200
     assert anon.get('/static/css/style.css').status_code == 200
-    assert anon.get('/invite/nope').status_code == 404
+    assert anon.get('/login/setup').headers['Location'] == '/login'  # not /login?next=: it is a sign-in page
 
 
 @pytest.mark.parametrize('target, expected', [
@@ -237,9 +237,9 @@ def test_signed_in_login_page_moves_on(anon, matt):
 
 
 def test_login_page_says_how_to_make_the_first_account(anon):
-    assert b'flask --app app invite &lt;name&gt; --admin' in anon.get('/login').data
+    assert b'flask --app app create-user &lt;name&gt; --admin' in anon.get('/login').data
     make_user('matt')
-    assert b'flask --app app invite' not in anon.get('/login').data
+    assert b'flask --app app create-user' not in anon.get('/login').data
 
 
 def test_login_page_fields(anon):
@@ -265,91 +265,262 @@ def test_no_secret_reaches_the_logs(app, matt, caplog):
         assert secret not in logged
 
 
-# Invites
+# The first sign-in: the one-time password an admin handed out, then the set-up
+
+NEW_PASSWORD = 'my very own password'
+
 
 @pytest.fixture
-def invite_link(app):
-    return '/invite/' + accounts.create_invite('sam', 'member', ['smp'], None)
+def sam(app):
+    """A member just added, who may use smp, as {'id', 'username', 'one_time_password'}."""
+    user_id, password = accounts.create_user('sam', 'member', ['smp'])
+    return {'id': user_id, 'username': 'sam', 'one_time_password': password}
 
 
-def invite_secret(username='sam'):
+def first_sign_in(client, user, remember=False):
+    return sign_in(client, user['username'], user['one_time_password'], remember=remember)
+
+
+def shown_secret(page):
+    """The TOTP secret the set-up page shows as its key."""
+    return re.search(r'totp-key">([A-Z2-7 ]+)</code>', page.get_data(as_text=True)).group(1).replace(' ', '')
+
+
+def set_up(client, password=NEW_PASSWORD, again=None, code=None):
+    """Post the set-up form. code defaults to the current one for the secret the page shows."""
+    code = code or pyotp.TOTP(shown_secret(client.get('/login/setup'))).now()
+    return client.post('/login/setup', data={'password': password, 'again': again or password, 'code': code})
+
+
+def user_row(username):
     with get_db() as conn:
-        return conn.execute('SELECT totp_secret FROM invites WHERE username = ?', (username,)).fetchone()[0]
+        return conn.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
 
 
-def accept(client, link, password=PASSWORD, again=None, code=None):
-    code = code or pyotp.TOTP(invite_secret()).now()
-    return client.post(link, data={'password': password, 'again': again or password, 'code': code})
-
-
-def test_invite_page(anon, invite_link):
-    page = anon.get(invite_link)
-    assert page.status_code == 200
-    secret = invite_secret()
+def test_a_first_sign_in_goes_to_the_set_up_not_the_code(anon, sam):
+    response = first_sign_in(anon, sam)
+    assert response.status_code == 302 and response.headers['Location'] == '/login/setup'
+    assert anon.get('/api/me').status_code == 401  # the one-time password alone signs nobody in
+    page = anon.get('/login/setup')
+    assert page.status_code == 200 and page.headers['Cache-Control'] == 'no-store'
     html = page.get_data(as_text=True)
-    assert '<svg' in html and ' '.join(re.findall('....', secret)) in html
+    secret = shown_secret(page)
+    assert len(secret) == 32 and '<svg' in html and '<b>sam</b>' in html
     assert 'autocomplete="new-password"' in html and 'autocomplete="one-time-code"' in html
-    assert anon.get(invite_link).get_data(as_text=True) == html  # the same QR code on a reload
+    assert anon.get('/login/setup').get_data(as_text=True) == html  # the same QR code on a reload
+    assert user_row('sam')['totp_secret'] is None  # not stored until the set-up is done
+    assert anon.get('/login/code').headers['Location'] == '/login'  # no code step without TOTP
 
 
-def test_accepting_an_invite(app, anon, invite_link, clock):
-    response = accept(anon, invite_link, code=pyotp.TOTP(invite_secret()).at(clock['now']))
+def test_setting_up(app, anon, sam, clock):
+    first_sign_in(anon, sam)
+    other_tab = app.test_client()
+    first_sign_in(other_tab, sam)
+    secret = shown_secret(anon.get('/login/setup'))
+    code = pyotp.TOTP(secret).at(clock['now'])
+    response = anon.post('/login/setup', data={'password': NEW_PASSWORD, 'again': NEW_PASSWORD, 'code': code})
     assert response.status_code == 200 and response.headers['Cache-Control'] == 'no-store'
     codes = re.findall(r'<li>([0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4})</li>', response.get_data(as_text=True))
-    assert len(codes) == 10 and b'Continue to mcpanel' in response.data
+    assert len(codes) == 10 and b'Continue to mcpanel' in response.data and b'href="/"' in response.data
     assert 'Max-Age' not in session_cookie(response)  # signed in, not remembered
+    assert anon.get_cookie('mcpanel_signin') is None  # the halfway cookie is gone
     assert anon.get('/api/me').get_json() == {'username': 'sam', 'role': 'member', 'recovery_codes_left': 10}
-    sam = accounts.user_named('sam')
-    assert accounts.servers_for(sam) == {'smp'}
-    assert anon.get(invite_link).status_code == 404  # single use
-    assert accept(app.test_client(), invite_link, code='123456').status_code == 404
-    # The code used to set up 2FA can't be replayed to sign in.
-    response = sign_in(app.test_client(), 'sam', code=pyotp.TOTP(sam['totp_secret']).at(clock['now']))
-    assert response.status_code == 401
+    row = user_row('sam')
+    assert (row['totp_secret'], row['totp_last_step']) == (secret, int(clock['now']) // 30)
+    assert accounts.servers_for(row) == {'smp'} and accounts.password_matches(row, NEW_PASSWORD)
+    assert accounts.use_recovery_code(sam['id'], codes[0])
+
+    # Done once: the other tab, the one-time password and the set-up's code no longer work.
+    response = other_tab.post('/login/setup', data={'password': 'another password!', 'again': 'another password!', 'code': code})
+    assert response.status_code == 401 and b'This account changed while you were signing in' in response.data
+    assert sign_in(app.test_client(), 'sam', sam['one_time_password']).status_code == 401
+    assert sign_in(app.test_client(), 'sam', NEW_PASSWORD, code=code).status_code == 401
+    clock['now'] += 30
+    response = sign_in(app.test_client(), 'sam', NEW_PASSWORD, code=pyotp.TOTP(secret).at(clock['now']))
+    assert response.status_code == 302 and response.headers['Location'] == '/'
+
+
+def test_setting_up_keeps_the_device_signed_in_when_asked(anon, sam):
+    first_sign_in(anon, sam, remember=True)
+    assert f'Max-Age={30 * 24 * 3600}' in session_cookie(set_up(anon))
+
+
+def test_setting_up_returns_to_next(anon, sam):
+    anon.post('/login', query_string={'next': '/#/account'}, data={'username': 'sam', 'password': sam['one_time_password']})
+    assert b'href="/#/account"' in set_up(anon).data
 
 
 @pytest.mark.parametrize('form, message', [
     ({'password': 'too short'}, b'at least 12 characters'),
     ({'again': 'something else entirely'}, b'The two passwords'),
+    ({'password': 'ONE TIME'}, b'not the one-time one'),
     ({'code': '000000'}, b"That code didn"),
 ])
-def test_invite_form_errors(anon, invite_link, form, message):
-    response = accept(anon, invite_link, **form)
+def test_set_up_form_errors(anon, sam, form, message):
+    first_sign_in(anon, sam)
+    if form.get('password') == 'ONE TIME':
+        form = {'password': sam['one_time_password']}
+    response = set_up(anon, **form)
     assert response.status_code == 400 and message in response.data
-    assert b'<svg' in response.data and anon.get('/api/me').status_code == 401
-    assert accounts.user_named('sam') is None
-    assert anon.get(invite_link).status_code == 200  # still usable
+    assert b'<svg' in response.data and response.headers['Cache-Control'] == 'no-store'
+    assert anon.get('/api/me').status_code == 401
+    row = user_row('sam')
+    assert row['totp_secret'] is None and row['failed_tries'] == 0  # nothing to guess here, so no count
+    assert set_up(anon).status_code == 200  # still there to finish
 
 
-def test_expired_invite(anon, invite_link, clock):
-    clock['now'] += 24 * 3600 + 1
-    response = anon.get(invite_link)
-    assert response.status_code == 404 and b'ask an admin for a new one' in response.data
-    assert accept(anon, invite_link, code=pyotp.TOTP(invite_secret()).at(clock['now'])).status_code == 404
+def test_the_set_up_needs_the_one_time_password_first(anon, sam):
+    assert anon.get('/login/setup').headers['Location'] == '/login'
+    response = anon.post('/login/setup', data={'password': NEW_PASSWORD, 'again': NEW_PASSWORD, 'code': '123456'})
+    assert response.status_code == 401 and b'That took too long' in response.data
+    assert user_row('sam')['totp_secret'] is None
 
 
-def test_newer_invite_replaces_the_old(anon, invite_link):
-    newer = '/invite/' + accounts.create_invite('sam', 'admin', [], None)
-    assert anon.get(invite_link).status_code == 404
-    assert anon.get(newer).status_code == 200
+def test_an_account_with_totp_never_reaches_the_set_up(anon, matt):
+    """Else a password alone could replace the account's two-factor sign-in."""
+    anon.post('/login', data={'username': 'matt', 'password': PASSWORD})
+    assert anon.get('/login/setup').headers['Location'] == '/login'
+    anon.post('/login', data={'username': 'matt', 'password': PASSWORD})
+    secret = pyotp.random_base32()
+    response = anon.post('/login/setup', data={'password': NEW_PASSWORD, 'again': NEW_PASSWORD,
+                                               'code': pyotp.TOTP(secret).now()})
+    assert response.status_code == 401 and anon.get('/api/me').status_code == 401
+    assert user_row('matt')['totp_secret'] == matt['totp_secret']
 
 
-def test_invite_command_prints_a_working_link(app):
-    result = app.test_cli_runner().invoke(args=['invite', 'Matt', '--admin'])
-    assert result.exit_code == 0, result.output
-    assert '24 hours' in result.output
-    link = re.search(r'/invite/\S+', result.output).group()
+def test_a_pending_set_up_expires_after_15_minutes(anon, sam, clock):
+    first_sign_in(anon, sam)
+    clock['now'] += 14 * 60  # well past the code step's 5 minutes
+    assert anon.get('/login/setup').status_code == 200
+    clock['now'] += 60 + 1
+    response = anon.post('/login/setup', data={'password': NEW_PASSWORD, 'again': NEW_PASSWORD, 'code': '123456'})
+    assert response.status_code == 401 and b'That took too long' in response.data
+    assert anon.get('/login/setup').headers['Location'] == '/login'
+    assert user_row('sam')['totp_secret'] is None
+
+
+def test_a_one_time_password_works_for_24_hours(app, sam, clock):
+    clock['now'] += 24 * 3600 - 1
+    assert first_sign_in(app.test_client(), sam).headers['Location'] == '/login/setup'
+    clock['now'] += 2
     client = app.test_client()
+    right = first_sign_in(client, sam)
+    assert right.status_code == 401 and b'This one-time password has expired. Ask an admin for a new one.' in right.data
+    assert client.get_cookie('mcpanel_signin') is None
+    wrong = sign_in(client, 'sam', 'wrong password!')
+    assert b'Wrong username or password.' in wrong.data and b'expired' not in wrong.data  # only to whoever knows it
+    assert user_row('sam')['failed_tries'] == 1  # the right one, expired, isn't a wrong try
+
+
+def test_failed_tries_that_dont_count_toward_the_lock_are_audited(app, sam, clock, caplog):
+    """A wrong code at the set-up, and the right one-time password once it has expired."""
+    caplog.set_level(logging.INFO)
+    client = app.test_client()
+    first_sign_in(client, sam)
+    set_up(client, code='000000')
+    clock['now'] += 24 * 3600 + 1
+    first_sign_in(app.test_client(), sam)
+    failed = [(record.username, record.step) for record in caplog.records if record.getMessage() == 'sign_in_failed']
+    assert failed == [('sam', 'setup'), ('sam', 'expired one-time password')]
+    assert user_row('sam')['failed_tries'] == 0
+
+
+def test_a_locked_new_account_refuses_its_one_time_password(anon, sam, clock):
+    for _ in range(5):
+        sign_in(anon, 'sam', 'wrong password!')
+    right = first_sign_in(anon, sam)
+    assert right.status_code == 401 and b'Wrong username or password.' in right.data
+    clock['now'] += 24 * 3600  # still locked, and expired too: still the same answer
     with get_db() as conn:
-        secret = conn.execute("SELECT totp_secret FROM invites WHERE username = 'matt'").fetchone()[0]
-    response = client.post(link, data={'password': PASSWORD, 'again': PASSWORD, 'code': pyotp.TOTP(secret).now()})
-    assert response.status_code == 200
+        conn.execute('UPDATE users SET locked_until = ? WHERE id = ?', (clock['now'] + 60, sam['id']))
+        conn.commit()
+    assert first_sign_in(anon, sam).data == right.data
+
+
+def test_a_reset_ends_a_set_up_under_way(app, anon, sam):
+    first_sign_in(anon, sam)
+    secret = shown_secret(anon.get('/login/setup'))
+    new_password = accounts.reset_sign_in(sam['id'])
+    response = anon.post('/login/setup', data={'password': NEW_PASSWORD, 'again': NEW_PASSWORD,
+                                               'code': pyotp.TOTP(secret).now()})
+    assert response.status_code == 401 and b'This account changed while you were signing in' in response.data
+    assert user_row('sam')['totp_secret'] is None
+    assert first_sign_in(app.test_client(), dict(sam, one_time_password=new_password)).headers['Location'] == '/login/setup'
+
+
+def test_a_reset_ends_a_code_step_under_way(anon, matt):
+    anon.post('/login', data={'username': 'matt', 'password': PASSWORD})
+    accounts.reset_sign_in(matt['id'])
+    response = sign_in_code(anon, matt)
+    assert response.status_code == 401 and b'This account changed while you were signing in' in response.data
+
+
+def test_set_up_cookies_are_secure_behind_https(app, sam):
+    client = app.test_client()
+    client.environ_base['HTTP_X_FORWARDED_PROTO'] = 'https'
+    assert 'Secure' in first_sign_in(client, sam).headers['Set-Cookie']
+    assert 'Secure' in session_cookie(set_up(client))
+
+
+def test_set_up_refuses_other_sites(anon, sam):
+    first_sign_in(anon, sam)
+    response = anon.post('/login/setup', headers={'Sec-Fetch-Site': 'cross-site'},
+                         data={'password': NEW_PASSWORD, 'again': NEW_PASSWORD, 'code': '123456'})
+    assert response.status_code == 403
+
+
+def test_create_user_command(app):
+    result = app.test_cli_runner().invoke(args=['create-user', 'Matt', '--admin'])
+    assert result.exit_code == 0, result.output
+    assert '24 hours' in result.output and 'two-factor' in result.output
+    password = re.search(r'\b[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}\b', result.output).group()
+    client = app.test_client()
+    assert sign_in(client, 'matt', password).headers['Location'] == '/login/setup'
+    assert set_up(client).status_code == 200
     assert client.get('/api/me').get_json()['role'] == 'admin'
 
 
-def test_invite_command_refuses_an_existing_username(app):
+def test_create_user_command_refuses_an_existing_or_bad_username(app):
     make_user('matt')
-    result = app.test_cli_runner().invoke(args=['invite', 'matt'])
+    result = app.test_cli_runner().invoke(args=['create-user', 'matt'])
     assert result.exit_code != 0 and 'already a user called matt' in result.output
-    result = app.test_cli_runner().invoke(args=['invite', 'not ok'])
+    result = app.test_cli_runner().invoke(args=['create-user', 'not ok'])
     assert result.exit_code != 0 and 'username' in result.output
+
+
+def test_reset_user_command(app, matt):
+    signed_in = app.test_client()
+    sign_in(signed_in, 'matt')
+    result = app.test_cli_runner().invoke(args=['reset-user', 'Matt'])
+    assert result.exit_code == 0, result.output
+    assert '24 hours' in result.output
+    password = re.search(r'\b[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}\b', result.output).group()
+    assert signed_in.get('/api/me').status_code == 401
+    assert sign_in(app.test_client(), 'matt').status_code == 401  # the old password no longer works
+    client = app.test_client()
+    assert sign_in(client, 'matt', password).headers['Location'] == '/login/setup'
+    assert set_up(client).status_code == 200
+
+    result = app.test_cli_runner().invoke(args=['reset-user', 'nobody'])
+    assert result.exit_code != 0 and 'There is no user called nobody' in result.output
+
+
+def test_no_secret_reaches_the_logs_on_a_first_sign_in(app, admin, caplog):
+    caplog.set_level(logging.INFO)
+    created = admin.post('/api/users', json={'username': 'sam', 'role': 'member'}).get_json()['one_time_password']
+    client = app.test_client()
+    sign_in(client, 'sam', created)
+    secret = shown_secret(client.get('/login/setup'))
+    set_up(client, password='too short')
+    code = pyotp.TOTP(secret).now()
+    response = set_up(client, code=code)
+    codes = re.findall(r'<li>([0-9a-f-]{14})</li>', response.get_data(as_text=True))
+    token = client.get_cookie('mcpanel_session').value
+    reset = admin.post(f'/api/users/{user_row("sam")["id"]}/reset').get_json()['one_time_password']
+    sign_in(client, 'sam', reset)
+    printed = app.test_cli_runner().invoke(args=['reset-user', 'sam']).output
+    logged = '\n'.join(str(vars(record)) for record in caplog.records)
+    assert all(event in logged for event in ('user_created', 'setup_done', 'sign_in_reset'))
+    for secret_text in (created, secret, code, NEW_PASSWORD, 'too short', *codes, token, accounts.hashed(token), reset):
+        assert secret_text not in logged
+    assert re.search(r'[0-9a-z]{4}(-[0-9a-z]{4}){3}', printed).group() not in logged

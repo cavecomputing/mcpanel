@@ -41,7 +41,7 @@
         </div>
         <label class="cc-checkbox"><input type="checkbox" name="remember" {{ 'checked' if remember }}> Keep this device signed in for 30 days</label>
         <button class="cc-btn cc-btn--primary cc-btn--block" type="submit"><span>Sign in</span></button>
-        {% if no_users %}<p>No accounts yet. Make the first one on the server with <code class="cc-code">flask --app app invite &lt;name&gt; --admin</code>.</p>{% endif %}
+        {% if no_users %}<p>No accounts yet. Make the first one on the server with <code class="cc-code">flask --app app create-user &lt;name&gt; --admin</code>.</p>{% endif %}
     </form>
     {% endif %}
 </main>

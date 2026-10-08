@@ -9,15 +9,15 @@
         <ul class="recovery-codes">
             {% for code in codes %}<li>{{ code }}</li>{% endfor %}
         </ul>
-        <a class="cc-btn cc-btn--primary cc-btn--block" href="/"><span>Continue to mcpanel</span></a>
+        <a class="cc-btn cc-btn--primary cc-btn--block" href="{{ next }}"><span>Continue to mcpanel</span></a>
     </div>
-    {% elif invite %}
-    <form class="cc-settings-card cc-signin__card" method="post">
+    {% else %}
+    <form class="cc-settings-card cc-signin__card" method="post" action="{{ url_for('auth.login_setup') }}">
         <span class="cc-brand"><svg class="logo" aria-hidden="true"><use href="#i-cube"/></svg><span class="cc-wordmark">mcpanel</span></span>
-        <p>Set up the account <b>{{ invite.username }}</b>: choose a password, then add mcpanel to your authenticator app.</p>
+        <p>Welcome, <b>{{ username }}</b>. Choose your own password in place of the one-time one, then add mcpanel to your authenticator app.</p>
         {% if error %}<p class="cc-signin__error" role="alert">{{ error }}</p>{% endif %}
         {# For password managers, so they save the new password under the right name. #}
-        <input name="username" value="{{ invite.username }}" autocomplete="username" readonly hidden>
+        <input name="username" value="{{ username }}" autocomplete="username" readonly hidden>
         <div class="cc-field cc-field--stack">
             <label for="password">New password</label>
             <input class="cc-input" id="password" name="password" type="password" minlength="12" autocomplete="new-password" required autofocus>
@@ -29,18 +29,14 @@
         </div>
         <p>Scan this with your authenticator app, or type the key into it.</p>
         <div class="qr" role="img" aria-label="QR code for your authenticator app">{{ qr }}</div>
-        <code class="cc-code totp-key">{{ invite.totp_secret|batch(4)|map('join')|join(' ') }}</code>
+        <code class="cc-code totp-key">{{ secret|batch(4)|map('join')|join(' ') }}</code>
         <div class="cc-field cc-field--stack">
             <label for="code">Code from the app</label>
             <input class="cc-input code-input" id="code" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="000000" autocomplete="one-time-code" required>
         </div>
-        <button class="cc-btn cc-btn--primary cc-btn--block" type="submit"><span>Create account</span></button>
+        <button class="cc-btn cc-btn--primary cc-btn--block" type="submit"><span>Finish setting up</span></button>
+        <div class="signin-links"><a href="{{ url_for('auth.login') }}">Back</a></div>
     </form>
-    {% else %}
-    <div class="cc-settings-card cc-signin__card">
-        <span class="cc-brand"><svg class="logo" aria-hidden="true"><use href="#i-cube"/></svg><span class="cc-wordmark">mcpanel</span></span>
-        <p class="cc-signin__error" role="alert">This invite link is not valid. It may have been used already or expired; ask an admin for a new one.</p>
-    </div>
     {% endif %}
 </main>
 {% endblock %}

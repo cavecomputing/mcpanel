@@ -17,8 +17,10 @@ when the panel restarts, and the panel finds them again by their Docker labels.
   Java version and how much memory), then start, stop and restart it
 - One game port per server, from a range you choose, shown as the address players type
 - Admins manage every server and every user; members see and run only the servers an admin gave them
-- New accounts come from one-time invite links, valid for 24 hours
-- Every account signs in with a password and a TOTP code, with recovery codes for a lost phone
+- An admin adds each account and hands over a one-time password, valid for 24 hours; signing in
+  with it, the person chooses their own password and sets up two-factor sign-in
+- Every account signs in with a password and a TOTP code, with recovery codes for a lost phone, and
+  an admin can reset someone's sign-in when they lose both
 - See your signed-in devices and sign them out; change your password
 
 ## Requirements
@@ -54,13 +56,17 @@ Then start it and create the first admin:
 
 ```bash
 docker compose -f docker/compose.yml up --build -d
-docker compose -f docker/compose.yml exec -u 1000:1000 mcpanel flask --app app invite matt --admin
+docker compose -f docker/compose.yml exec -u 1000:1000 mcpanel flask --app app create-user matt --admin
 ```
 
-Use your `PUID:PGID` after `-u`, so the files the command writes stay the panel's. It prints a path
-like `/invite/…`. Open it on the panel's address (`https://panel.example.com/invite/…`) within 24
-hours, choose a password of at least 12 characters, scan the QR code with an authenticator app,
-enter its code, and keep the recovery codes it shows once. Invite everyone else from the Users page.
+Use your `PUID:PGID` after `-u`, so the files the command writes stay the panel's. It prints a
+one-time password. Within 24 hours, sign in with it on the panel's address
+(`https://panel.example.com`), choose a password of at least 12 characters, scan the QR code with an
+authenticator app, enter its code, and keep the recovery codes it shows once. Add everyone else from
+the Users page, which shows each new account's one-time password once for you to pass on.
+
+If every admin is locked out, run `flask --app app reset-user <name>` the same way: it prints a new
+one-time password for that account and drops its two-factor set-up, recovery codes and sessions.
 
 ## Caddy and the router
 
@@ -92,7 +98,7 @@ Servers keep running while the panel restarts.
 
 ```
 /srv/mcpanel/            # MCPANEL_DATA_DIR
-├── mcpanel.db           # SQLite: users, sessions, invites, recovery codes, server access
+├── mcpanel.db           # SQLite: users, sessions, recovery codes, server access
 ├── logs/
 │   ├── mcpanel.log      # everything on stdout, rotated
 │   └── audit.log        # who did what, rotated
@@ -126,7 +132,7 @@ reachable Docker socket the panel still starts and says Docker is unreachable.
 ```bash
 uv sync
 MCPANEL_PUBLIC_HOST=localhost MCPANEL_PORT_RANGE=25565-25575 uv run app.py --debug
-MCPANEL_PUBLIC_HOST=localhost MCPANEL_PORT_RANGE=25565-25575 uv run flask --app app invite matt --admin
+MCPANEL_PUBLIC_HOST=localhost MCPANEL_PORT_RANGE=25565-25575 uv run flask --app app create-user matt --admin
 uv run pytest
 ```
 

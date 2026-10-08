@@ -104,11 +104,11 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .brand { display: flex; align-items: center; gap: var(--app-space-3); flex: none; line-height: 1; }
 .logo { width: 22px; height: 22px; flex: none; fill: none; stroke: var(--logo); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 
-/* Sign-in and invite pages: the design system's SignIn card, centred on the page. */
+/* Sign-in and set-up pages: the design system's SignIn card, centred on the page. */
 .cc-signin { padding: max(16px, env(safe-area-inset-top, 0px)) 16px max(16px, env(safe-area-inset-bottom, 0px)); }
 .cc-signin .logo { width: 26px; height: 26px; }
 /* What the SignIn card leaves to the app: the code field, the links under it, the QR code and key
-   on the invite page, and the recovery codes shown once. */
+   on the set-up page, and the recovery codes shown once. */
 .cc-signin__card a { text-decoration: none; }
 .signin-links { display: flex; justify-content: space-between; gap: var(--app-space-4); flex-wrap: wrap; }
 .signin-links a { font-size: 13px; color: var(--accent-cool); }
@@ -200,7 +200,7 @@ svg.i { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-widt
 .empty p { margin: 0; max-width: 44ch; }
 .empty > .i { width: 28px; height: 28px; color: var(--fg-subtle); }
 
-/* Rows in a card: users, invites, devices. Each wraps its actions under it when the card is narrow. */
+/* Rows in a card: users, devices. Each wraps its actions under it when the card is narrow. */
 .rows { display: flex; flex-direction: column; }
 .list-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--app-space-3) var(--app-space-4); padding: var(--app-space-4) 0; border-top: 1px solid var(--border-soft); font-size: 13px; }
 .list-row:first-child { padding-top: var(--app-space-1); border-top: 0; }
@@ -230,9 +230,9 @@ svg.i { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-widt
 .picks { min-width: 0; margin: 0; padding: 0; border: 0; }
 .picks legend { margin-bottom: var(--app-space-3); padding: 0; font-size: 13px; }
 .picks > div { display: flex; flex-direction: column; gap: var(--app-space-3); }
-/* A link or code shown once: in a well, with its copy button. */
+/* A password shown once: in a well, with its copy button. */
 .secret { display: flex; align-items: center; gap: var(--app-space-2); padding: var(--app-space-2) var(--app-space-2) var(--app-space-2) var(--app-space-4); background: var(--bg-page); border: 1px solid var(--border); border-radius: var(--radius-sm); }
-.secret code { flex: 1; min-width: 0; color: var(--accent-cool); font-family: var(--font-mono); font-size: 13px; overflow-wrap: anywhere; }
+.secret code { flex: 1; min-width: 0; font-family: var(--font-mono); font-size: 16px; letter-spacing: .04em; overflow-wrap: anywhere; }
 .toast { inset: auto auto var(--app-space-6) 50%; translate: -50% 0; margin: 0; max-width: calc(100vw - 32px); padding: var(--app-space-3) var(--app-space-5); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-raised); color: var(--fg); box-shadow: var(--shadow-lift); font-family: var(--font-mono); font-size: 12.5px; }
 .toast b { color: var(--accent-aqua-text); }
 .toast--error { border-color: var(--accent-warm); }

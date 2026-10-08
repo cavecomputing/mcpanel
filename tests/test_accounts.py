@@ -1,5 +1,5 @@
-import json
 import re
+import sqlite3
 
 import pyotp
 import pytest
@@ -149,37 +149,58 @@ def test_deleting_a_user_cascades(app):
     assert accounts.session_user(token) is None
 
 
-def test_invites(app, clock):
-    token = accounts.create_invite('sam', 'member', ['creative', 'smp'], None)
-    invite = accounts.invite_for(token)
-    assert invite['username'] == 'sam' and json.loads(invite['servers']) == ['creative', 'smp']
-    assert invite['token_hash'] == accounts.hashed(token) and invite['totp_secret']
-    assert accounts.invite_for('nope') is None
-
-    newer = accounts.create_invite('sam', 'member', [], None)  # replaces the first
-    assert accounts.invite_for(token) is None and accounts.invite_for(newer)
-
-    clock['now'] += accounts.INVITE_FOR + 1
-    assert accounts.invite_for(newer) is None
+def test_one_time_passwords_are_readable_and_strong():
+    passwords = {accounts.new_one_time_password() for _ in range(200)}
+    assert len(passwords) == 200
+    for password in passwords:
+        assert re.fullmatch(r'[0-9a-z]{4}(-[0-9a-z]{4}){3}', password) and not set(password) & set('ilou')
+    assert len(accounts.ONE_TIME_ALPHABET) == len(set(accounts.ONE_TIME_ALPHABET)) == 32  # 16 x 5 = 80 bits
+    assert len(password) >= accounts.MIN_PASSWORD
 
 
-def test_accepting_an_invite_makes_the_account_once(app):
-    token = accounts.create_invite('sam', 'member', ['smp'], None)
-    invite = accounts.invite_for(token)
-    user_id = accounts.accept_invite(invite, PASSWORD, 1234)
+def test_a_new_user_has_a_one_time_password_and_no_totp(app):
+    user_id, password = accounts.create_user('sam', 'member', ['creative', 'smp'])
     row = user_row(user_id)
-    assert (row['username'], row['role'], row['totp_secret'], row['totp_last_step']) == \
-        ('sam', 'member', invite['totp_secret'], 1234)
-    assert accounts.servers_for(row) == {'smp'}
-    assert accounts.invite_for(token) is None
-    assert accounts.accept_invite(invite, PASSWORD, 1234) is None
-
-
-def test_inviting_an_existing_username_is_a_conflict(app):
-    make_user('sam')
+    assert (row['username'], row['role'], row['totp_secret']) == ('sam', 'member', None)
+    assert row['password_hash'].startswith('$argon2id$') and accounts.password_matches(row, password)
+    assert row['password_changed'] == row['created']
+    assert accounts.servers_for(row) == {'creative', 'smp'}
     with pytest.raises(HTTPException) as e:
-        accounts.create_invite('sam', 'member', [], None)
+        accounts.create_user('sam', 'admin', [])
     assert e.value.code == 409
+    with pytest.raises(sqlite3.IntegrityError):  # any other failure is no taken name
+        accounts.create_user('kim', 'owner', [])
+
+
+def test_finishing_the_set_up_happens_once(app):
+    user_id, password = accounts.create_user('sam', 'member', [])
+    waiting = user_row(user_id)
+    assert accounts.finish_setup(waiting, PASSWORD, 'JBSWY3DPEHPK3PXP', 1234)
+    row = user_row(user_id)
+    assert (row['totp_secret'], row['totp_last_step']) == ('JBSWY3DPEHPK3PXP', 1234)
+    assert accounts.password_matches(row, PASSWORD) and not accounts.password_matches(row, password)
+    assert not accounts.finish_setup(waiting, 'someone else here', 'KRSXG5CTMVRXEZLU', 5678)  # another tab
+    assert not accounts.finish_setup(row, 'someone else here', 'KRSXG5CTMVRXEZLU', 5678)  # set up already
+    accounts.reset_sign_in(user_id)
+    assert not accounts.finish_setup(waiting, 'someone else here', 'KRSXG5CTMVRXEZLU', 5678)  # reset since
+    assert user_row(user_id)['totp_secret'] is None
+
+
+def test_reset_sign_in(app, clock):
+    user = make_user('sam')
+    token = accounts.new_session(user['id'], remember=True)
+    accounts.new_recovery_codes(user['id'])
+    with get_db() as conn:
+        conn.execute('UPDATE users SET failed_tries = 2, locked_until = ? WHERE id = ?', (clock['now'] + 600, user['id']))
+        conn.commit()
+    clock['now'] += 60
+    password = accounts.reset_sign_in(user['id'])
+    row = user_row(user['id'])
+    assert (row['totp_secret'], row['failed_tries'], row['locked_until'], row['password_changed']) == (None, 0, 0, clock['now'])
+    assert accounts.password_matches(row, password) and not accounts.password_matches(row, PASSWORD)
+    assert accounts.session_user(token) is None
+    with get_db() as conn:
+        assert conn.execute('SELECT COUNT(*) FROM recovery_codes').fetchone()[0] == 0
 
 
 def test_who_may_use_which_server(app):

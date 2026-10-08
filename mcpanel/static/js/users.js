@@ -1,22 +1,30 @@
 /**
- * The Users page, for admins: everyone who can sign in, the invites not used yet, and one dialog that
- * either invites someone or changes a user's role and servers.
+ * The Users page, for admins: everyone who can sign in, and one dialog that either adds an account
+ * or changes a user's role and servers, and shows a new one-time password once.
  */
 import * as api from './api.js';
 import { state } from './state.js';
 import { $, ask, copyText, esc, relativeTime, showView, toast } from './ui.js';
 
 let users = [];
-let editing = null; // the user the dialog changes, or null while it invites
+let editing = null; // the user the dialog changes, or null while it adds one
 
 const roleBadge = (role) => (role === 'admin' ? '<span class="cc-badge cc-badge--info">Admin</span>' : '<span class="cc-badge">Member</span>');
 const serverName = (id) => state.servers.find((server) => server.id === id)?.name ?? id;
 
-/** What a user or invite may use, in words. */
+/** What a user may use, in words. */
 function serversLine(role, serverIds) {
     if (role === 'admin') return 'Every server';
     if (!serverIds.length) return 'No servers yet';
     return serverIds.map((id) => `<span class="cc-tag">${esc(serverName(id))}</span>`).join(' ');
+}
+
+/** Where a user is with signing in: waiting for their first sign-in, or when they were last seen. */
+function signInLine(user) {
+    const expires = user.one_time_password_expires;
+    if (expires === null) return user.last_seen ? `Last seen ${relativeTime(user.last_seen)}` : 'Not signed in on any device';
+    if (expires > Date.now() / 1000) return `Waiting for first sign-in · the one-time password expires ${relativeTime(expires)}`;
+    return `Waiting for first sign-in · the one-time password expired ${relativeTime(expires)}; reset sign-in for a new one`;
 }
 
 export async function showUsers() {
@@ -34,22 +42,13 @@ export async function showUsers() {
             <div class="list-row__main">
                 <div class="list-row__title"><b>${esc(user.username)}</b>${roleBadge(user.role)}</div>
                 <div class="sub">${serversLine(user.role, user.servers)}</div>
-                <div class="sub">${user.last_seen ? `Last seen ${relativeTime(user.last_seen)}` : 'Not signed in on any device'}</div>
+                <div class="sub">${signInLine(user)}</div>
             </div>
             <div class="list-row__actions">${user.username === state.username ? '<span class="cc-tag">You</span>' : `
-                <button class="cc-btn cc-btn--ghost cc-btn--sm" type="button" data-edit="${user.id}"><span>Edit</span></button>
-                <button class="cc-btn cc-btn--danger cc-btn--sm" type="button" data-remove="${user.id}"><span>Remove</span></button>`}
+                <button class="cc-btn cc-btn--ghost cc-btn--sm" type="button" data-action="edit" data-user="${user.id}"><span>Edit</span></button>
+                <button class="cc-btn cc-btn--ghost cc-btn--sm" type="button" data-action="reset" data-user="${user.id}"><span>Reset sign-in</span></button>
+                <button class="cc-btn cc-btn--danger cc-btn--sm" type="button" data-action="remove" data-user="${user.id}"><span>Remove</span></button>`}
             </div>
-        </div>`).join('');
-    $('invitesCard').hidden = !data.invites.length;
-    $('inviteRows').innerHTML = data.invites.map((invite) => `
-        <div class="list-row">
-            <div class="list-row__main">
-                <div class="list-row__title"><b>${esc(invite.username)}</b>${roleBadge(invite.role)}</div>
-                <div class="sub">${serversLine(invite.role, invite.servers)}</div>
-                <div class="sub">Expires ${relativeTime(invite.expires)}</div>
-            </div>
-            <div class="list-row__actions"><button class="cc-btn cc-btn--danger cc-btn--sm" type="button" data-revoke="${esc(invite.username)}"><span>Revoke</span></button></div>
         </div>`).join('');
 }
 
@@ -70,19 +69,30 @@ function openDialog(user = null) {
     editing = user;
     $('userForm').reset();
     $('userForm').hidden = false;
-    $('inviteDone').hidden = true;
-    $('userTitle').textContent = user ? `Change ${user.username}` : 'Invite someone';
+    $('passwordDone').hidden = true;
+    $('userTitle').textContent = user ? `Change ${user.username}` : 'Add someone';
     $('userIntro').hidden = false;
     $('userIntro').textContent = user
         ? 'A new role or server list applies to their next click.'
-        : 'They get a one-time link to choose a password and set up two-factor sign-in.';
-    $('inviteNameField').hidden = Boolean(user);
-    $('inviteName').required = !user;
+        : 'They get a one-time password to sign in with, then choose their own and set up two-factor sign-in.';
+    $('newUsernameField').hidden = Boolean(user);
+    $('newUsername').required = !user;
     $('userRole').value = user?.role ?? 'member';
     drawPicks(user?.servers ?? []);
     syncRole();
-    $('userSubmit').firstElementChild.textContent = user ? 'Save' : 'Create link';
+    $('userSubmit').firstElementChild.textContent = user ? 'Save' : 'Add';
     $('userDialog').showModal();
+}
+
+/** Show a new one-time password in the dialog, opening it if need be. */
+function showPassword(username, password) {
+    $('userTitle').textContent = `One-time password for ${username}`;
+    $('userIntro').hidden = true;
+    $('oneTimePassword').textContent = password;
+    $('userForm').hidden = true;
+    $('passwordDone').hidden = false;
+    if (!$('userDialog').open) $('userDialog').showModal();
+    $('copyPassword').focus();
 }
 
 async function submit(event) {
@@ -97,18 +107,27 @@ async function submit(event) {
             $('userDialog').close();
             toast(`Saved <b>${esc(editing.username)}</b>`);
         } else {
-            const username = $('inviteName').value.trim().toLowerCase();
-            const { link } = await api.post('/api/users/invite', { username, role, servers });
-            $('userTitle').textContent = `Invite link for ${username}`;
-            $('userIntro').hidden = true;
-            $('inviteLink').textContent = location.origin + link;
-            $('userForm').hidden = true;
-            $('inviteDone').hidden = false;
-            $('copyInvite').focus();
+            const { user, one_time_password: password } = await api.post('/api/users', { username: $('newUsername').value.trim(), role, servers });
+            showPassword(user.username, password);
         }
         showUsers();
     } catch { /* api.js showed why; the form stays open to fix */ }
     button.disabled = false;
+}
+
+async function reset(user) {
+    let password;
+    const answer = await ask({
+        title: `Reset sign-in for ${user.username}?`,
+        iconName: 'key',
+        text: 'Their password, two-factor sign-in and recovery codes stop working, and they are signed out everywhere. You get a new one-time password to give them.',
+        ok: 'Reset sign-in',
+        danger: true,
+        action: async () => { ({ one_time_password: password } = await api.post(`/api/users/${user.id}/reset`)); },
+    });
+    if (!answer) return;
+    showPassword(user.username, password);
+    showUsers();
 }
 
 async function remove(user) {
@@ -125,30 +144,16 @@ async function remove(user) {
     showUsers();
 }
 
-async function revoke(username) {
-    try {
-        await api.del(`/api/users/invites/${encodeURIComponent(username)}`);
-    } catch {
-        return;
-    }
-    toast(`Revoked the invite for <b>${esc(username)}</b>`);
-    showUsers();
-}
-
 export function initUsers() {
     if (!state.admin) return;
-    $('inviteBtn').addEventListener('click', () => openDialog());
+    $('addUserBtn').addEventListener('click', () => openDialog());
     $('userRows').addEventListener('click', (event) => {
-        const button = event.target.closest('[data-edit], [data-remove]');
-        const user = users.find((u) => String(u.id) === (button?.dataset.edit ?? button?.dataset.remove));
-        if (user) (button.dataset.edit ? openDialog : remove)(user);
-    });
-    $('inviteRows').addEventListener('click', (event) => {
-        const button = event.target.closest('[data-revoke]');
-        if (button) revoke(button.dataset.revoke);
+        const button = event.target.closest('[data-action]');
+        const user = users.find((u) => String(u.id) === button?.dataset.user);
+        if (user) ({ edit: openDialog, reset, remove })[button.dataset.action](user);
     });
     $('userRole').addEventListener('change', syncRole);
     $('userForm').addEventListener('submit', submit);
-    $('copyInvite').addEventListener('click', () => copyText($('inviteLink').textContent, 'the link'));
-    $('userDialog').addEventListener('close', () => { $('inviteLink').textContent = ''; }); // shown once
+    $('copyPassword').addEventListener('click', () => copyText($('oneTimePassword').textContent, 'the password'));
+    $('userDialog').addEventListener('close', () => { $('oneTimePassword').textContent = ''; }); // shown once
 }

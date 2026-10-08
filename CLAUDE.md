@@ -25,8 +25,9 @@ environment variables, the cookie and the Docker labels all change together.
   `mcpanel` Docker network and is never published. No second ports (voice chat, Geyser/Bedrock,
   query): not now, not as an option.
 - **Users:** a few accounts, each `admin` or `member`. Admins manage everything, including users;
-  members see and run only the servers an admin gave them. New accounts come from one-time invite
-  links. Every account has a password and TOTP two-factor sign-in, with recovery codes.
+  members see and run only the servers an admin gave them. An admin makes each account and hands
+  over its one-time password; on that first sign-in the person chooses their own password and sets
+  up TOTP two-factor sign-in, with recovery codes. Every account has both from then on.
 - **It is on the public internet.** Treat every route as reachable by strangers. See Access below.
 - **No logging knobs.** Logging uses fixed defaults (see Logging). Don't add `LOG_*` variables.
 
@@ -94,8 +95,9 @@ uv sync                                        # install the locked dependencies
 MCPANEL_PUBLIC_HOST=localhost MCPANEL_PORT_RANGE=25565-25575 uv run app.py --debug
 MCPANEL_DATA_DIR=/path/to/data ...             # data directory (default: ./data)
 
-# The first account: prints a one-time invite link for an admin.
-MCPANEL_PUBLIC_HOST=localhost MCPANEL_PORT_RANGE=25565-25575 uv run flask --app app invite matt --admin
+# The first account: prints a one-time password for an admin. reset-user <name> starts an
+# account's sign-in over the same way, for when every admin is locked out.
+MCPANEL_PUBLIC_HOST=localhost MCPANEL_PORT_RANGE=25565-25575 uv run flask --app app create-user matt --admin
 
 uv run pytest                                  # full suite (use `uv run`, not bare pytest)
 uv run pytest tests/test_auth.py::test_sign_out -x
@@ -132,17 +134,17 @@ neighbour.
 |---|---|
 | `app.py` | Entry point, and the **only** Python file at the repo root: `app = create_app()`, which `uv run app.py`, `flask --app app` and `gunicorn app:app` all name. No logic lives here. |
 | `mcpanel/` | The application package. Everything else in Python goes in here. |
-| `mcpanel/__init__.py` | `create_app()`: logging and the request log, `ProxyFix`, cookie settings, `init_db()`, the cross-site write guard (`reject_cross_site_writes()`), the login guard, blueprints, the `invite` CLI command. |
+| `mcpanel/__init__.py` | `create_app()`: logging and the request log, `ProxyFix`, cookie settings, `init_db()`, the cross-site write guard (`reject_cross_site_writes()`), the login guard, blueprints, the `create-user` and `reset-user` CLI commands. |
 | `mcpanel/config.py` | Settings read once from the environment: paths under `MCPANEL_DATA_DIR`, `MCPANEL_PUBLIC_HOST`, `MCPANEL_PORT_RANGE`. |
 | `mcpanel/db.py` | Schema (`init_db()`, idempotent) and `get_db()`, a short-lived connection per use. |
 | `mcpanel/logs.py` | `setup_logging()`: JSON lines on stdout, the same lines in a rotated file, the audit log, and the filter that strips secrets. `audit()` records who did what; `start_timer()` and `log_request()` write one line per request. |
-| `mcpanel/auth.py` | The sign-in pages: `/login` (password), `/login/code` (TOTP or a recovery code), `/logout`, `/invite/<token>`. The session cookie and `require_login()` in front of everything else, `require_admin()`, lockouts and the sign-in throttle (`throttled()`), the `invite` command. |
-| `mcpanel/accounts.py` | Users, sessions, invites and recovery codes in the database: password hashing (argon2id), TOTP secrets and checks, who may see which server. |
+| `mcpanel/auth.py` | The sign-in pages: `/login` (password), `/login/code` (TOTP or a recovery code), `/login/setup` (after a one-time password: a new password and TOTP, then the recovery codes), `/logout`. The session cookie and `require_login()` in front of everything else, `require_admin()`, lockouts and the sign-in throttle (`throttled()`), the halfway state (`pending()`, `pending_user()`, `setup_secret()`), the `create-user` and `reset-user` commands. |
+| `mcpanel/accounts.py` | Users, sessions and recovery codes in the database: password hashing (argon2id), one-time passwords (`create_user()`, `finish_setup()`, `reset_sign_in()`), TOTP secrets and checks, who may see which server. |
 | `mcpanel/servers.py` | Everything that talks to Docker: finding the panel's containers by label, `container_spec()` (the one place a container's settings are decided), `free_port()`, create, start, stop, restart, and `docker_errors()`, which turns Docker's errors into the messages the UI shows. |
 | `mcpanel/views.py` | `index()` serves the page; `healthz()` answers `/healthz`, open to anyone (`auth.OPEN_ENDPOINTS` names it). |
-| `mcpanel/api/` | One Flask blueprint per resource, all under `/api`: `servers` (list, options, create, start, stop, restart), `users` (admin: list, invite, change, remove, revoke an invite), `account` (me, my sessions, password, recovery codes). `__init__.py` mounts them and answers every error as `{"error": message}`. `common.py` has `json_body()`, the request's JSON object or a 400; the fields are checked where they are used (`servers.create_server()`, `users.py`). |
-| `mcpanel/templates/` | `base.html` (head, the theme script, the cube icon), `login.html` (the password and code steps), `invite.html` (setting up an account, then its recovery codes once), `index.html` (the app shell, its dialogs and the icon sprite). |
-| `mcpanel/static/js/` | ES modules, one per concern, entry `main.js` loaded with `<script type="module">`: `api.js`, `ui.js` (escaping, the toast, the question dialog), `state.js`, `theme.js`, `servers.js` (sidebar list polled every 5 s, the phone drawer, server header and actions, new-server dialog), `users.js` (the Users page and its invite/change dialog), `account.js` (the account menu, and the Your account page: password, recovery codes, signed-in devices). |
+| `mcpanel/api/` | One Flask blueprint per resource, all under `/api`: `servers` (list, options, create, start, stop, restart), `users` (admin: list, add, change, reset sign-in, remove), `account` (me, my sessions, password, recovery codes). `__init__.py` mounts them and answers every error as `{"error": message}`. `common.py` has `json_body()`, the request's JSON object or a 400; the fields are checked where they are used (`servers.create_server()`, `users.py`). |
+| `mcpanel/templates/` | `base.html` (head, the theme script, the cube icon), `login.html` (the password and code steps), `setup.html` (the first sign-in's new password and TOTP, then its recovery codes once), `index.html` (the app shell, its dialogs and the icon sprite). |
+| `mcpanel/static/js/` | ES modules, one per concern, entry `main.js` loaded with `<script type="module">`: `api.js`, `ui.js` (escaping, the toast, the question dialog), `state.js`, `theme.js`, `servers.js` (sidebar list polled every 5 s, the phone drawer, server header and actions, new-server dialog), `users.js` (the Users page, its add/change dialog and the one-time password shown once), `account.js` (the account menu, and the Your account page: password, recovery codes, signed-in devices). |
 | `mcpanel/static/css/` | `cavecomputing.css` (the design system's `bundle.css`, copied unchanged) and `style.css` (the tokens and the panel's own layout). |
 | `mcpanel/static/favicon.svg` | The logo (see Frontend conventions), also the README's picture. |
 | `tests/` | pytest, one file per blueprint or module, and `fake_docker.py` (`FakeDocker`). Docker is faked; nothing in the suite needs a daemon. |
@@ -158,7 +160,7 @@ on its own under it:
 
 ```
 data/                    # MCPANEL_DATA_DIR, default ./data
-├── mcpanel.db           # SQLite: users, sessions, invites, recovery codes, server access
+├── mcpanel.db           # SQLite: users, sessions, recovery codes, server access
 ├── logs/
 │   ├── mcpanel.log      # everything on stdout, rotated
 │   └── audit.log        # who did what, rotated
@@ -173,11 +175,13 @@ data/                    # MCPANEL_DATA_DIR, default ./data
   server's data is a bind mount, and Docker reads bind-mount paths on the host, so the panel passes
   `<data dir>/servers/<id>` as the host path and also reads and writes it itself. `compose.yml`
   mounts `${MCPANEL_DATA_DIR}:${MCPANEL_DATA_DIR}` for that reason. Never translate paths.
-- **The database holds only what Docker doesn't know:** accounts, sessions, invites, recovery codes
-  and which member may see which server. A server's state, port and settings are read from Docker
+- **The database holds only what Docker doesn't know:** accounts, sessions, recovery codes and
+  which member may see which server. A server's state, port and settings are read from Docker
   every time. A server id that Docker no longer has is stale, not an error. Nothing in it may sign
   anyone in: the key for Flask's cookie (a sign-in halfway through) is random for each process,
-  since kept there, a copy of the database could sign that cookie and skip the password.
+  since kept there, a copy of the database could sign that cookie and skip the password. An account
+  waiting for its first sign-in is one with no TOTP secret; its one-time password works for 24 hours
+  from `password_changed`.
 - Every module reads settings as `config.NAME` at call time, never `from .config import NAME`, so
   the tests can point them at a temporary directory.
 
@@ -210,7 +214,7 @@ arbitrary container owns the machine, so:
 The panel is on the public internet behind Caddy, and an account can start containers, so sign-in is
 the whole perimeter:
 
-- **Every route except sign-in, the invite page, `/healthz` and static assets requires a session.**
+- **Every route except the sign-in pages, `/healthz` and static assets requires a session.**
   A new route is behind the check by default, not opted in. Admin-only API routes use
   `require_admin()`; anything a member does to a server checks `accounts.may_use(user, server_id)`.
 - Passwords are argon2id hashes (at least 12 characters). TOTP is required on every account: a
@@ -223,11 +227,20 @@ the whole perimeter:
   password take effect at once. The cookie (`mcpanel_session`) holds only a random token, stored
   hashed; it is `HttpOnly`, `SameSite=Lax`, `Secure` behind HTTPS (`X-Forwarded-Proto` via
   `ProxyFix`), and lasts 30 days when "Keep this device signed in" is ticked.
-- Invites are single-use, expire after 24 hours and are stored hashed. The link is shown once.
+- Adding an account, or resetting one's sign-in (which also drops its TOTP secret, recovery codes,
+  sessions and lock), gives the admin a one-time password: 80 random bits, stored as an argon2id
+  hash, shown once, good for 24 hours, and checked like any password (throttle, lock, dummy hash).
+  "Expired" is said only to whoever typed the right one. It leads to `/login/setup` instead of the
+  code step, for 15 minutes: a new password (not the one-time one) and a code from the TOTP secret
+  shown there, saved together, then the recovery codes once. `setup_secret()` derives that secret
+  from the per-process key, so nothing stores it before the set-up does. The halfway state carries
+  the account's `password_changed`, so a reset or a set-up finished elsewhere ends it, and an
+  account with TOTP never reaches the set-up.
 - Writes from another site's page are refused (`reject_cross_site_writes()`, the same check as
   binny, imgy and cozy), so keep state-changing routes on POST/PUT/DELETE.
-- Never put a password, TOTP secret or code, recovery code, session or invite token, or RCON password
-  in a log line, an error message, the audit log or a response other than the one that creates it.
+- Never put a password (a one-time one too), TOTP secret or code, recovery code, session token, or
+  RCON password in a log line, an error message, the audit log or a response other than the one
+  that creates it.
 
 ### Logging
 
@@ -278,4 +291,5 @@ it, and the tests quietly start writing into the real `data/`.
 Docker is replaced by `FakeDocker` from `tests/fake_docker.py` (conftest's `docker` fixture patches
 `servers.docker_client`), so tests never need a daemon. Use the `admin` and `member` fixtures for
 signed-in clients, `anon` for one that isn't, and conftest's `sign_in()` helper to drive the
-password-then-TOTP flow.
+password-then-TOTP flow. `make_user()` makes an account that has had its first sign-in;
+`accounts.create_user()` makes one still waiting for it.

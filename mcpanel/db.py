@@ -1,5 +1,5 @@
-"""SQLite access. The database holds only what Docker doesn't know: accounts, sessions, invites,
-recovery codes, and which member may use which server. Times are Unix seconds."""
+"""SQLite access. The database holds only what Docker doesn't know: accounts, sessions, recovery
+codes, and which member may use which server. Times are Unix seconds."""
 import sqlite3
 from contextlib import contextmanager
 
@@ -11,7 +11,9 @@ SCHEMA = '''
         username TEXT NOT NULL UNIQUE,
         role TEXT NOT NULL CHECK (role IN ('admin', 'member')),
         password_hash TEXT NOT NULL,              -- argon2id
-        totp_secret TEXT NOT NULL,                -- base32
+        -- base32. NULL until the first sign-in sets it up: the password is then a one-time one an admin
+        -- handed out, which works for 24 hours from password_changed.
+        totp_secret TEXT,
         totp_last_step INTEGER NOT NULL DEFAULT 0, -- the last 30-second step a code was accepted for
         failed_tries INTEGER NOT NULL DEFAULT 0,  -- wrong passwords or codes in a row
         locked_until REAL NOT NULL DEFAULT 0,
@@ -34,18 +36,6 @@ SCHEMA = '''
         user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         code_hash TEXT NOT NULL,
         PRIMARY KEY (user_id, code_hash)
-    );
-    -- A one-time invite link. token_hash is SHA-256 of the token in the link; servers is a JSON list
-    -- of server ids; totp_secret is made with the invite, so every visit to the link shows the same QR.
-    CREATE TABLE IF NOT EXISTS invites (
-        token_hash TEXT PRIMARY KEY,
-        username TEXT NOT NULL UNIQUE,
-        role TEXT NOT NULL CHECK (role IN ('admin', 'member')),
-        servers TEXT NOT NULL DEFAULT '[]',
-        totp_secret TEXT,
-        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
-        created REAL NOT NULL,
-        expires REAL NOT NULL
     );
     -- Which servers a member may see and run. Admins may use every server and have no rows here.
     CREATE TABLE IF NOT EXISTS server_access (

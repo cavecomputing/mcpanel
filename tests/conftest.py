@@ -61,10 +61,10 @@ def anon(app):
 
 
 def make_user(username, role='member', password=PASSWORD):
-    """A user in the database, as {'id', 'username', 'role', 'totp_secret'}."""
-    user_id = accounts.create_user(username, role, password)
-    with accounts.get_db() as conn:
-        secret = conn.execute('SELECT totp_secret FROM users WHERE id = ?', (user_id,)).fetchone()[0]
+    """A user in the database who has had their first sign-in, as {'id', 'username', 'role', 'totp_secret'}."""
+    user_id, _ = accounts.create_user(username, role, [])
+    secret = pyotp.random_base32()
+    accounts.finish_setup(accounts.user_by_id(user_id), password, secret, 0)
     return {'id': user_id, 'username': username, 'role': role, 'totp_secret': secret}
 
 
@@ -99,7 +99,8 @@ def sign_in(client, username, password=PASSWORD, code=None, remember=False):
     """Sign client in through the real /login and /login/code pages; the last response.
 
     code defaults to the user's current TOTP code, or the next one when that was used already.
-    Returns the password step's response when it didn't lead on to the code.
+    Returns the password step's response when it didn't lead on to the code: a wrong password, or
+    a one-time one, which leads on to the set-up.
     """
     data = {'username': username, 'password': password, **({'remember': 'on'} if remember else {})}
     response = client.post('/login', data=data)

@@ -1,13 +1,13 @@
-"""Users, sessions, invites and recovery codes in the database, and who may use which server.
+"""Users, sessions and recovery codes in the database, and who may use which server.
 
-Passwords are argon2id hashes. Session tokens, invite tokens and recovery codes are random and
-stored only as their SHA-256, so a copy of the database signs nobody in.
+Passwords, one-time ones included, are argon2id hashes. Session tokens and recovery codes are random
+and stored only as their SHA-256, so a copy of the database signs nobody in.
 """
 import hashlib
 import hmac
-import json
 import re
 import secrets
+import sqlite3
 import time
 
 import pyotp
@@ -22,7 +22,8 @@ USERNAME = re.compile(r'[a-z0-9._-]{1,32}')
 MIN_PASSWORD = 12
 REMEMBER_FOR = 30 * 24 * 3600  # "Keep this device signed in"
 SESSION_FOR = 24 * 3600  # otherwise the cookie ends with the browser, and the session after a day at most
-INVITE_FOR = 24 * 3600
+ONE_TIME_FOR = 24 * 3600  # how long a one-time password works
+ONE_TIME_ALPHABET = '0123456789abcdefghjkmnpqrstvwxyz'  # Crockford's base32: no i, l, o or u to misread
 RECOVERY_CODES = 10
 
 hasher = PasswordHasher()  # argon2id
@@ -43,15 +44,57 @@ def check_username(username):
     return username
 
 
-def create_user(username, role, password, totp_secret=None):
-    """Add a user and return their id. A new TOTP secret is made unless one is given."""
-    now = time.time()
+def new_one_time_password():
+    """A password for a first sign-in, like 7kq2-xm4d-91fz-c3hv: 16 characters of 32, so 80 random
+    bits, in groups of four to read out."""
+    return '-'.join(''.join(secrets.choice(ONE_TIME_ALPHABET) for _ in range(4)) for _ in range(4))
+
+
+def create_user(username, role, server_ids):
+    """Add an account for a username that passed check_username(), which as a member may use
+    server_ids: (its id, its one-time password). It has no TOTP secret until its first sign-in."""
+    password = new_one_time_password()
+    password_hash, now = hasher.hash(password), time.time()
     with get_db() as conn:
-        user_id = conn.execute('''INSERT INTO users (username, role, password_hash, totp_secret, password_changed, created)
-                                  VALUES (?, ?, ?, ?, ?, ?)''',
-                               (username, role, hasher.hash(password), totp_secret or pyotp.random_base32(), now, now)).lastrowid
+        try:
+            user_id = conn.execute('''INSERT INTO users (username, role, password_hash, password_changed, created)
+                                      VALUES (?, ?, ?, ?, ?)''', (username, role, password_hash, now, now)).lastrowid
+        except sqlite3.IntegrityError as error:
+            if error.sqlite_errorname != 'SQLITE_CONSTRAINT_UNIQUE':  # username is the only UNIQUE column
+                raise
+            abort(409, f'There is already a user called {username}')
+        conn.executemany('INSERT INTO server_access (user_id, server) VALUES (?, ?)',
+                         [(user_id, server_id) for server_id in server_ids])
         conn.commit()
-    return user_id
+    return user_id, password
+
+
+def finish_setup(user, password, totp_secret, totp_step):
+    """Give an account signing in for the first time its own password and its TOTP secret, the code
+    for totp_step used up; whether that happened. user is its row as the set-up checked it: nothing
+    happens when its password changed since (a reset), or another tab finished the set-up first."""
+    with get_db() as conn:
+        done = conn.execute('''UPDATE users SET password_hash = ?, password_changed = ?, totp_secret = ?, totp_last_step = ?,
+                                                failed_tries = 0
+                               WHERE id = ? AND totp_secret IS NULL AND password_changed = ?''',
+                            (hasher.hash(password), time.time(), totp_secret, totp_step,
+                             user['id'], user['password_changed'])).rowcount
+        conn.commit()
+    return bool(done)
+
+
+def reset_sign_in(user_id):
+    """Start a user's sign-in over, for a lost phone: a new one-time password (returned) replaces
+    their password, and their TOTP secret, recovery codes, sessions and any lock go."""
+    password = new_one_time_password()
+    with get_db() as conn:
+        conn.execute('''UPDATE users SET password_hash = ?, password_changed = ?, totp_secret = NULL, failed_tries = 0,
+                                         locked_until = 0
+                        WHERE id = ?''', (hasher.hash(password), time.time(), user_id))
+        conn.execute('DELETE FROM recovery_codes WHERE user_id = ?', (user_id,))
+        conn.execute('DELETE FROM sessions WHERE user_id = ?', (user_id,))
+        conn.commit()
+    return password
 
 
 def user_named(username):
@@ -174,50 +217,6 @@ def end_session(token):
     with get_db() as conn:
         conn.execute('DELETE FROM sessions WHERE token_hash = ?', (hashed(token),))
         conn.commit()
-
-
-def create_invite(username, role, server_ids, created_by):
-    """A one-time invite token for a new account, valid for 24 hours, for a username that passed
-    check_username(). Replaces an earlier invite for the same username. The account's TOTP secret
-    is made now, so the set-up page always shows the same QR code."""
-    now = time.time()
-    with get_db() as conn:
-        if conn.execute('SELECT 1 FROM users WHERE username = ?', (username,)).fetchone():
-            abort(409, f'There is already a user called {username}')
-        token = secrets.token_urlsafe(32)
-        conn.execute('DELETE FROM invites WHERE username = ?', (username,))
-        conn.execute('''INSERT INTO invites (token_hash, username, role, servers, totp_secret, created_by, created, expires)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
-                     (hashed(token), username, role, json.dumps(server_ids),
-                      pyotp.random_base32(), created_by, now, now + INVITE_FOR))
-        conn.commit()
-    return token
-
-
-def invite_for(token):
-    """The unused, unexpired invite with this token, or None."""
-    with get_db() as conn:
-        return conn.execute('SELECT * FROM invites WHERE token_hash = ? AND expires > ?',
-                            (hashed(token), time.time())).fetchone()
-
-
-def accept_invite(invite, password, totp_step):
-    """Turn an invite into its account, which may use the invite's servers; the new user's id.
-
-    None when the invite was used meanwhile: claiming it first is what makes it single use.
-    """
-    with get_db() as conn:
-        claimed = conn.execute('DELETE FROM invites WHERE token_hash = ?', (invite['token_hash'],)).rowcount
-        conn.commit()
-    if not claimed:
-        return None
-    user_id = create_user(invite['username'], invite['role'], password, invite['totp_secret'])
-    with get_db() as conn:
-        conn.execute('UPDATE users SET totp_last_step = ? WHERE id = ?', (totp_step, user_id))
-        conn.executemany('INSERT INTO server_access (user_id, server) VALUES (?, ?)',
-                         [(user_id, server_id) for server_id in json.loads(invite['servers'])])
-        conn.commit()
-    return user_id
 
 
 def servers_for(user):

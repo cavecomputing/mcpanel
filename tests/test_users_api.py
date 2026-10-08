@@ -1,3 +1,4 @@
+import re
 import time
 
 import pytest
@@ -5,15 +6,16 @@ import pytest
 from mcpanel import accounts
 from mcpanel.db import get_db
 
-from .conftest import make_user, signed_in_client
+from .conftest import PASSWORD, make_user, sign_in, signed_in_client
 
 ADMIN_CALLS = [
     ('get', '/api/users', None),
-    ('post', '/api/users/invite', {'username': 'sam', 'role': 'member', 'servers': []}),
+    ('post', '/api/users', {'username': 'sam', 'role': 'member', 'servers': []}),
     ('put', '/api/users/1', {'role': 'member', 'servers': []}),
+    ('post', '/api/users/1/reset', None),
     ('delete', '/api/users/1', None),
-    ('delete', '/api/users/invites/sam', None),
 ]
+ONE_TIME_PASSWORD = re.compile(r'[0-9a-hjkmnp-tv-z]{4}(-[0-9a-hjkmnp-tv-z]{4}){3}')
 
 
 def access(user_id):
@@ -32,45 +34,49 @@ def test_anonymous_gets_401(anon, method, path, body):
     assert getattr(anon, method)(path, json=body).status_code == 401
 
 
-def test_list_users(admin, app):
+def test_list_users(admin, app, clock):
     sam = make_user('sam')
     with get_db() as conn:
         conn.executemany('INSERT INTO server_access (user_id, server) VALUES (?, ?)', [(sam['id'], 'smp'), (sam['id'], 'creative')])
         conn.commit()
-    accounts.create_invite('kim', 'member', ['smp'], admin.user['id'])
+    accounts.create_user('kim', 'member', ['smp'])
     body = admin.get('/api/users').get_json()
     users = {user['username']: user for user in body['users']}
-    assert set(users) == {'admin', 'sam'}
+    assert set(users) == {'admin', 'kim', 'sam'}
     assert users['sam']['servers'] == ['creative', 'smp'] and users['sam']['role'] == 'member'
     assert users['sam']['last_seen'] is None and users['sam']['created'] > 0
     assert users['admin']['servers'] == [] and users['admin']['last_seen'] > 0
-    assert set(users['sam']) == {'id', 'username', 'role', 'servers', 'last_seen', 'created'}
-    [invite] = body['invites']
-    assert invite['username'] == 'kim' and invite['role'] == 'member' and invite['servers'] == ['smp']
-    assert invite['expires'] > time.time()
-    assert 'token' not in str(body) and 'secret' not in str(body)
+    assert set(users['sam']) == {'id', 'username', 'role', 'servers', 'last_seen', 'created', 'one_time_password_expires'}
+    # Waiting for a first sign-in: when the one-time password stops working, even once it has.
+    assert users['sam']['one_time_password_expires'] is None and users['admin']['one_time_password_expires'] is None
+    assert users['kim']['one_time_password_expires'] == pytest.approx(clock['now'] + 24 * 3600)
+    assert users['kim']['servers'] == ['smp']
+    clock['now'] += 25 * 3600
+    expired = next(user for user in admin.get('/api/users').get_json()['users'] if user['username'] == 'kim')
+    assert expired['one_time_password_expires'] < clock['now']
+    assert 'hash' not in str(body) and 'secret' not in str(body)
 
 
-def test_invite(admin, anon):
-    response = admin.post('/api/users/invite', json={'username': 'Sam', 'role': 'member', 'servers': ['smp', 'smp']})
+def test_add_a_user(admin, anon):
+    response = admin.post('/api/users', json={'username': 'Sam', 'role': 'member', 'servers': ['smp', 'smp']})
     assert response.status_code == 201
-    link = response.get_json()['link']
-    assert link.startswith('/invite/') and response.get_json()['expires'] > time.time()
-    assert anon.get(link).status_code == 200
-    [invite] = admin.get('/api/users').get_json()['invites']
-    assert (invite['username'], invite['servers']) == ('sam', ['smp'])
+    body = response.get_json()
+    assert set(body) == {'user', 'one_time_password'}
+    user, password = body['user'], body['one_time_password']
+    assert (user['username'], user['role'], user['servers'], user['last_seen']) == ('sam', 'member', ['smp'], None)
+    assert user['one_time_password_expires'] > time.time() + 23 * 3600
+    assert ONE_TIME_PASSWORD.fullmatch(password)
+    row = accounts.user_by_id(user['id'])
+    assert row['password_hash'].startswith('$argon2id$') and password not in row['password_hash']
+    assert row['totp_secret'] is None
+    assert sign_in(anon, 'sam', password).headers['Location'] == '/login/setup'
+    assert password not in str(admin.get('/api/users').get_json())  # shown only when made
 
 
-def test_admin_invites_carry_no_servers(admin):
-    admin.post('/api/users/invite', json={'username': 'kim', 'role': 'admin', 'servers': ['smp']})
-    assert admin.get('/api/users').get_json()['invites'][0]['servers'] == []
-
-
-def test_a_new_invite_replaces_the_old(admin, anon):
-    first = admin.post('/api/users/invite', json={'username': 'sam', 'role': 'member'}).get_json()['link']
-    second = admin.post('/api/users/invite', json={'username': 'sam', 'role': 'admin'}).get_json()['link']
-    assert anon.get(first).status_code == 404 and anon.get(second).status_code == 200
-    assert len(admin.get('/api/users').get_json()['invites']) == 1
+def test_admins_are_added_without_servers(admin):
+    response = admin.post('/api/users', json={'username': 'kim', 'role': 'admin', 'servers': ['smp']})
+    assert response.get_json()['user']['servers'] == []
+    assert accounts.servers_for(accounts.user_named('kim')) is None
 
 
 @pytest.mark.parametrize('body, status', [
@@ -81,9 +87,10 @@ def test_a_new_invite_replaces_the_old(admin, anon):
     ({'username': 'sam', 'role': 'member', 'servers': 'smp'}, 400),
     ({'username': 'sam', 'role': 'member', 'servers': ['../etc']}, 404),
 ])
-def test_bad_invites(admin, body, status):
-    response = admin.post('/api/users/invite', json=body)
+def test_bad_new_users(admin, body, status):
+    response = admin.post('/api/users', json=body)
     assert response.status_code == status and response.get_json()['error']
+    assert accounts.user_named('sam') is None
 
 
 def test_change_a_member(admin):
@@ -131,9 +138,33 @@ def test_you_cant_remove_yourself(admin):
     assert response.status_code == 400 and accounts.user_by_id(admin.user['id'])
 
 
-def test_remove_an_invite(admin, anon):
-    link = admin.post('/api/users/invite', json={'username': 'sam', 'role': 'member'}).get_json()['link']
-    assert admin.delete('/api/users/invites/sam').status_code == 200
-    assert anon.get(link).status_code == 404
-    assert admin.get('/api/users').get_json()['invites'] == []
-    assert admin.delete('/api/users/invites/sam').status_code == 404
+def test_reset_a_users_sign_in(admin, app, clock):
+    sam = signed_in_client(app, make_user('sam'))
+    accounts.new_recovery_codes(sam.user['id'])
+    with get_db() as conn:  # locked, as after five wrong tries
+        conn.execute('UPDATE users SET failed_tries = 3, locked_until = ? WHERE id = ?', (clock['now'] + 600, sam.user['id']))
+        conn.commit()
+    response = admin.post(f'/api/users/{sam.user["id"]}/reset')
+    assert response.status_code == 200 and set(response.get_json()) == {'one_time_password'}
+    password = response.get_json()['one_time_password']
+    assert ONE_TIME_PASSWORD.fullmatch(password)
+    assert sam.get('/api/me').status_code == 401  # signed out everywhere
+    row = accounts.user_by_id(sam.user['id'])
+    assert (row['totp_secret'], row['failed_tries'], row['locked_until']) == (None, 0, 0)
+    with get_db() as conn:
+        assert conn.execute('SELECT COUNT(*) FROM recovery_codes').fetchone()[0] == 0
+    assert sign_in(app.test_client(), 'sam', PASSWORD).status_code == 401  # the old password no longer works
+    assert sign_in(app.test_client(), 'sam', password).headers['Location'] == '/login/setup'
+    [listed] = [user for user in admin.get('/api/users').get_json()['users'] if user['username'] == 'sam']
+    assert listed['one_time_password_expires'] == pytest.approx(clock['now'] + 24 * 3600)
+
+
+def test_you_cant_reset_your_own_sign_in(admin):
+    response = admin.post(f'/api/users/{admin.user["id"]}/reset')
+    assert response.status_code == 400 and response.get_json()['error']
+    assert admin.get('/api/me').status_code == 200
+    assert accounts.user_by_id(admin.user['id'])['totp_secret'] == admin.user['totp_secret']
+
+
+def test_reset_unknown_user(admin):
+    assert admin.post('/api/users/999/reset').status_code == 404

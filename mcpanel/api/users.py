@@ -1,6 +1,5 @@
-"""Users and invites, for admins: list, invite, change role and servers, remove."""
+"""Users, for admins: list, add, change role and servers, reset sign-in, remove."""
 import json
-import time
 
 from flask import Blueprint, abort, g
 
@@ -31,36 +30,39 @@ def servers_arg(server_ids):
 
 
 def user_dicts():
-    """Every user as the API shows them, by username."""
+    """Every user as the API shows them, by username. one_time_password_expires is when the one-time
+    password of an account waiting for its first sign-in stops working, and null for everyone else."""
     with get_db() as conn:
         rows = conn.execute('''SELECT id, username, role, created,
                                       (SELECT MAX(last_seen) FROM sessions WHERE user_id = users.id) AS last_seen,
-                                      (SELECT json_group_array(server) FROM server_access WHERE user_id = users.id) AS servers
-                               FROM users ORDER BY username''').fetchall()
+                                      (SELECT json_group_array(server) FROM server_access WHERE user_id = users.id) AS servers,
+                                      CASE WHEN totp_secret IS NULL THEN password_changed + ? END AS one_time_password_expires
+                               FROM users ORDER BY username''', (accounts.ONE_TIME_FOR,)).fetchall()
     return [{'id': row['id'], 'username': row['username'], 'role': row['role'], 'servers': sorted(json.loads(row['servers'])),
-             'last_seen': row['last_seen'], 'created': row['created']} for row in rows]
+             'last_seen': row['last_seen'], 'created': row['created'],
+             'one_time_password_expires': row['one_time_password_expires']} for row in rows]
+
+
+def user_dict(user_id):
+    """One user as the API shows them."""
+    return next(user for user in user_dicts() if user['id'] == user_id)
 
 
 @bp.get('/users')
 def list_users():
-    """Every user, and the invites not yet used or expired."""
-    with get_db() as conn:
-        invites = conn.execute('SELECT username, role, servers, expires FROM invites WHERE expires > ? ORDER BY username',
-                               (time.time(),)).fetchall()
-    return {'users': user_dicts(),
-            'invites': [{'username': row['username'], 'role': row['role'], 'servers': json.loads(row['servers']),
-                         'expires': row['expires']} for row in invites]}
+    return {'users': user_dicts()}
 
 
-@bp.post('/users/invite')
-def invite():
-    """A one-time link for a new account: {username, role, servers}. The link is shown only here."""
+@bp.post('/users')
+def create_user():
+    """Add an account: {username, role, servers} -> {user, one_time_password}. The one-time password,
+    shown only here, signs them in once to choose their own and set up two-factor sign-in."""
     data = json_body()
     username, role = accounts.check_username(data.get('username')), role_arg(data.get('role'))
     server_ids = servers_arg(data.get('servers')) if role == 'member' else []
-    token = accounts.create_invite(username, role, server_ids, g.user['id'])
-    logs.audit('invite_created', username=username, role=role, servers=server_ids)
-    return {'link': f'/invite/{token}', 'expires': time.time() + accounts.INVITE_FOR}, 201
+    user_id, password = accounts.create_user(username, role, server_ids)
+    logs.audit('user_created', user_id=user_id, username=username, role=role, servers=server_ids)
+    return {'user': user_dict(user_id), 'one_time_password': password}, 201
 
 
 @bp.put('/users/<int:user_id>')
@@ -79,9 +81,24 @@ def change_user(user_id):
         conn.executemany('INSERT INTO server_access (user_id, server) VALUES (?, ?)',
                          [(user_id, server_id) for server_id in server_ids])
         conn.commit()
-    user = next(user for user in user_dicts() if user['id'] == user_id)
+    user = user_dict(user_id)
     logs.audit('user_changed', user_id=user_id, username=user['username'], role=role, servers=server_ids)
     return user
+
+
+@bp.post('/users/<int:user_id>/reset')
+def reset_user(user_id):
+    """Start someone else's sign-in over, for a lost phone and lost recovery codes -> {one_time_password}.
+    Their password, TOTP and recovery codes stop working, they are signed out everywhere, and a lock
+    is lifted. The new one-time password is shown only here."""
+    if user_id == g.user['id']:
+        abort(400, "You can't reset your own sign-in")
+    user = accounts.user_by_id(user_id)
+    if user is None:
+        abort(404, 'No such user')
+    password = accounts.reset_sign_in(user_id)
+    logs.audit('sign_in_reset', user_id=user_id, username=user['username'])
+    return {'one_time_password': password}
 
 
 @bp.delete('/users/<int:user_id>')
@@ -97,15 +114,4 @@ def remove_user(user_id):
             abort(409, "That's the only admin; make someone else an admin first")
         conn.commit()
     logs.audit('user_removed', user_id=user_id, username=user['username'])
-    return {}
-
-
-@bp.delete('/users/invites/<username>')
-def remove_invite(username):
-    """Withdraw an invite before it is used."""
-    with get_db() as conn:
-        if not conn.execute('DELETE FROM invites WHERE username = ?', (username,)).rowcount:
-            abort(404, 'No such invite')
-        conn.commit()
-    logs.audit('invite_removed', username=username)
     return {}

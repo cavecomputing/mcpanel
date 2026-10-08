@@ -29,8 +29,9 @@ def create_app():
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
     app.session_interface = auth.SessionInterface()
     app.config.update(
-        # Flask's own signed cookie only carries a sign-in halfway through (password done, code not
-        # yet). Cookies ignore the port, so the names must not collide with sibling apps on the host.
+        # Flask's own signed cookie only carries a sign-in halfway through (password done, code or
+        # first sign-in's set-up not yet). Cookies ignore the port, so the names must not collide with
+        # sibling apps on the host.
         SESSION_COOKIE_NAME='mcpanel_signin',
         SESSION_COOKIE_SAMESITE='Lax',
         SESSION_COOKIE_HTTPONLY=True,
@@ -38,7 +39,8 @@ def create_app():
 
     init_db()
     # Random for each process and never stored: with the key, a copy of the database (the TOTP
-    # secrets) could sign that cookie and skip the password. A restart loses only sign-ins halfway.
+    # secrets) could sign that cookie and skip the password. It also makes the TOTP secret a first
+    # sign-in sets up (auth.setup_secret()). A restart loses only sign-ins halfway.
     app.secret_key = secrets.token_bytes(32)
 
     app.before_request(logs.start_timer)
@@ -48,7 +50,8 @@ def create_app():
     app.register_blueprint(auth.bp)
     app.register_blueprint(api.bp)
     app.register_blueprint(views.bp)
-    app.cli.add_command(auth.invite_command)
+    app.cli.add_command(auth.create_user_command)
+    app.cli.add_command(auth.reset_user_command)
     return app
 
 
