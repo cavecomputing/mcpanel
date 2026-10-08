@@ -218,7 +218,9 @@ arbitrary container owns the machine, so:
   published, under a lock. Docker refuses a port something outside Docker holds; report that, don't
   retry blindly.
 - RCON goes over the `mcpanel` network to `mcpanel-<id>:25575`. Commands from the console go
-  through RCON, never `docker exec`; nothing in the panel opens a shell in a container.
+  through RCON, never `docker exec`; nothing in the panel opens a shell in a container. The image
+  writes the RCON password into the server's folder (`.rcon-cli.env`, `.rcon-cli.yaml`,
+  `server.properties`), so whatever serves a server's files (Files, Backups) must not hand it out.
 
 ### Access
 
