@@ -129,7 +129,7 @@ def server_dict(container):
     return {
         'id': container.labels['mcpanel.server'],
         'name': container.labels.get('mcpanel.name', ''),
-        'status': status_of(attrs['State']),
+        'status': status_of(attrs),
         'type': env.get('TYPE', ''),
         'version': env.get('VERSION', ''),
         'java': attrs['Config']['Image'].partition(':')[2],
@@ -141,11 +141,16 @@ def server_dict(container):
     }
 
 
-def status_of(state):
-    """running, starting, restarting, crashed or stopped, from a container's State."""
+def status_of(attrs):
+    """running, starting, restarting, crashed or stopped, from a container's attrs."""
+    state = attrs['State']
     if state['Status'] == 'running':
-        # The image's health check says starting until the server answers players.
-        return 'starting' if (state.get('Health') or {}).get('Status') == 'starting' else 'running'
+        # The image's health check says starting until the server answers players. Docker restarts a
+        # crashing server at once and resets its health each time, so a server that will never come
+        # up would say starting for ever: RestartCount, which Start and Restart zero, tells them apart.
+        if (state.get('Health') or {}).get('Status') == 'starting':
+            return 'restarting' if attrs.get('RestartCount') else 'starting'
+        return 'running'
     if state['Status'] == 'restarting':
         return 'restarting'
     # 143 is the server ending on Docker's SIGTERM, i.e. stopped on purpose.

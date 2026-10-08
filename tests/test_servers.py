@@ -251,6 +251,14 @@ def test_status_comes_from_the_container_state(docker, status, exit_code, health
     assert servers.get_server('survival')['status'] == shown
 
 
+def test_a_server_docker_keeps_restarting_says_so(docker):
+    create()
+    # Each restart after a crash resets the health check to starting; only the count shows the loop.
+    docker.set_state('mcpanel-survival', 'running', health='starting', restarts=3)
+    assert servers.get_server('survival')['status'] == 'restarting'
+    assert servers.restart_server('survival')['status'] == 'starting'  # a Restart zeroes the count
+
+
 def test_stop_start_and_restart_return_the_fresh_dict(docker, caplog):
     caplog.set_level(logging.INFO)
     create()

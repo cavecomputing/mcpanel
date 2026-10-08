@@ -63,16 +63,18 @@ class FakeDocker:
             'Config': {key: value for key, value in config.items() if key not in ('HostConfig', 'NetworkingConfig')},
             'HostConfig': config['HostConfig'],
             'State': {'Status': 'created', 'Running': False, 'ExitCode': 0},
+            'RestartCount': 0,
         }
         return container_id
 
-    def set_state(self, name, status, exit_code=0, health=None):
+    def set_state(self, name, status, exit_code=0, health=None, restarts=0):
         """Put a container in a state: set_state('mcpanel-x', 'exited', exit_code=1), or 'running'
-        with health='starting'."""
+        with health='starting', and restarts=3 when Docker has restarted it 3 times since its start."""
         state = {'Status': status, 'Running': status in ('running', 'restarting'), 'ExitCode': exit_code}
         if health:
             state['Health'] = {'Status': health}
         self.live(name)['State'] = state
+        self.live(name)['RestartCount'] = restarts
 
     def live(self, key):
         """The daemon's own attrs of a container, by id or name."""
@@ -93,8 +95,9 @@ class FakeDocker:
                    if other is not attrs and other['State']['Running']):
                 raise APIError('500 Server Error',
                                explanation=f'{endpoint}: Bind for 0.0.0.0:{port} failed: port is already allocated')
-        # The image's health check says starting until the server answers.
+        # The image's health check says starting until the server answers. A start or restart zeroes the count.
         attrs['State'] = {'Status': 'running', 'Running': True, 'ExitCode': 0, 'Health': {'Status': 'starting'}}
+        attrs['RestartCount'] = 0
 
 
 def host_ports(attrs):
