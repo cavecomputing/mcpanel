@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+    <title>{% block title %}mcpanel{% endblock %}</title>
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+    <meta name="theme-color" content="#282828">
+    {# Dark unless this device chose light. Runs before the stylesheets so it doesn't flash. #}
+    <script>try { if (localStorage.getItem('mcpanel-theme') === 'light') document.documentElement.dataset.theme = 'light'; } catch (e) {}</script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/cavecomputing.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+        <symbol id="i-cube" viewBox="0 0 24 24"><path d="M12 2.8 20 7.4v9.2L12 21.2 4 16.6V7.4z"/><path d="M4 7.4l8 4.6 8-4.6M12 12v9.2"/></symbol>
+    </svg>
+    {% block body %}{% endblock %}
+</body>
+</html>
