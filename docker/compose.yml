@@ -1,0 +1,31 @@
+name: mcpanel
+
+# The build context is the repo root. Settings come from the environment or docker/.env next to
+# this file; README.md lists them.
+services:
+  mcpanel:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: mcpanel
+    ports:
+      # For Caddy on this machine. If Caddy runs elsewhere, publish on an address it can reach
+      # (e.g. "10.0.0.5:5000:5000"), never on one strangers can.
+      - "127.0.0.1:5000:5000"
+    volumes:
+      # The same path inside as on the host: a server's data folder is a bind mount, and Docker
+      # reads bind-mount paths on the host.
+      - ${MCPANEL_DATA_DIR}:${MCPANEL_DATA_DIR}
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+    environment:
+      - MCPANEL_PUBLIC_HOST=${MCPANEL_PUBLIC_HOST:?Set MCPANEL_PUBLIC_HOST in docker/.env to the name players connect to}
+      - MCPANEL_PORT_RANGE=${MCPANEL_PORT_RANGE:?Set MCPANEL_PORT_RANGE in docker/.env to the game ports, e.g. 25565-25600}
+      - MCPANEL_DATA_DIR=${MCPANEL_DATA_DIR:?Set MCPANEL_DATA_DIR in docker/.env to an absolute path on the host}
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+
+# The network the servers join, so the panel reaches their RCON by container name.
+networks:
+  default:
+    name: mcpanel
