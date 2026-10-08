@@ -34,7 +34,7 @@ export async function showUsers() {
             <div class="list-row__main">
                 <div class="list-row__title"><b>${esc(user.username)}</b>${roleBadge(user.role)}</div>
                 <div class="sub">${serversLine(user.role, user.servers)}</div>
-                <div class="sub">${user.last_seen ? `Last seen ${relativeTime(user.last_seen)}` : 'Not signed in yet'}</div>
+                <div class="sub">${user.last_seen ? `Last seen ${relativeTime(user.last_seen)}` : 'Not signed in on any device'}</div>
             </div>
             <div class="list-row__actions">${user.username === state.username ? '<span class="cc-tag">You</span>' : `
                 <button class="cc-btn cc-btn--ghost cc-btn--sm" type="button" data-edit="${user.id}"><span>Edit</span></button>
