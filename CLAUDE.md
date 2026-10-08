@@ -230,6 +230,12 @@ the whole perimeter:
 - **Every route except the sign-in pages, `/healthz` and static assets requires a session.**
   A new route is behind the check by default, not opted in. Admin-only API routes use
   `require_admin()`; anything a member does to a server checks `accounts.may_use(user, server_id)`.
+- **Only admins change a server's resource allocation**: its memory (the heap and the container's
+  limit), and any CPU or other limit added later. Members manage everything else on the servers they
+  were given, as each part lands: settings such as `view-distance`, files, mods, plugins, type,
+  version and Java. The route checks `require_admin()` for the allocation; hiding the control is not
+  enough. Files can't get round it: the image rewrites its JVM flags from the container's env on every
+  start, and the container's memory limit caps the server whatever it asks for.
 - Passwords are argon2id hashes (at least 12 characters). TOTP is required on every account: a
   sign-in is password, then a 6-digit code (a code already used is refused) or a single-use recovery
   code. 5 wrong passwords or codes in a row lock that account for 15 minutes, and while it is locked
