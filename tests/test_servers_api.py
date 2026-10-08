@@ -85,6 +85,18 @@ def test_servers_a_member_may_not_use_look_missing(admin, member, docker, action
     assert docker.actions == actions
 
 
+# same-site: a sibling app's page on the same domain, which gets the session cookie, SameSite=Lax or not.
+@pytest.mark.parametrize('headers', [{'Sec-Fetch-Site': 'cross-site'}, {'Sec-Fetch-Site': 'same-site'},
+                                     {'Origin': 'http://evil.example'}])
+def test_writes_from_another_sites_page_are_refused(admin, docker, headers):
+    create(admin)
+    response = admin.post('/api/servers/survival/stop', headers=headers)
+    assert response.status_code == 403 and response.get_json() == {'error': 'Cross-site request blocked'}
+    assert [action for action, _, _ in docker.actions] == ['start']
+    assert admin.post('/api/servers/survival/stop', headers={'Sec-Fetch-Site': 'same-origin'}).status_code == 200
+    assert admin.post('/api/servers/survival/start', headers={'Origin': 'http://localhost'}).status_code == 200
+
+
 @pytest.mark.parametrize('server_id', ['nope', 'Bad_Id', 'a' * 40])
 def test_admins_get_404_for_a_missing_server(admin, server_id):
     response = admin.post(f'/api/servers/{server_id}/start')
