@@ -30,6 +30,7 @@ class FakeDocker:
         self.actions = []         # (action, container name, argument) of each start, stop, restart, remove
         self.local_images = set()
         self.networks_made = {}   # network name -> the options it was created with
+        self.network_ids = {}     # network name -> its id, new each time it is made
         self.inspect = {}         # container id -> attrs, as docker inspect reports them
         self.containers, self.images, self.networks = Containers(self), Images(self), Networks(self)
         self.api = Api(self)
@@ -55,6 +56,7 @@ class FakeDocker:
             raise APIError('409 Client Error: Conflict',
                            explanation=f'Conflict. The container name "/{name}" is already in use')
         config = ContainerConfig(API_VERSION, **{'command': None, **options})
+        network = config['HostConfig'].get('NetworkMode')
         container_id = uuid.uuid4().hex + uuid.uuid4().hex
         self.inspect[container_id] = {
             'Id': container_id,
@@ -62,6 +64,7 @@ class FakeDocker:
             'Created': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%f123Z'),  # nanoseconds
             'Config': {key: value for key, value in config.items() if key not in ('HostConfig', 'NetworkingConfig')},
             'HostConfig': config['HostConfig'],
+            'NetworkSettings': {'Networks': {network: {'NetworkID': self.network_ids.get(network, '')}} if network else {}},
             'State': {'Status': 'created', 'Running': False, 'ExitCode': 0},
             'RestartCount': 0,
         }
@@ -85,14 +88,21 @@ class FakeDocker:
         raise NotFound(f'No such container: {key}')
 
     def start_container(self, attrs):
-        """Start a container, refusing a host port that something else holds, in Docker's words."""
+        """Start a container, refusing a host port that something else holds, or a network that is
+        gone, in Docker's words. Refused a port, it loses its network, as with Docker 29."""
+        for network in attrs['NetworkSettings']['Networks'].values():
+            if network['NetworkID'] and network['NetworkID'] not in self.network_ids.values():
+                raise APIError('500 Server Error', explanation='failed to set up container networking: '
+                                                               f'network {network["NetworkID"]} not found')
         endpoint = f'driver failed programming external connectivity on endpoint {attrs["Name"][1:]}'
         for port in host_ports(attrs):
             if port in self.outside_ports:
+                attrs['NetworkSettings']['Networks'] = {}
                 raise APIError('500 Server Error', explanation=f'{endpoint}: Error starting userland proxy: '
                                                                f'listen tcp4 0.0.0.0:{port}: bind: address already in use')
             if any(port in host_ports(other) for other in self.inspect.values()
                    if other is not attrs and other['State']['Running']):
+                attrs['NetworkSettings']['Networks'] = {}
                 raise APIError('500 Server Error',
                                explanation=f'{endpoint}: Bind for 0.0.0.0:{port} failed: port is already allocated')
         # The image's health check says starting until the server answers. A start or restart zeroes the count.
@@ -204,7 +214,24 @@ class Networks:
         self.fake.answer()
         if name not in self.fake.networks_made:
             raise NotFound(f'network {name} not found')
+        return Network(self.fake, name)
 
     def create(self, name, **options):
+        """Make a network; making one again, as `docker compose down` and `up` do, gives it a new id."""
         self.fake.answer()
         self.fake.networks_made[name] = options
+        self.fake.network_ids[name] = uuid.uuid4().hex + uuid.uuid4().hex
+        return Network(self.fake, name)
+
+
+class Network:
+    def __init__(self, fake, name):
+        self.fake, self.name, self.id = fake, name, fake.network_ids[name]
+
+    def connect(self, container):
+        networks = self.fake.live(container.id)['NetworkSettings']['Networks']
+        if networks.get(self.name, {}).get('NetworkID') == self.id:
+            raise APIError('403 Client Error: Forbidden',
+                           explanation=f'endpoint with name {container.name} already exists in network {self.name}')
+        networks[self.name] = {'NetworkID': self.id}
+        self.fake.actions.append(('connect', container.name, self.name))

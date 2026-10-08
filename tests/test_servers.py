@@ -202,6 +202,33 @@ def test_the_image_is_pulled_only_when_missing(docker):
     assert len(docker.pulled) == 2
 
 
+def networks_of(docker, name):
+    """network name -> id, of the networks a container is on."""
+    return {network: settings['NetworkID'] for network, settings in docker.live(name)['NetworkSettings']['Networks'].items()}
+
+
+@pytest.mark.parametrize('action', [servers.start_server, servers.restart_server])
+def test_after_a_start_refused_a_port_the_next_start_rejoins_the_network(docker, action):
+    create()
+    servers.stop_server('survival')
+    docker.add('web', ports={'80/tcp': 25565})
+    docker.set_state('web', 'running')
+    assert refused(servers.start_server, 'survival')[0] == 409
+    assert networks_of(docker, 'mcpanel-survival') == {}  # Docker dropped it
+    docker.set_state('web', 'exited')
+    assert action('survival')['status'] == 'starting'
+    assert networks_of(docker, 'mcpanel-survival') == {'mcpanel': docker.network_ids['mcpanel']}
+
+
+@pytest.mark.parametrize('action', [servers.start_server, servers.restart_server])
+def test_a_start_rejoins_a_network_made_again(docker, action):
+    create()
+    servers.stop_server('survival')
+    docker.networks.create('mcpanel')  # `docker compose down` with every server stopped, then `up`
+    assert action('survival')['status'] == 'starting'
+    assert networks_of(docker, 'mcpanel-survival') == {'mcpanel': docker.network_ids['mcpanel']}
+
+
 def test_the_network_is_made_only_when_missing(docker):
     create('One')
     assert docker.networks_made == {'mcpanel': {'driver': 'bridge'}}

@@ -308,15 +308,26 @@ def ensure_image(client, java):
 
 
 def ensure_network(client):
-    """The mcpanel network. compose.yml makes it; this covers a panel run outside compose."""
+    """The mcpanel network, made if missing. compose.yml makes it; this covers a panel run outside compose."""
     try:
-        client.networks.get(NETWORK)
+        return client.networks.get(NETWORK)
     except NotFound:
-        client.networks.create(NETWORK, driver='bridge')
+        return client.networks.create(NETWORK, driver='bridge')
+
+
+def on_network(container):
+    """container, put back on the mcpanel network first if it isn't on it. A start Docker refuses (a
+    port clash, from the panel or at boot) drops the container's network, and `docker compose down`
+    with every server stopped deletes the network under it. Started either way, a server would run
+    with no network and no published port, or not at all."""
+    network = ensure_network(docker_client())
+    if container.attrs['NetworkSettings']['Networks'].get(NETWORK, {}).get('NetworkID') != network.id:
+        network.connect(container)  # Docker refuses this when it is on the network already
+    return container
 
 
 def start_server(server_id):
-    return change(server_id, 'Started', lambda container: container.start())
+    return change(server_id, 'Started', lambda container: on_network(container).start())
 
 
 def stop_server(server_id):
@@ -324,7 +335,7 @@ def stop_server(server_id):
 
 
 def restart_server(server_id):
-    return change(server_id, 'Restarted', lambda container: container.restart(timeout=STOP_SECONDS))
+    return change(server_id, 'Restarted', lambda container: on_network(container).restart(timeout=STOP_SECONDS))
 
 
 def change(server_id, done, action):
