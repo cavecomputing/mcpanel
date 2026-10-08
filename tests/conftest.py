@@ -47,6 +47,14 @@ def app(data_dir, docker):
 
 
 @pytest.fixture
+def clock(monkeypatch):
+    """time.time() stands still at clock['now'] until a test moves it."""
+    clock = {'now': time.time()}
+    monkeypatch.setattr(time, 'time', lambda: clock['now'])
+    return clock
+
+
+@pytest.fixture
 def anon(app):
     """A client that has not signed in."""
     return app.test_client()

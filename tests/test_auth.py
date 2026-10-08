@@ -1,6 +1,5 @@
 import logging
 import re
-import time
 
 import pyotp
 import pytest
@@ -9,14 +8,6 @@ from mcpanel import accounts, auth
 from mcpanel.db import get_db
 
 from .conftest import PASSWORD, make_user, sign_in
-
-
-@pytest.fixture
-def clock(monkeypatch):
-    """time.time() stands still at clock['now'] until a test moves it."""
-    clock = {'now': time.time()}
-    monkeypatch.setattr(time, 'time', lambda: clock['now'])
-    return clock
 
 
 @pytest.fixture
