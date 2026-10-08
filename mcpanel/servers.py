@@ -217,6 +217,10 @@ def container_spec(server_id, name, type, version, java, heap_gb, game_port):
         'volumes': {str(config.SERVERS_DIR / server_id): {'bind': '/data', 'mode': 'rw'}},
         'network': NETWORK,
         'restart_policy': {'Name': 'unless-stopped'},
+        # Docker's tiny init as PID 1 passes the stop signal on, so stopping a server while the image's
+        # setup scripts still run (a download, a modded install) ends them at once instead of waiting
+        # out the stop timeout; bash as PID 1 ignores it.
+        'init': True,
         # However it is stopped (the panel, a reboot, a `docker stop`), the server gets this long to
         # save the world before Docker kills it, not Docker's default 10 seconds.
         'stop_timeout': STOP_SECONDS,

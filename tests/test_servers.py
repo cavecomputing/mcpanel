@@ -29,7 +29,7 @@ def create(name='Survival', type='PAPER', version='1.21.4', java='java21', heap_
 def test_container_spec_is_the_image_one_mount_and_nothing_privileged(docker, data_dir):
     spec = servers.container_spec('survival', 'Survival', 'PAPER', '1.21.4', 'java21', 4, 25565)
     assert set(spec) == {'image', 'name', 'labels', 'environment', 'ports', 'volumes', 'network',
-                         'restart_policy', 'stop_timeout', 'mem_limit', 'log_config'}
+                         'restart_policy', 'init', 'stop_timeout', 'mem_limit', 'log_config'}
     assert spec['image'] == 'itzg/minecraft-server:java21'
     assert spec['name'] == 'mcpanel-survival'
     assert spec['labels'] == {'mcpanel.server': 'survival', 'mcpanel.name': 'Survival'}
@@ -37,6 +37,7 @@ def test_container_spec_is_the_image_one_mount_and_nothing_privileged(docker, da
     assert spec['ports'] == {'25565/tcp': 25565}
     assert spec['network'] == 'mcpanel'
     assert spec['restart_policy'] == {'Name': 'unless-stopped'}
+    assert spec['init'] is True
     assert spec['stop_timeout'] == 75
     assert spec['mem_limit'] == 5 * GIB
     assert spec['log_config'] == {'type': 'json-file', 'config': {'max-size': '10m', 'max-file': '3'}}
@@ -48,7 +49,8 @@ def test_container_spec_is_the_image_one_mount_and_nothing_privileged(docker, da
     # What the daemon is asked for, after the SDK's translation: nothing beyond these.
     create()
     [attrs] = docker.inspect.values()
-    assert set(attrs['HostConfig']) == {'Binds', 'PortBindings', 'NetworkMode', 'RestartPolicy', 'Memory', 'LogConfig'}
+    assert set(attrs['HostConfig']) == {'Binds', 'PortBindings', 'NetworkMode', 'RestartPolicy', 'Init', 'Memory',
+                                        'LogConfig'}
     assert attrs['HostConfig']['Binds'] == [f'{data_dir}/servers/survival:/data:rw']
     assert attrs['Config']['StopTimeout'] == 75  # so Docker waits that long however the server is stopped
 
