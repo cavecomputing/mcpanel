@@ -7,14 +7,14 @@ import { route, serverHash, state } from './state.js';
 import { $, copyText, esc, formatDate, setHtml, showError, showView, toast } from './ui.js';
 
 const POLL_MS = 5000;
-const STATUS = { running: 'Running', starting: 'Starting', restarting: 'Restarting', stopped: 'Stopped', crashed: 'Crashed' };
-const BADGE = { running: 'cc-badge--done', starting: 'cc-badge--open', restarting: 'cc-badge--open', crashed: 'cc-badge--warn' };
+const STATUS = { running: 'Running', starting: 'Starting', restarting: 'Restarting', unresponsive: 'Not responding', stopped: 'Stopped', crashed: 'Crashed' };
+const BADGE = { running: 'cc-badge--done', starting: 'cc-badge--open', restarting: 'cc-badge--open', unresponsive: 'cc-badge--warn', crashed: 'cc-badge--warn' };
 const TYPE_NAMES = { VANILLA: 'Vanilla', PAPER: 'Paper', PURPUR: 'Purpur', FABRIC: 'Fabric', FORGE: 'Forge', NEOFORGE: 'NeoForge', QUILT: 'Quilt' };
 // Each action's button: the statuses it works from, and what it says while it runs and when it's done.
 const ACTIONS = {
     start: { label: 'Start', when: ['stopped', 'crashed'], doing: 'Starting…', done: 'Started' },
-    stop: { label: 'Stop', when: ['running', 'starting', 'restarting'], doing: 'Stopping…', done: 'Stopped' },
-    restart: { label: 'Restart', when: ['running', 'starting'], doing: 'Restarting…', done: 'Restarted' },
+    stop: { label: 'Stop', when: ['running', 'starting', 'restarting', 'unresponsive'], doing: 'Stopping…', done: 'Stopped' },
+    restart: { label: 'Restart', when: ['running', 'starting', 'unresponsive'], doing: 'Restarting…', done: 'Restarted' },
 };
 let latest = 0;     // only the newest list gets drawn
 let polling = null; // the poll's list call while it runs: one at a time, so a slow Docker's answers still get drawn

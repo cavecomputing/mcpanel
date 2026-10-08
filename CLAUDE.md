@@ -201,10 +201,11 @@ arbitrary container owns the machine, so:
   ticked the EULA box; `TYPE`, `VERSION` and `MEMORY` from the form; `UID`/`GID` matching the panel's,
   so the panel can read and edit the server's files; a random `RCON_PASSWORD`; a memory limit of the
   heap plus headroom; json-file logging capped at 3 × 10 MB, because Docker's default never rotates;
-  `init`, so a stop while the image's setup scripts run isn't ignored by bash as PID 1; a stop
-  timeout of `STOP_SECONDS` (75 s: the image's 60 s `STOP_DURATION` for the world to save, plus room
-  to exit), so a reboot or an outside `docker stop` gives the world as long to save as the panel's
-  Stop does, not Docker's default 10 s.
+  `init`, so a stop while the image's setup scripts run isn't ignored by bash as PID 1; the image's own
+  health check with a start period of `FIRST_START_SECONDS` (10 min), for a first download or a modded
+  install; a stop timeout of `STOP_SECONDS` (75 s: the image's 60 s `STOP_DURATION` for the world to
+  save, plus room to exit), so a reboot or an outside `docker stop` gives the world as long to save as
+  the panel's Stop does, not Docker's default 10 s.
 - **A new server is created stopped**, and nothing starts it but Start, so mods and files go in
   before the world is generated. Docker never starts a container that has never run, `unless-stopped`
   or not, so a reboot doesn't either.
@@ -274,7 +275,7 @@ Fixed defaults, no settings:
 - Colors come from its tokens; never hardcode them. Accents keep one meaning: yellow (`accent-text`)
   for focus, selection and active rows; green (`accent-alt`) for section icons; aqua for running and
   done; blue (`accent-cool`) for addresses, paths and links; orange (`accent-warm`) for anything
-  destructive and for crashed. There is no red. No web fonts: system mono and sans only.
+  destructive and for crashed or not responding. There is no red. No web fonts: system mono and sans only.
 - **Dark is the default theme**, whatever the OS prefers. The choice lives in `localStorage`
   (`mcpanel-theme`), applied by a tiny inline script in `<head>` before the stylesheet paints.
 - **Logo and favicon match the sibling apps** (cozy yellow, imgy green, campfire orange, binny aqua):

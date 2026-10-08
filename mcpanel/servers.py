@@ -32,6 +32,9 @@ NETWORK = 'mcpanel'  # where the panel reaches each server's RCON by container n
 # How long a server gets to stop before Docker kills it: the image's own STOP_DURATION (60 s) for the
 # world to save, plus room for the image to exit after it.
 STOP_SECONDS = 75
+# How long the health check gives a start before it counts: a first start downloads the server, and
+# a modded one installs its loader, which can take minutes.
+FIRST_START_SECONDS = 10 * 60
 GIB = 1024 ** 3
 
 ID = re.compile(r'[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?')
@@ -144,15 +147,18 @@ def server_dict(container):
 
 
 def status_of(attrs):
-    """running, starting, restarting, crashed or stopped, from a container's attrs."""
+    """running, starting, restarting, unresponsive, crashed or stopped, from a container's attrs."""
     state = attrs['State']
     if state['Status'] == 'running':
         # The image's health check says starting until the server answers players. Docker restarts a
         # crashing server at once and resets its health each time, so a server that will never come
         # up would say starting for ever: RestartCount, which Start and Restart zero, tells them apart.
-        if (state.get('Health') or {}).get('Status') == 'starting':
+        health = (state.get('Health') or {}).get('Status')
+        if health == 'starting':
             return 'restarting' if attrs.get('RestartCount') else 'starting'
-        return 'running'
+        # Up, but not answering players: hung, or still loading past FIRST_START_SECONDS. Docker
+        # doesn't restart an unhealthy container, so say so rather than "running".
+        return 'unresponsive' if health == 'unhealthy' else 'running'
     if state['Status'] == 'restarting':
         return 'restarting'
     # 143 is the server ending on Docker's SIGTERM, i.e. stopped on purpose.
@@ -221,6 +227,8 @@ def container_spec(server_id, name, type, version, java, heap_gb, game_port):
         # setup scripts still run (a download, a modded install) ends them at once instead of waiting
         # out the stop timeout; bash as PID 1 ignores it.
         'init': True,
+        # The image's own health check, with time for a first start before it counts (in nanoseconds).
+        'healthcheck': {'start_period': FIRST_START_SECONDS * 10 ** 9},
         # However it is stopped (the panel, a reboot, a `docker stop`), the server gets this long to
         # save the world before Docker kills it, not Docker's default 10 seconds.
         'stop_timeout': STOP_SECONDS,

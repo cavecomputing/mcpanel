@@ -29,7 +29,7 @@ def create(name='Survival', type='PAPER', version='1.21.4', java='java21', heap_
 def test_container_spec_is_the_image_one_mount_and_nothing_privileged(docker, data_dir):
     spec = servers.container_spec('survival', 'Survival', 'PAPER', '1.21.4', 'java21', 4, 25565)
     assert set(spec) == {'image', 'name', 'labels', 'environment', 'ports', 'volumes', 'network',
-                         'restart_policy', 'init', 'stop_timeout', 'mem_limit', 'log_config'}
+                         'restart_policy', 'init', 'healthcheck', 'stop_timeout', 'mem_limit', 'log_config'}
     assert spec['image'] == 'itzg/minecraft-server:java21'
     assert spec['name'] == 'mcpanel-survival'
     assert spec['labels'] == {'mcpanel.server': 'survival', 'mcpanel.name': 'Survival'}
@@ -38,6 +38,7 @@ def test_container_spec_is_the_image_one_mount_and_nothing_privileged(docker, da
     assert spec['network'] == 'mcpanel'
     assert spec['restart_policy'] == {'Name': 'unless-stopped'}
     assert spec['init'] is True
+    assert spec['healthcheck'] == {'start_period': 600 * 10 ** 9}  # the image's own check, with longer to start
     assert spec['stop_timeout'] == 75
     assert spec['mem_limit'] == 5 * GIB
     assert spec['log_config'] == {'type': 'json-file', 'config': {'max-size': '10m', 'max-file': '3'}}
@@ -53,6 +54,8 @@ def test_container_spec_is_the_image_one_mount_and_nothing_privileged(docker, da
                                         'LogConfig'}
     assert attrs['HostConfig']['Binds'] == [f'{data_dir}/servers/survival:/data:rw']
     assert attrs['Config']['StopTimeout'] == 75  # so Docker waits that long however the server is stopped
+    # Only the start period: Docker keeps the image's own test, interval and retries for the rest.
+    assert {key: value for key, value in attrs['Config']['Healthcheck'].items() if value} == {'StartPeriod': 600 * 10 ** 9}
 
 
 @pytest.mark.parametrize('heap_gb, limit', [(1, 2 * GIB), (4, 5 * GIB), (6, 7.5 * GIB), (32, 40 * GIB)])
@@ -266,7 +269,7 @@ def test_get_server_finds_only_the_panels_containers(docker):
     ('running', 0, None, 'running'),
     ('running', 0, 'starting', 'starting'),
     ('running', 0, 'healthy', 'running'),
-    ('running', 0, 'unhealthy', 'running'),
+    ('running', 0, 'unhealthy', 'unresponsive'),
     ('restarting', 1, None, 'restarting'),
     ('exited', 0, None, 'stopped'),
     ('exited', 143, None, 'stopped'),

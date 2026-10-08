@@ -2,7 +2,7 @@
    Tokens: Gruvbox dark on :root (the default on every device), Gruvbox light on [data-theme="light"].
    Accents keep one meaning everywhere: yellow --accent-text for focus, selection and active rows,
    green --accent-alt for section icons, aqua for running and done, blue --accent-cool for addresses,
-   paths and links, orange --accent-warm for anything destructive and for crashed. There is no red.
+   paths and links, orange --accent-warm for anything destructive and for crashed or not responding. There is no red.
    --logo is the panel's own rose, as in favicon.svg.
    The design system's own components (cc-*) live in cavecomputing.css. */
 
@@ -172,7 +172,7 @@ svg.i { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-widt
 .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--fg-muted); }
 .dot--running { background: var(--accent-aqua); }
 .dot--starting, .dot--restarting { background: var(--accent); }
-.dot--crashed { background: var(--accent-warm); }
+.dot--crashed, .dot--unresponsive { background: var(--accent-warm); }
 .side-note { margin: 0; padding: var(--app-space-2) var(--app-space-3); color: var(--fg-muted); font-size: 12px; }
 
 /* ---------- main pane: a pinned header over a scrolling page of cards ---------- */
