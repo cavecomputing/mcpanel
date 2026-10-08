@@ -1,0 +1,205 @@
+{% extends 'base.html' %}
+{% set admin = g.user.role == 'admin' %}
+{% block head %}
+    <script type="module" src="{{ url_for('static', filename='js/main.js') }}"></script>
+{% endblock %}
+{% block body %}
+<svg width="0" height="0" style="position: absolute" aria-hidden="true">
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18.5 14.4c1.9.8 3 2.8 3 5.6"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4.5 20.5c0-4 3.4-6.5 7.5-6.5s7.5 2.5 7.5 6.5"/></symbol>
+    <symbol id="i-logout" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5v-3a2 2 0 0 0-2-2h-8a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h3"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15L19 12z"/></symbol>
+    <symbol id="i-stop" viewBox="0 0 24 24"><rect x="5.5" y="5.5" width="13" height="13" rx="1.5"/></symbol>
+    <symbol id="i-restart" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></symbol>
+    <symbol id="i-chip" viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="1.5"/><path d="M9.5 3v3.5M14.5 3v3.5M9.5 17.5V21M14.5 17.5V21M3 9.5h3.5M3 14.5h3.5M17.5 9.5H21M17.5 14.5H21"/></symbol>
+    <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M16 7l3 3M14 9l2 2"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l7.5 3v5.5c0 4.5-3.2 8.2-7.5 9.5-4.3-1.3-7.5-5-7.5-9.5V6z"/></symbol>
+    <symbol id="i-device" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="11" rx="1.5"/><path d="M8 19.5h8M12 15.5v4"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
+</svg>
+
+<div class="cc-shell app" id="shell" data-username="{{ g.user.username }}" data-role="{{ g.user.role }}">
+    <header class="cc-topbar">
+        <button class="cc-icon-btn" id="sideBtn" type="button" aria-label="Open the server list" aria-controls="side" aria-expanded="false"><svg><use href="#i-menu"/></svg></button>
+        <a class="cc-brand" href="#/"><svg class="cc-brand__mark logo" aria-hidden="true"><use href="#i-cube"/></svg><span class="cc-wordmark">mcpanel</span></a>
+        <span class="grow"></span>
+        <button class="cc-icon-btn" id="themeBtn" type="button" title="Switch theme" aria-label="Switch between dark and light"><svg><use href="#i-sun"/></svg></button>
+        <div class="account-menu">
+            <button class="user-btn" id="userBtn" type="button" aria-label="Account: {{ g.user.username }}" aria-controls="userMenu" aria-expanded="false">
+                <span class="avatar" aria-hidden="true">{{ g.user.username[0]|upper }}</span><span class="uname" aria-hidden="true">{{ g.user.username }}</span>
+            </button>
+            <div class="menu" id="userMenu" hidden>
+                <div class="menu__who">Signed in as <b>{{ g.user.username }}</b><br>{{ 'Admin' if admin else 'Member' }}</div>
+                <a href="#/account"><svg class="i"><use href="#i-user"/></svg>Your account</a>
+                <form method="post" action="{{ url_for('auth.logout') }}"><button type="submit"><svg class="i"><use href="#i-logout"/></svg>Sign out</button></form>
+            </div>
+        </div>
+    </header>
+
+    <div class="body">
+        <nav class="cc-shell__side side" id="side" aria-label="Servers and pages">
+            <button class="cc-icon-btn side-close" id="sideClose" type="button" aria-label="Close the server list"><svg><use href="#i-x"/></svg></button>
+            <div class="cc-eyebrow">Servers</div>
+            <div class="nav" id="serverNav"></div>
+            {% if admin %}<button class="cc-shell__row new-server" type="button" data-new-server><svg class="i"><use href="#i-plus"/></svg><span>New server</span></button>{% endif %}
+            <div class="cc-eyebrow">Panel</div>
+            <div class="nav">
+                {% if admin %}<a class="cc-shell__row" href="#/users" data-page="users"><svg class="i"><use href="#i-users"/></svg><span>Users</span></a>{% endif %}
+                <a class="cc-shell__row" href="#/account" data-page="account"><svg class="i"><use href="#i-user"/></svg><span>Your account</span></a>
+            </div>
+        </nav>
+        <div class="scrim" id="scrim"></div>
+
+        <main class="cc-shell__main main">
+            {# Shown in place of a server: still loading, Docker unreachable, no servers yet, or a server that's gone. #}
+            <section class="view" id="homeView" hidden>
+                <div class="page">
+                    <div class="cc-callout cc-callout--accent" id="dockerError" hidden><span class="cc-callout__label">Docker</span><span><span id="dockerErrorText"></span>. The panel tries again every few seconds.</span></div>
+                    <div class="empty" id="homeEmpty" hidden>
+                        <svg class="i"><use href="#i-cube"/></svg>
+                        <p id="homeText"></p>
+                        {% if admin %}<button class="cc-btn cc-btn--primary" type="button" id="homeNew" data-new-server><svg class="i"><use href="#i-plus"/></svg><span>New server</span></button>{% endif %}
+                    </div>
+                </div>
+            </section>
+
+            <section class="view" id="serverView" hidden>
+                <header class="head">
+                    <div class="head__title"><h1 id="serverName"></h1><span class="cc-badge" id="serverBadge"></span></div>
+                    <div class="head__actions">
+                        <button class="cc-btn cc-btn--primary" type="button" data-action="start"><svg class="i"><use href="#i-play"/></svg><span>Start</span></button>
+                        <button class="cc-btn cc-btn--danger" type="button" data-action="stop"><svg class="i"><use href="#i-stop"/></svg><span>Stop</span></button>
+                        <button class="cc-btn cc-btn--ghost" type="button" data-action="restart"><svg class="i"><use href="#i-restart"/></svg><span>Restart</span></button>
+                    </div>
+                    <div class="head__sub head__meta">
+                        <span class="address"><code id="serverAddress"></code><button class="cc-icon-btn copy-btn" type="button" id="copyAddress" title="Copy the address" aria-label="Copy the address"><svg><use href="#i-copy"/></svg></button></span>
+                        <span class="tags" id="serverTags"></span>
+                    </div>
+                </header>
+                <div class="page">
+                    <section class="cc-settings-card" aria-labelledby="overviewTitle">
+                        <div class="cc-card-header"><svg><use href="#i-chip"/></svg><h4 id="overviewTitle">Overview</h4></div>
+                        <dl class="kv" id="serverDetails"></dl>
+                    </section>
+                </div>
+            </section>
+
+            {% if admin %}
+            <section class="view" id="usersView" hidden>
+                <header class="head">
+                    <div class="head__title"><h1>Users</h1></div>
+                    <div class="head__actions"><button class="cc-btn cc-btn--primary" type="button" id="inviteBtn"><svg class="i"><use href="#i-plus"/></svg><span>Invite someone</span></button></div>
+                    <p class="head__sub">People who can sign in to this panel. Admins manage every server and every user; members see and run only the servers you give them.</p>
+                </header>
+                <div class="page">
+                    <section class="cc-settings-card" aria-labelledby="usersTitle">
+                        <div class="cc-card-header"><svg><use href="#i-users"/></svg><h4 id="usersTitle">Accounts</h4></div>
+                        <div class="rows" id="userRows"></div>
+                    </section>
+                    <section class="cc-settings-card" id="invitesCard" aria-labelledby="invitesTitle" hidden>
+                        <div class="cc-card-header"><svg><use href="#i-link"/></svg><h4 id="invitesTitle">Pending invites</h4><p>Links not used yet. Revoke one to stop it working.</p></div>
+                        <div class="rows" id="inviteRows"></div>
+                    </section>
+                </div>
+            </section>
+            {% endif %}
+
+            <section class="view" id="accountView" hidden>
+                <header class="head">
+                    <div class="head__title"><h1>Your account</h1></div>
+                    <p class="head__sub">Signed in as <b>{{ g.user.username }}</b> · {{ 'Admin' if admin else 'Member' }}</p>
+                </header>
+                <div class="page">
+                    <form class="cc-settings-card" id="passwordForm" aria-labelledby="passwordTitle">
+                        <div class="cc-card-header"><svg><use href="#i-key"/></svg><h4 id="passwordTitle">Password</h4><p>Changing it signs out your other devices.</p></div>
+                        {# For password managers, so they save the new password under the right name. #}
+                        <input name="username" value="{{ g.user.username }}" autocomplete="username" readonly hidden>
+                        <div class="cc-field"><label for="currentPassword">Current password</label><input class="cc-input" id="currentPassword" type="password" autocomplete="current-password" required></div>
+                        <div class="cc-field"><div><label for="newPassword">New password</label><span class="cc-field__hint">At least 12 characters</span></div><input class="cc-input" id="newPassword" type="password" minlength="12" autocomplete="new-password" required></div>
+                        <div class="cc-field"><label for="againPassword">New password again</label><input class="cc-input" id="againPassword" type="password" minlength="12" autocomplete="new-password" required></div>
+                        <div class="row-btns"><button class="cc-btn cc-btn--primary" type="submit"><span>Change password</span></button></div>
+                    </form>
+                    <section class="cc-settings-card" aria-labelledby="codesTitle">
+                        <div class="cc-card-header"><svg><use href="#i-shield"/></svg><h4 id="codesTitle">Recovery codes</h4><p>Each one signs you in once if you lose your authenticator app.</p></div>
+                        <div class="rows">
+                            <div class="list-row">
+                                <span class="list-row__main" id="codesLeft"></span>
+                                <button class="cc-btn cc-btn--ghost cc-btn--sm" type="button" id="newCodesBtn"><span>Make new codes</span></button>
+                            </div>
+                        </div>
+                        <div class="new-codes" id="newCodes" hidden>
+                            <p>Your old codes no longer work. Keep these somewhere safe, like your password manager: they are shown only this once.</p>
+                            <ul class="recovery-codes" id="codeList"></ul>
+                            <div class="row-btns"><button class="cc-btn cc-btn--ghost cc-btn--sm" type="button" id="copyCodes"><svg class="i"><use href="#i-copy"/></svg><span>Copy the codes</span></button></div>
+                        </div>
+                    </section>
+                    <section class="cc-settings-card" aria-labelledby="devicesTitle">
+                        <div class="cc-card-header"><svg><use href="#i-device"/></svg><h4 id="devicesTitle">Signed-in devices</h4>
+                            <div class="cc-card-header__end"><button class="cc-btn cc-btn--ghost cc-btn--sm" type="button" id="signOutOthers"><span>Sign out everywhere else</span></button></div>
+                        </div>
+                        <div class="rows" id="sessionRows"></div>
+                    </section>
+                </div>
+            </section>
+        </main>
+    </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite" popover="manual"></div>
+
+<dialog class="cc-settings-card dialog" id="askDialog" aria-labelledby="askTitle">
+    <form>
+        <header class="cc-card-header"><svg><use id="askIcon" href="#i-key"/></svg><h4 id="askTitle"></h4></header>
+        <p id="askText"></p>
+        <input class="cc-input" id="askInput" autocomplete="off" spellcheck="false" aria-labelledby="askTitle">
+        <div class="row-btns">
+            <button class="cc-btn cc-btn--ghost" type="button" data-close><span>Cancel</span></button>
+            <button class="cc-btn cc-btn--primary" id="askOk" type="submit"><span>OK</span></button>
+        </div>
+    </form>
+</dialog>
+
+{% if admin %}
+<dialog class="cc-settings-card dialog" id="newServerDialog" aria-labelledby="newServerTitle">
+    <form id="newServerForm" autocomplete="off">
+        <header class="cc-card-header"><svg><use href="#i-plus"/></svg><h4 id="newServerTitle">New server</h4></header>
+        <div class="cc-field"><label for="serverNameInput">Name</label><input class="cc-input" id="serverNameInput" maxlength="40" required></div>
+        <div class="cc-field"><label for="serverType">Type</label><select class="cc-input" id="serverType"></select></div>
+        <div class="cc-field"><div><label for="serverVersion">Version</label><span class="cc-field__hint">LATEST or e.g. 1.21.4</span></div><input class="cc-input" id="serverVersion" value="LATEST" required spellcheck="false"></div>
+        <div class="cc-field"><label for="serverJava">Java</label><select class="cc-input" id="serverJava"></select></div>
+        <div class="cc-field"><div><label for="serverHeap">Memory</label><span class="cc-field__hint">GB for the server</span></div><input class="cc-input heap-input" id="serverHeap" type="number" min="1" max="32" value="4" required></div>
+        <label class="cc-checkbox"><input type="checkbox" id="serverEula" required><span>I accept the <a href="https://aka.ms/MinecraftEULA" target="_blank" rel="noopener">Minecraft EULA</a></span></label>
+        <p>The first server downloads the server image, which can take a few minutes.</p>
+        <div class="row-btns">
+            <button class="cc-btn cc-btn--ghost" type="button" data-close><span>Cancel</span></button>
+            <button class="cc-btn cc-btn--primary" id="createServer" type="submit" disabled><span>Create</span></button>
+        </div>
+    </form>
+</dialog>
+
+<dialog class="cc-settings-card dialog" id="userDialog" aria-labelledby="userTitle">
+    <div class="stack">
+        <header class="cc-card-header"><svg><use href="#i-users"/></svg><h4 id="userTitle"></h4><p id="userIntro"></p></header>
+        <form id="userForm" autocomplete="off">
+            <div class="cc-field" id="inviteNameField"><div><label for="inviteName">Username</label><span class="cc-field__hint">What they sign in with</span></div><input class="cc-input" id="inviteName" maxlength="32" autocapitalize="none" spellcheck="false"></div>
+            <div class="cc-field"><label for="userRole">Role</label><select class="cc-input" id="userRole"><option value="member">Member</option><option value="admin">Admin</option></select></div>
+            <fieldset class="picks" id="serverPicks"><legend>Servers they may use</legend><div id="serverPickList"></div></fieldset>
+            <div class="row-btns">
+                <button class="cc-btn cc-btn--ghost" type="button" data-close><span>Cancel</span></button>
+                <button class="cc-btn cc-btn--primary" id="userSubmit" type="submit"><span></span></button>
+            </div>
+        </form>
+        <div class="stack" id="inviteDone" hidden>
+            <div class="secret"><code id="inviteLink"></code><button class="cc-icon-btn copy-btn" type="button" id="copyInvite" title="Copy the link" aria-label="Copy the link"><svg><use href="#i-copy"/></svg></button></div>
+            <p>Valid for 24 hours, and shown only this once. Send it privately: whoever opens it first sets up the account.</p>
+            <div class="row-btns"><button class="cc-btn cc-btn--primary" type="button" data-close><span>Done</span></button></div>
+        </div>
+    </div>
+</dialog>
+{% endif %}
+{% endblock %}

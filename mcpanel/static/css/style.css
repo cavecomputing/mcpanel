@@ -1,0 +1,257 @@
+/* mcpanel on the cavecomputing design system.
+   Tokens: Gruvbox dark on :root (the default on every device), Gruvbox light on [data-theme="light"].
+   Accents keep one meaning everywhere: yellow --accent-text for focus, selection and active rows,
+   green --accent-alt for section icons, aqua for running and done, blue --accent-cool for addresses,
+   paths and links, orange --accent-warm for anything destructive and for crashed. There is no red.
+   --logo is the panel's own rose, as in favicon.svg.
+   The design system's own components (cc-*) live in cavecomputing.css. */
+
+:root {
+    --font-mono: ui-monospace, "JetBrains Mono", "Cascadia Code", "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --space-1: 6px;
+    --space-2: 10px;
+    --space-3: 16px;
+    --space-4: 24px;
+    --space-5: 36px;
+    --shell-gap: 10px;
+    --app-space-1: 4px;
+    --app-space-2: 6px;
+    --app-space-3: 8px;
+    --app-space-4: 12px;
+    --app-space-5: 16px;
+    --app-space-6: 24px;
+    --topbar-height: 56px;
+    --topbar-height-phone: 52px;
+    --topbar-pad-start: 16px;
+    --topbar-pad-end: 12px;
+    --topbar-gap: 6px;
+    --topbar-brand-gap: 18px;
+    --control-height: 38px;
+    --icon-btn-size: 36px;
+    --icon-btn-size-phone: 44px;
+    --radius-sm: 6px;
+    --radius: 10px;
+    --radius-lg: 14px;
+
+    --bg-page: #1d2021;
+    --bg-surface: #282828;
+    --bg-raised: #32302f;
+    --bg-inset: #3c3836;
+    --border: #3c3836;
+    --border-soft: #32302f;
+    --fg: #ebdbb2;
+    --fg-muted: #a89984;
+    --fg-subtle: #7c6f64;
+    --accent: #fabd2f;
+    --accent-text: #fabd2f;
+    --accent-alt: #b8bb26;
+    --accent-cool: #83a598;
+    --accent-warm: #fe8019;
+    --accent-rose: #d3869b;
+    --accent-aqua: #8ec07c;
+    --accent-aqua-text: #8ec07c;
+    --logo: #d3869b;
+    --btn-bg: #fabd2f;
+    --btn-fg: #1d2021;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 8px 24px rgba(0, 0, 0, 0.22);
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.30), 0 4px 12px rgba(0, 0, 0, 0.20);
+    --shadow-lift: 0 2px 4px rgba(0, 0, 0, 0.32), 0 12px 28px rgba(0, 0, 0, 0.34);
+    --scrim: rgba(29, 32, 33, 0.74);
+    color-scheme: dark;
+}
+
+[data-theme="light"] {
+    --bg-page: #f9f5d7;
+    --bg-surface: #fbf1c7;
+    --bg-raised: #f2e5bc;
+    --bg-inset: #ebdbb2;
+    --border: #e0d3ac;
+    --border-soft: #ebdbb2;
+    --fg: #3c3836;
+    --fg-muted: #665c54;
+    --fg-subtle: #7c6f64;
+    --accent: #b57614;
+    --accent-text: #8a5a0e;
+    --accent-alt: #79740e;
+    --accent-cool: #076678;
+    --accent-warm: #af3a03;
+    --accent-rose: #8f3f71;
+    --accent-aqua: #427b58;
+    --accent-aqua-text: #376b4b;
+    --logo: #8f3f71;
+    --btn-bg: #79740e;
+    --btn-fg: #fbf1c7;
+    --shadow: 0 1px 2px rgba(60, 56, 54, 0.10), 0 8px 24px rgba(60, 56, 54, 0.07);
+    --shadow-card: 0 1px 2px rgba(60, 56, 54, 0.07), 0 4px 12px rgba(60, 56, 54, 0.07);
+    --shadow-lift: 0 2px 4px rgba(60, 56, 54, 0.09), 0 12px 26px rgba(60, 56, 54, 0.13);
+    --scrim: rgba(60, 56, 54, 0.40);
+    color-scheme: light;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+    margin: 0;
+    background: var(--bg-page);
+    color: var(--fg);
+    font: 14px/1.5 var(--font-sans);
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+
+/* The panel's mark: the logo glyph beside the wordmark, in --logo. */
+.brand { display: flex; align-items: center; gap: var(--app-space-3); flex: none; line-height: 1; }
+.logo { width: 22px; height: 22px; flex: none; fill: none; stroke: var(--logo); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Sign-in and invite pages: the design system's SignIn card, centred on the page. */
+.cc-signin { padding: max(16px, env(safe-area-inset-top, 0px)) 16px max(16px, env(safe-area-inset-bottom, 0px)); }
+.cc-signin .logo { width: 26px; height: 26px; }
+/* What the SignIn card leaves to the app: the code field, the links under it, the QR code and key
+   on the invite page, and the recovery codes shown once. */
+.cc-signin__card a { text-decoration: none; }
+.signin-links { display: flex; justify-content: space-between; gap: var(--app-space-4); flex-wrap: wrap; }
+.signin-links a { font-size: 13px; color: var(--accent-cool); }
+.signin-links a:hover { text-decoration: underline; }
+.code-input { font-family: var(--font-mono); font-size: 22px; letter-spacing: .45em; text-align: center; padding-left: .45em; }
+/* Scanners want dark modules on a light ground, whichever the theme. */
+.qr { align-self: center; line-height: 0; border-radius: var(--radius-sm); background: var(--fg); color: var(--bg-page); }
+[data-theme="light"] .qr { background: var(--bg-surface); color: var(--fg); }
+.qr path { stroke: currentColor; }
+.totp-key { text-align: center; overflow-wrap: anywhere; }
+.recovery-codes { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: var(--app-space-2) var(--app-space-4); font-family: var(--font-mono); font-size: 14px; text-align: center; }
+
+/* ---------- the panel: one shell 10px inside the window, the top bar over the sidebar and the page ---------- */
+:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+.cc-input:focus-visible { outline: none; }
+button { cursor: pointer; }
+svg.i { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.grow { flex: 1; }
+/* What the bundle's buttons lack: a small size, a destructive one in orange, and no lift while disabled. */
+.cc-btn--sm { padding: .4em .8em; font-size: 12px; }
+.cc-btn--danger { border-color: var(--accent-warm); color: var(--accent-warm); background: var(--bg-inset); }
+.cc-btn:disabled:hover { transform: none; }
+
+.app {
+    position: fixed;
+    inset: max(var(--shell-gap), env(safe-area-inset-top)) max(var(--shell-gap), env(safe-area-inset-right)) max(var(--shell-gap), env(safe-area-inset-bottom)) max(var(--shell-gap), env(safe-area-inset-left));
+    flex-direction: column;
+}
+.app > .cc-topbar { flex: none; }
+/* The cube's ink centred on the wordmark's x-height: -8% (1.75px up), measured at 8x in Chromium. */
+.cc-topbar .cc-brand { color: inherit; text-decoration: none; --mark-nudge: -8%; }
+.cc-topbar .cc-wordmark { font-size: 18px; }
+#sideBtn, .side-close { display: none; } /* phones only: the sidebar is always there beside the page */
+
+/* The account menu: a button with the initial and name, and the menu under it. */
+.account-menu { position: relative; }
+.user-btn { display: inline-flex; align-items: center; gap: var(--app-space-3); height: var(--icon-btn-size); padding: 0 var(--app-space-3) 0 var(--app-space-1); border: 0; border-radius: var(--radius-sm); background: none; color: var(--fg-muted); font-family: var(--font-mono); font-size: 13px; transition: background 120ms ease, color 120ms ease; }
+.user-btn:hover, .user-btn[aria-expanded="true"] { background: var(--border); color: var(--fg); }
+.avatar { display: inline-grid; place-items: center; width: 28px; height: 28px; border: 1px solid var(--border); border-radius: 50%; background: var(--bg-inset); color: var(--accent-text); font-weight: 700; }
+.menu { position: absolute; top: calc(100% + 6px); right: 0; z-index: 40; min-width: 220px; display: flex; flex-direction: column; gap: 2px; padding: var(--app-space-2); background: var(--bg-raised); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-lift); }
+.menu__who { margin-bottom: var(--app-space-1); padding: var(--app-space-3) var(--app-space-4); border-bottom: 1px solid var(--border); color: var(--fg-muted); font-size: 13px; }
+.menu__who b { color: var(--fg); font-family: var(--font-mono); }
+.menu a, .menu button { display: flex; width: 100%; align-items: center; gap: var(--app-space-3); padding: var(--app-space-3) var(--app-space-4); border: 0; border-radius: var(--radius-sm); background: none; color: var(--fg); font-family: var(--font-mono); font-size: 13px; text-align: left; text-decoration: none; }
+.menu a:hover, .menu button:hover { background: var(--border); }
+.menu .i { color: var(--fg-muted); }
+
+/* ---------- sidebar: the servers, each with its status as a dot and in words, then the pages ---------- */
+.body { flex: 1; min-height: 0; display: flex; }
+.side { width: 240px; overflow-y: auto; }
+.side .cc-eyebrow { margin: 0; padding: var(--app-space-5) var(--app-space-3) var(--app-space-2); border: 0; color: var(--fg-muted); }
+.side > .cc-eyebrow:first-of-type { padding-top: var(--app-space-1); }
+.nav { display: flex; flex-direction: column; gap: 2px; }
+.side .cc-shell__row { display: flex; align-items: center; gap: var(--app-space-3); min-width: 0; text-decoration: none; transition: background 120ms ease, color 120ms ease; }
+.side .cc-shell__row:hover { background: var(--border); color: var(--fg); }
+.side .cc-shell__row[aria-current] { background: var(--border); color: var(--accent-text); }
+.side button.cc-shell__row { width: 100%; border: 0; background: none; text-align: left; }
+.side button.new-server { margin-top: var(--app-space-2); border: 1px dashed var(--border); justify-content: center; }
+.side .server-row { display: grid; grid-template-columns: 7px minmax(0, 1fr); gap: 2px var(--app-space-3); padding-block: var(--app-space-3); }
+.server-row__name, .server-row__meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.server-row__meta { grid-column: 2; color: var(--fg-muted); font-family: var(--font-sans); font-size: 12px; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--fg-muted); }
+.dot--running { background: var(--accent-aqua); }
+.dot--starting, .dot--restarting { background: var(--accent); }
+.dot--crashed { background: var(--accent-warm); }
+.side-note { margin: 0; padding: var(--app-space-2) var(--app-space-3); color: var(--fg-muted); font-size: 12px; }
+
+/* ---------- main pane: a pinned header over a scrolling page of cards ---------- */
+.main { overflow: hidden; }
+.view { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.head { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: var(--app-space-3) var(--app-space-4); padding: var(--app-space-5) var(--app-space-6); border-bottom: 1px solid var(--border); }
+.head__title { display: flex; flex-wrap: wrap; align-items: center; gap: var(--app-space-3) var(--app-space-4); min-width: 0; }
+.head h1 { margin: 0; font-family: var(--font-mono); font-size: 20px; line-height: 1.25; overflow-wrap: anywhere; }
+.head__actions { margin-left: auto; display: flex; flex-wrap: wrap; gap: var(--app-space-3); }
+.head__sub { width: 100%; margin: 0; color: var(--fg-muted); font-size: 13px; }
+.head__sub b { color: var(--fg); font-family: var(--font-mono); }
+.head__meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--app-space-3) var(--app-space-4); }
+.address { display: inline-flex; align-items: center; gap: var(--app-space-1); min-width: 0; }
+.address code { color: var(--accent-cool); font-family: var(--font-mono); font-size: 13px; overflow-wrap: anywhere; }
+.copy-btn { margin-block: -8px; }
+.copy-btn svg { width: 16px; height: 16px; }
+.tags { display: flex; flex-wrap: wrap; gap: var(--app-space-2); }
+.page { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: var(--app-space-5); padding: var(--app-space-6); }
+.page > .cc-settings-card, .page > .cc-callout { max-width: 820px; }
+.kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--app-space-3) var(--app-space-6); margin: 0; font-size: 13px; }
+.kv dt { color: var(--fg-muted); }
+.kv dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.kv .cc-code { font-size: 13px; }
+.empty { display: flex; flex-direction: column; align-items: center; gap: var(--app-space-4); padding: 48px 16px; color: var(--fg-muted); font-family: var(--font-mono); font-size: 13px; text-align: center; }
+.empty p { margin: 0; max-width: 44ch; }
+.empty > .i { width: 28px; height: 28px; color: var(--fg-subtle); }
+
+/* Rows in a card: users, invites, devices. Each wraps its actions under it when the card is narrow. */
+.rows { display: flex; flex-direction: column; }
+.list-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--app-space-3) var(--app-space-4); padding: var(--app-space-4) 0; border-top: 1px solid var(--border-soft); font-size: 13px; }
+.list-row:first-child { padding-top: var(--app-space-1); border-top: 0; }
+.list-row:last-child { padding-bottom: 0; }
+.list-row__main { flex: 1; min-width: min(100%, 220px); display: flex; flex-direction: column; gap: 2px; }
+.list-row__main b { font-family: var(--font-mono); overflow-wrap: anywhere; }
+.list-row__title { display: flex; flex-wrap: wrap; align-items: center; gap: var(--app-space-3); }
+.list-row .sub { color: var(--fg-muted); font-size: 12px; }
+.list-row .sub .cc-tag { margin-block: 2px; }
+.list-row__actions { display: flex; flex-wrap: wrap; gap: var(--app-space-3); }
+.cc-settings-card > .row-btns { padding-top: var(--app-space-3); }
+.new-codes { display: flex; flex-direction: column; gap: var(--app-space-4); margin-top: var(--app-space-4); padding-top: var(--app-space-4); border-top: 1px solid var(--border-soft); }
+.new-codes p { margin: 0; color: var(--fg-muted); font-size: 13px; }
+.new-codes .recovery-codes { width: fit-content; column-gap: var(--app-space-6); } /* not spread across a wide card */
+
+/* ---------- dialogs and the toast ---------- */
+.dialog { width: min(520px, calc(100% - 32px)); max-height: calc(100% - 32px); overflow-y: auto; color: var(--fg); }
+.dialog::backdrop { background: var(--scrim); }
+.dialog form, .dialog .stack { display: flex; flex-direction: column; gap: var(--app-space-4); }
+.dialog .cc-card-header { margin: 0; }
+.dialog p { margin: 0; color: var(--fg-muted); font-size: 13px; }
+.dialog .cc-card-header p { font-size: 12px; }
+.dialog .cc-field { padding: 0; }
+.dialog a { color: var(--accent-cool); }
+.row-btns { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--app-space-3); }
+.heap-input { max-width: 120px; }
+.picks { min-width: 0; margin: 0; padding: 0; border: 0; }
+.picks legend { margin-bottom: var(--app-space-3); padding: 0; font-size: 13px; }
+.picks > div { display: flex; flex-direction: column; gap: var(--app-space-3); }
+/* A link or code shown once: in a well, with its copy button. */
+.secret { display: flex; align-items: center; gap: var(--app-space-2); padding: var(--app-space-2) var(--app-space-2) var(--app-space-2) var(--app-space-4); background: var(--bg-page); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.secret code { flex: 1; min-width: 0; color: var(--accent-cool); font-family: var(--font-mono); font-size: 13px; overflow-wrap: anywhere; }
+.toast { inset: auto auto var(--app-space-6) 50%; translate: -50% 0; margin: 0; max-width: calc(100vw - 32px); padding: var(--app-space-3) var(--app-space-5); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-raised); color: var(--fg); box-shadow: var(--shadow-lift); font-family: var(--font-mono); font-size: 12.5px; }
+.toast b { color: var(--accent-aqua-text); }
+.toast--error { border-color: var(--accent-warm); }
+
+/* ---------- phones: the sidebar becomes a drawer over the page, fields stack ---------- */
+.scrim { display: none; }
+@media (max-width: 600px) {
+    /* The drawer slides in from the shell's left edge, with the page dimmed behind it; the X, Escape
+       or a tap on the page closes it. Hidden once it has slid out, so it leaves the tab order; shown
+       at once on opening, so its close button can take focus. */
+    .side { position: absolute; inset: 0 auto 0 0; z-index: 35; width: min(88vw, 360px); background: var(--bg-surface); box-shadow: var(--shadow-lift); translate: -100%; visibility: hidden; transition: translate 300ms ease, visibility 0s 300ms; }
+    .side.open { translate: none; visibility: visible; transition: translate 300ms ease; }
+    .side.open + .scrim { display: block; position: absolute; inset: 0; z-index: 34; background: var(--scrim); }
+    #sideBtn, .side-close { display: inline-grid; }
+    .side-close { align-self: flex-end; flex: none; margin: calc(-1 * var(--app-space-2)) calc(-1 * var(--app-space-2)) 0; }
+    .uname { display: none; }
+    .user-btn { justify-content: center; width: var(--icon-btn-size-phone); height: var(--icon-btn-size-phone); padding: 0; }
+    .head { padding: var(--app-space-5); }
+    .head__actions { width: 100%; margin-left: 0; }
+    .page { padding: var(--app-space-5); }
+    .cc-field { grid-template-columns: minmax(0, 1fr); }
+}
