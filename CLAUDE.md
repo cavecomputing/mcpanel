@@ -132,20 +132,21 @@ neighbour.
 |---|---|
 | `app.py` | Entry point, and the **only** Python file at the repo root: `app = create_app()`, which `uv run app.py`, `flask --app app` and `gunicorn app:app` all name. No logic lives here. |
 | `mcpanel/` | The application package. Everything else in Python goes in here. |
-| `mcpanel/__init__.py` | `create_app()`: logging, cookie settings, `init_db()`, the cross-site write guard, the login guard, blueprints, the `invite` CLI command. |
+| `mcpanel/__init__.py` | `create_app()`: logging and the request log, `ProxyFix`, cookie settings, `init_db()`, the cross-site write guard (`reject_cross_site_writes()`), the login guard, blueprints, the `invite` CLI command. |
 | `mcpanel/config.py` | Settings read once from the environment: paths under `MCPANEL_DATA_DIR`, `MCPANEL_PUBLIC_HOST`, `MCPANEL_PORT_RANGE`. |
 | `mcpanel/db.py` | Schema (`init_db()`, idempotent) and `get_db()`, a short-lived connection per use. |
-| `mcpanel/logs.py` | `setup_logging()`: JSON lines on stdout, the same lines in a rotated file, the audit log, and the filter that strips secrets. `audit()` records who did what. |
-| `mcpanel/auth.py` | Sign-in (password, then TOTP or a recovery code), sign-out, invites, the session cookie and `require_login()` in front of everything else, lockouts, `require_admin()`. |
+| `mcpanel/logs.py` | `setup_logging()`: JSON lines on stdout, the same lines in a rotated file, the audit log, and the filter that strips secrets. `audit()` records who did what; `start_timer()` and `log_request()` write one line per request. |
+| `mcpanel/auth.py` | The sign-in pages: `/login` (password), `/login/code` (TOTP or a recovery code), `/logout`, `/invite/<token>`. The session cookie and `require_login()` in front of everything else, `require_admin()`, lockouts and the sign-in throttle (`throttled()`), `signing_key()`, the `invite` command. |
 | `mcpanel/accounts.py` | Users, sessions, invites and recovery codes in the database: password hashing (argon2id), TOTP secrets and checks, who may see which server. |
-| `mcpanel/servers.py` | Everything that talks to Docker: finding the panel's containers by label, `container_spec()` (the one place a container's settings are decided), `free_port()`, create, start, stop, restart. |
-| `mcpanel/views.py` | The page, and `/healthz`. |
-| `mcpanel/api/` | One Flask blueprint per resource, all under `/api`: `servers` (list, create, start, stop, restart), `users` (admin: list, invite, change, remove), `account` (me, my sessions). `common.py` turns request arguments into checked values or aborts with the message the UI shows. |
-| `mcpanel/templates/` | `base.html` (head, the theme script, the icon sprite), `login.html`, `invite.html`, `index.html` (the app shell). |
-| `mcpanel/static/js/` | ES modules, one per concern, entry `main.js` loaded with `<script type="module">`: `api.js`, `ui.js` (escaping, the toast, the question dialog), `state.js`, `theme.js`, `servers.js` (sidebar list, server header and actions, new-server dialog), `users.js` (the Users page), `account.js` (the account menu, signed-in devices). |
+| `mcpanel/servers.py` | Everything that talks to Docker: finding the panel's containers by label, `container_spec()` (the one place a container's settings are decided), `free_port()`, create, start, stop, restart, and `docker_errors()`, which turns Docker's errors into the messages the UI shows. |
+| `mcpanel/views.py` | `index()` serves the page; `healthz()` answers `/healthz`, open to anyone (`auth.OPEN_ENDPOINTS` names it). |
+| `mcpanel/api/` | One Flask blueprint per resource, all under `/api`: `servers` (list, options, create, start, stop, restart), `users` (admin: list, invite, change, remove, revoke an invite), `account` (me, my sessions, password, recovery codes). `__init__.py` mounts them and answers every error as `{"error": message}`. `common.py` has `json_body()`, the request's JSON object or a 400; the fields are checked where they are used (`servers.create_server()`, `users.py`). |
+| `mcpanel/templates/` | `base.html` (head, the theme script, the cube icon), `login.html` (the password and code steps), `invite.html` (setting up an account, then its recovery codes once), `index.html` (the app shell, its dialogs and the icon sprite). |
+| `mcpanel/static/js/` | ES modules, one per concern, entry `main.js` loaded with `<script type="module">`: `api.js`, `ui.js` (escaping, the toast, the question dialog), `state.js`, `theme.js`, `servers.js` (sidebar list polled every 5 s, the phone drawer, server header and actions, new-server dialog), `users.js` (the Users page and its invite/change dialog), `account.js` (the account menu, and the Your account page: password, recovery codes, signed-in devices). |
 | `mcpanel/static/css/` | `cavecomputing.css` (the design system's `bundle.css`, copied unchanged) and `style.css` (the tokens and the panel's own layout). |
-| `tests/` | pytest, one file per blueprint or module. Docker is faked; nothing in the suite needs a daemon. |
-| `docker/` | `Dockerfile`, `Dockerfile.dockerignore`, `compose.yml` and `entrypoint.sh`, as in binny: gunicorn with one gthread worker on port 5000, `/data` handed to `PUID`:`PGID` with `setpriv`, plus the Docker socket's group. |
+| `mcpanel/static/favicon.svg` | The logo (see Frontend conventions), also the README's picture. |
+| `tests/` | pytest, one file per blueprint or module, and `fake_docker.py` (`FakeDocker`). Docker is faked; nothing in the suite needs a daemon. |
+| `docker/` | `Dockerfile`, `Dockerfile.dockerignore`, `compose.yml` and `entrypoint.sh`, as in binny: gunicorn with one gthread worker on port 5000, the data folder handed to `PUID`:`PGID` with `setpriv` (worlds under `servers/` left alone), plus the Docker socket's group. |
 
 Fill in the "Owns" column with real names as modules land, and add the rules the code can't tell you
 on its own under it:
@@ -269,6 +270,7 @@ directory with `monkeypatch`. That only works because every module reads them as
 at call time; a `from .config import DATA_DIR` binds the value at import, the patch never reaches
 it, and the tests quietly start writing into the real `data/`.
 
-Docker is replaced by `FakeDocker` in conftest (`servers.docker_client` is patched), so tests never
-need a daemon. Use the `admin` and `member` fixtures for signed-in clients, `anon` for one that
-isn't, and conftest's `sign_in()` helper to drive the password-then-TOTP flow.
+Docker is replaced by `FakeDocker` from `tests/fake_docker.py` (conftest's `docker` fixture patches
+`servers.docker_client`), so tests never need a daemon. Use the `admin` and `member` fixtures for
+signed-in clients, `anon` for one that isn't, and conftest's `sign_in()` helper to drive the
+password-then-TOTP flow.
