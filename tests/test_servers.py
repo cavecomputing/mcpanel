@@ -37,7 +37,7 @@ def test_container_spec_is_the_image_one_mount_and_nothing_privileged(docker, da
     assert spec['ports'] == {'25565/tcp': 25565}
     assert spec['network'] == 'mcpanel'
     assert spec['restart_policy'] == {'Name': 'unless-stopped'}
-    assert spec['stop_timeout'] == 60
+    assert spec['stop_timeout'] == 75
     assert spec['mem_limit'] == 5 * GIB
     assert spec['log_config'] == {'type': 'json-file', 'config': {'max-size': '10m', 'max-file': '3'}}
     env = spec['environment']
@@ -50,7 +50,7 @@ def test_container_spec_is_the_image_one_mount_and_nothing_privileged(docker, da
     [attrs] = docker.inspect.values()
     assert set(attrs['HostConfig']) == {'Binds', 'PortBindings', 'NetworkMode', 'RestartPolicy', 'Memory', 'LogConfig'}
     assert attrs['HostConfig']['Binds'] == [f'{data_dir}/servers/survival:/data:rw']
-    assert attrs['Config']['StopTimeout'] == 60  # so Docker waits that long however the server is stopped
+    assert attrs['Config']['StopTimeout'] == 75  # so Docker waits that long however the server is stopped
 
 
 @pytest.mark.parametrize('heap_gb, limit', [(1, 2 * GIB), (4, 5 * GIB), (6, 7.5 * GIB), (32, 40 * GIB)])
@@ -299,8 +299,8 @@ def test_stop_start_and_restart_return_the_fresh_dict(docker, caplog):
     assert servers.restart_server('survival')['status'] == 'starting'
     # The first start joins the network: Docker gives a container it never started no network id.
     assert docker.actions == [('connect', 'mcpanel-survival', 'mcpanel'), ('start', 'mcpanel-survival', None),
-                              ('stop', 'mcpanel-survival', 60), ('start', 'mcpanel-survival', None),
-                              ('restart', 'mcpanel-survival', 60)]
+                              ('stop', 'mcpanel-survival', 75), ('start', 'mcpanel-survival', None),
+                              ('restart', 'mcpanel-survival', 75)]
     assert [(record.getMessage(), record.server) for record in caplog.records] == [
         ('Started server survival', 'survival'), ('Stopped server survival', 'survival'),
         ('Started server survival', 'survival'), ('Restarted server survival', 'survival')]

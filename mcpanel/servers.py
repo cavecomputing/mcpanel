@@ -29,7 +29,9 @@ TYPES = ('VANILLA', 'PAPER', 'PURPUR', 'FABRIC', 'FORGE', 'NEOFORGE', 'QUILT')
 MAX_HEAP_GB = 32
 MAX_NAME = 40  # characters in a display name
 NETWORK = 'mcpanel'  # where the panel reaches each server's RCON by container name
-STOP_SECONDS = 60  # how long a server gets to save the world before Docker kills it
+# How long a server gets to stop before Docker kills it: the image's own STOP_DURATION (60 s) for the
+# world to save, plus room for the image to exit after it.
+STOP_SECONDS = 75
 GIB = 1024 ** 3
 
 ID = re.compile(r'[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?')
