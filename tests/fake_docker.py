@@ -23,7 +23,7 @@ class FakeDocker:
         self.reachable = True
         self.outside_ports = set()
         self.created = []         # the arguments of each api.create_container()
-        self.pulled = []          # 'repository:tag' of each images.pull()
+        self.pulled = []          # 'repository:tag' of each api.pull()
         self.actions = []         # (action, container name, argument) of each start, stop, restart, remove
         self.local_images = set()
         self.networks_made = {}   # network name -> the options it was created with
@@ -121,6 +121,13 @@ class Api:
             raise NotFound(f'network {network} not found')
         return {'Id': self.fake.make(name, {'image': image, **options})}
 
+    def pull(self, repository, tag=None, stream=False, decode=False):
+        """The progress stream, which carries a download's errors; images.pull() drops them."""
+        self.fake.answer()
+        self.fake.pulled.append(f'{repository}:{tag}')
+        self.fake.local_images.add(f'{repository}:{tag}')
+        return iter([{'status': f'Pulling from {repository}', 'id': tag}, {'status': 'Download complete'}])
+
 
 class Containers:
     def __init__(self, fake):
@@ -179,11 +186,6 @@ class Images:
         self.fake.answer()
         if name not in self.fake.local_images:
             raise ImageNotFound(f'No such image: {name}')
-
-    def pull(self, repository, tag=None):
-        self.fake.answer()
-        self.fake.pulled.append(f'{repository}:{tag}')
-        self.fake.local_images.add(f'{repository}:{tag}')
 
 
 class Networks:

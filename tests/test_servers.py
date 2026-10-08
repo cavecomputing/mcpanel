@@ -175,11 +175,21 @@ def test_a_port_another_container_took_while_stopped_is_reported(docker):
 
 
 def test_a_failed_pull_is_reported_and_leaves_no_folder(docker, data_dir, monkeypatch):
-    def pull(repository, tag=None):
+    def pull(repository, tag=None, stream=False, decode=False):
         raise APIError('500 Server Error', explanation='pull access denied for itzg/minecraft-server\nmore')
-    monkeypatch.setattr(docker.images, 'pull', pull)
+    monkeypatch.setattr(docker.api, 'pull', pull)
     assert refused(create) == (502, 'Docker refused: pull access denied for itzg/minecraft-server')
     assert list((data_dir / 'servers').iterdir()) == []
+
+
+def test_a_pull_that_fails_mid_download_says_why(docker, data_dir, monkeypatch):
+    def pull(repository, tag=None, stream=False, decode=False):  # Docker said 200, then this in the stream
+        return iter([{'status': 'Pulling fs layer', 'id': '4f4fb700ef54'},
+                     {'error': 'failed to register layer: no space left on device\nmore'}])
+    monkeypatch.setattr(docker.api, 'pull', pull)
+    assert refused(create) == (502, "Couldn't download itzg/minecraft-server:java21: "
+                                    'failed to register layer: no space left on device')
+    assert docker.created == [] and list((data_dir / 'servers').iterdir()) == []
 
 
 def test_the_image_is_pulled_only_when_missing(docker):

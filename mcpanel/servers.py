@@ -294,7 +294,11 @@ def ensure_image(client, java):
         client.images.get(f'{IMAGE}:{java}')
     except ImageNotFound:
         logger.info('Pulling %s:%s', IMAGE, java)
-        client.images.pull(IMAGE, tag=java)
+        # images.pull() drops an error in the progress stream (a download cut off, a full disk) and
+        # then says "No such image", so read the stream for it.
+        for event in client.api.pull(IMAGE, tag=java, stream=True, decode=True):
+            if 'error' in event:
+                abort(502, f"Couldn't download {IMAGE}:{java}: {first_line(event['error'])}")
 
 
 def ensure_network(client):
