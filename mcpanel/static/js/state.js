@@ -12,7 +12,7 @@ export const state = {
 };
 
 // A server's tabs, in the order they show; the first is where a server opens.
-export const TABS = ['overview', 'console', 'files', 'settings'];
+export const TABS = ['overview', 'console', 'players', 'files', 'settings'];
 
 /**
  * The page the hash names: #/servers/<id>/<tab>, #/users or #/account. Anything else is home,

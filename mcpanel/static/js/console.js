@@ -74,7 +74,7 @@ export function updateConsole(fresh) {
     input.disabled = !running();
     $('commandSend').disabled = !running();
     input.placeholder = running() ? 'A command, e.g. whitelist add Steve' : 'Start the server to send it commands';
-    for (const chip of document.querySelectorAll('[data-command]')) chip.disabled = !running();
+    for (const chip of document.querySelectorAll('.chips [data-command]')) chip.disabled = !running();
 }
 
 /** Run a command and show it and its answer in the output. */

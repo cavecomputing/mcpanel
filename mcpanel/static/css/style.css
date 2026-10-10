@@ -256,6 +256,12 @@ button.fname:hover { color: var(--accent-text); }
 .chips .cc-tag:disabled { opacity: .5; cursor: not-allowed; }
 .composer { display: flex; align-items: center; gap: var(--app-space-3); }
 .composer .prompt { color: var(--accent-text); font-family: var(--font-mono); font-weight: 700; }
+.seg { display: inline-flex; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-inset); }
+.seg button { padding: 6px 12px; border: 0; background: none; color: var(--fg-muted); font-family: var(--font-mono); font-size: 12px; }
+.seg button[aria-pressed="true"] { background: var(--bg-raised); color: var(--accent-text); }
+.seg span { color: var(--fg-subtle); }
+.add-player .cc-input { width: 180px; min-height: 0; padding-block: .35em; }
+p.note { max-width: 1100px; margin: 0; color: var(--fg-muted); font-size: 13px; }
 .editor { max-width: 1100px; }
 .mono { font-family: var(--font-mono); }
 .small-input { max-width: 120px; }

@@ -96,6 +96,7 @@
                 <nav class="tabs" id="serverTabs" aria-label="Server sections">
                     <a class="tab" data-tab="overview"><svg class="i"><use href="#i-grid"/></svg>Overview</a>
                     <a class="tab" data-tab="console"><svg class="i"><use href="#i-term"/></svg>Console</a>
+                    <a class="tab" data-tab="players"><svg class="i"><use href="#i-users"/></svg>Players</a>
                     <a class="tab" data-tab="files"><svg class="i"><use href="#i-folder"/></svg>Files</a>
                     <a class="tab" data-tab="settings"><svg class="i"><use href="#i-gear"/></svg>Settings</a>
                 </nav>
@@ -119,6 +120,27 @@
                         <input class="cc-input mono" id="commandInput" aria-label="Command" spellcheck="false" autocapitalize="off" maxlength="1446">
                         <button class="cc-btn cc-btn--primary" type="submit" id="commandSend"><svg class="i"><use href="#i-send"/></svg><span>Send</span></button>
                     </form>
+                </div>
+                <div class="page" data-tab-panel="players">
+                    <div class="toolbar">
+                        <div class="seg" role="group" aria-label="Which players">
+                            <button type="button" data-list="online" aria-pressed="true">Online <span data-count="online"></span></button>
+                            <button type="button" data-list="whitelist" aria-pressed="false">Whitelist <span data-count="whitelist"></span></button>
+                            <button type="button" data-list="ops" aria-pressed="false">Operators <span data-count="ops"></span></button>
+                            <button type="button" data-list="banned" aria-pressed="false">Banned <span data-count="banned"></span></button>
+                        </div>
+                        <form class="toolbar__end add-player" id="addPlayerForm" autocomplete="off">
+                            <input class="cc-input mono" id="addPlayerName" placeholder="Player name" aria-label="Player name" maxlength="16" spellcheck="false" autocapitalize="off">
+                            <button class="cc-btn cc-btn--primary cc-btn--sm" type="submit" id="addPlayerBtn"><svg class="i"><use href="#i-plus"/></svg><span></span></button>
+                        </form>
+                    </div>
+                    <p class="note" id="playersNote" hidden></p>
+                    <div class="table-wrap">
+                        <table class="cc-table">
+                            <thead><tr><th>Player</th><th id="playersExtra">Note</th><th><span class="sr">Actions</span></th></tr></thead>
+                            <tbody id="playerRows"></tbody>
+                        </table>
+                    </div>
                 </div>
                 <div class="page" data-tab-panel="files">
                     <div class="toolbar">

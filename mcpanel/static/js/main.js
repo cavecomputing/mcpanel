@@ -2,6 +2,7 @@
 import { initAccount, showAccount } from './account.js';
 import { initConsole, showConsole, updateConsole } from './console.js';
 import { initFiles, showFiles } from './files.js';
+import { initPlayers, showPlayers, updatePlayers } from './players.js';
 import { addTab, drawSidebar, initServers, showHome, showServer } from './servers.js';
 import { initSettings, showSettings, updateSettings } from './settings.js';
 import { route } from './state.js';
@@ -26,8 +27,10 @@ initUi();
 initAccount();
 initUsers();
 initConsole();
+initPlayers();
 initFiles();
 initSettings();
+addTab('players', { show: showPlayers, update: updatePlayers });
 addTab('console', { show: showConsole, update: updateConsole });
 addTab('files', { show: showFiles });
 addTab('settings', { show: showSettings, update: updateSettings });
