@@ -111,11 +111,18 @@ def test_an_unknown_action_is_404(admin):
     assert response.status_code == 404 and 'error' in response.get_json()  # JSON, though no route matches
 
 
-@pytest.mark.parametrize('method, path', [('get', '/api/servers/options'), ('post', '/api/servers')])
-def test_members_get_403_on_admin_calls(member, docker, method, path):
+@pytest.mark.parametrize('method, path', [('post', '/api/servers'), ('delete', '/api/servers/survival')])
+def test_members_get_403_on_admin_calls(admin, member, docker, method, path):
+    create(admin)
+    grant(admin, member, 'survival')
+    docker.created.clear()
     response = getattr(member, method)(path, json=SURVIVAL if method == 'post' else None)
     assert response.status_code == 403 and response.get_json() == {'error': 'Admins only'}
-    assert docker.created == []
+    assert docker.created == [] and 'remove' not in [action for action, _, _ in docker.actions]
+
+
+def test_members_see_the_form_options_too(member):
+    assert member.get('/api/servers/options').status_code == 200
 
 
 @pytest.mark.parametrize('method, path', [

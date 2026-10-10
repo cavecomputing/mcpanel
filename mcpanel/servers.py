@@ -10,6 +10,7 @@ import logging
 import os
 import re
 import secrets
+import shutil
 import threading
 from contextlib import contextmanager, suppress
 from datetime import datetime
@@ -109,7 +110,9 @@ def list_servers():
     with docker_errors():
         containers = docker_client().containers.list(all=True, filters={'label': 'mcpanel.server'},
                                                      ignore_removed=True)
-        return sorted((server_dict(container) for container in containers),
+        # Not the old container that update_server() keeps for a moment under another name.
+        return sorted((server_dict(container) for container in containers
+                       if container.name == f'mcpanel-{container.labels["mcpanel.server"]}'),
                       key=lambda server: (server['name'].casefold(), server['id']))
 
 
@@ -257,10 +260,9 @@ def container_spec(server_id, name, type, version, java, heap_gb, game_port):
     }
 
 
-def create_server(name, type, version, java, heap_gb, eula):
-    """Create a server from the new-server form's fields, stopped, and return its dict. java may be
-    empty, for the tag the version needs. Nothing starts it but Start: mods and files go in first,
-    before the world is generated."""
+def checked_settings(name, type, version, java, heap_gb):
+    """The new-server form's fields checked, as (name, type, version, java, heap_gb), or a 400 saying
+    what is wrong. java may be empty, for the tag the version needs."""
     name, version = checked_name(name), checked_version(version)
     if type not in TYPES:
         abort(400, 'Unknown server type')
@@ -270,6 +272,13 @@ def create_server(name, type, version, java, heap_gb, eula):
         abort(400, 'Unknown Java version')
     if not isinstance(heap_gb, int) or isinstance(heap_gb, bool) or not 1 <= heap_gb <= MAX_HEAP_GB:
         abort(400, f'Memory must be a whole number of GB from 1 to {MAX_HEAP_GB}')
+    return name, type, version, java, heap_gb
+
+
+def create_server(name, type, version, java, heap_gb, eula):
+    """Create a server from the new-server form's fields, stopped, and return its dict. Nothing
+    starts it but Start: mods and files go in first, before the world is generated."""
+    name, type, version, java, heap_gb = checked_settings(name, type, version, java, heap_gb)
     if eula is not True:
         abort(400, 'Accept the Minecraft EULA to create a server')
 
@@ -287,13 +296,7 @@ def create_server(name, type, version, java, heap_gb, eula):
         try:
             with docker_errors():
                 ensure_network(client)
-                spec = container_spec(server_id, name, type, version, java, heap_gb, game_port)
-                # containers.create() doesn't take stop_timeout, so do what it does with the SDK's
-                # private _create_container_args (uv.lock pins the SDK; the fake uses it too, so the
-                # suite catches a change) and hand the API call stop_timeout as well.
-                stop_timeout = spec.pop('stop_timeout')
-                client.api.create_container(**_create_container_args({**spec, 'version': client.api.api_version}),
-                                            stop_timeout=stop_timeout)
+                make_container(client, container_spec(server_id, name, type, version, java, heap_gb, game_port))
         except Exception:
             # Leave nothing behind: no container was made, and nothing has run in the folder.
             with suppress(OSError):
@@ -302,6 +305,69 @@ def create_server(name, type, version, java, heap_gb, eula):
     logger.info('Created server %s', server_id, extra={'server': server_id, 'server_name': name,
                                                        'port': game_port})
     return get_server(server_id)
+
+
+def make_container(client, spec):
+    """containers.create() from container_spec(). It doesn't take stop_timeout, so do what it does
+    with the SDK's private _create_container_args (uv.lock pins the SDK; the fake uses it too, so the
+    suite catches a change) and hand the API call stop_timeout as well."""
+    spec = dict(spec)
+    stop_timeout = spec.pop('stop_timeout')
+    client.api.create_container(**_create_container_args({**spec, 'version': client.api.api_version}),
+                                stop_timeout=stop_timeout)
+
+
+def stopped_container(client, server_id, doing):
+    """A server's container, or a 409 unless it is stopped (or crashed): doing is what needs it so."""
+    container = server_container(client, server_id)
+    if status_of(container.attrs) not in ('stopped', 'crashed'):
+        abort(409, f'Stop the server before {doing}')
+    return container
+
+
+def update_server(server_id, name, type, version, java, heap_gb):
+    """Change a stopped server's name, type, version, Java or memory, and return its fresh dict.
+
+    A container's settings can't change, so this makes its container again from container_spec(),
+    with the same port and folder. The old one is renamed out of the way first and removed only once
+    the new one exists, so a refused create leaves the server as it was. A new Java tag is pulled; the
+    same one isn't, since a server keeps the image it was made with.
+    """
+    check_id(server_id)
+    name, type, version, java, heap_gb = checked_settings(name, type, version, java, heap_gb)
+    with docker_errors():
+        client = docker_client()
+        stopped_container(client, server_id, 'changing these settings')
+        if java != get_server(server_id)['java']:
+            ensure_image(client, java)  # before the lock, like a create's
+    with CREATE_LOCK, docker_errors():
+        old = stopped_container(client, server_id, 'changing these settings')
+        game_port = next(host_ports(old))
+        old.rename(f'mcpanel-{server_id}.old')  # ids have no dots, so this is no other server's name
+        try:
+            ensure_network(client)
+            make_container(client, container_spec(server_id, name, type, version, java, heap_gb, game_port))
+        except BaseException:
+            old.rename(f'mcpanel-{server_id}')
+            raise
+        old.remove()
+    logger.info('Changed server %s', server_id, extra={'server': server_id, 'server_name': name})
+    return get_server(server_id)
+
+
+def delete_server(server_id):
+    """Remove a stopped server's container and its folder, world and all. Its port and id become free."""
+    check_id(server_id)
+    with docker_errors():
+        stopped_container(docker_client(), server_id, 'deleting it').remove()
+    try:
+        shutil.rmtree(config.SERVERS_DIR / server_id)
+    except FileNotFoundError:
+        pass
+    except OSError as e:  # the container is gone: report what's left rather than fail
+        logger.warning("Deleted server %s, but couldn't delete all its files: %s", server_id, e,
+                       extra={'server': server_id})
+    logger.info('Deleted server %s', server_id, extra={'server': server_id})
 
 
 def checked_name(name):

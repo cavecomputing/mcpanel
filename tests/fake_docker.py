@@ -27,7 +27,7 @@ class FakeDocker:
         self.churn = False
         self.created = []         # the arguments of each api.create_container()
         self.pulled = []          # 'repository:tag' of each api.pull()
-        self.actions = []         # (action, container name, argument) of each connect, start, stop, restart
+        self.actions = []         # (action, container name, argument) of each connect, start, stop, restart, rename, remove
         self.local_images = set()
         self.networks_made = {}   # network name -> the options it was created with
         self.network_ids = {}     # network name -> its id, new each time it is made
@@ -183,6 +183,19 @@ class Container:
     def stop(self, timeout=None):
         self.fake.live(self.id)['State'] = {'Status': 'exited', 'Running': False, 'ExitCode': 0}
         self.fake.actions.append(('stop', self.name, timeout))
+
+    def rename(self, name):
+        if any(attrs['Name'] == f'/{name}' for attrs in self.fake.inspect.values()):
+            raise APIError('409 Client Error: Conflict', explanation=f'Conflict. The container name "/{name}" is already in use')
+        self.fake.live(self.id)['Name'] = f'/{name}'
+        self.fake.actions.append(('rename', self.name, name))
+        self.attrs['Name'] = f'/{name}'
+
+    def remove(self):
+        if self.fake.live(self.id)['State']['Running']:
+            raise APIError('409 Client Error: Conflict', explanation='cannot remove container: container is running')
+        del self.fake.inspect[self.id]
+        self.fake.actions.append(('remove', self.name, None))
 
     def restart(self, timeout=None):
         attrs = self.fake.live(self.id)

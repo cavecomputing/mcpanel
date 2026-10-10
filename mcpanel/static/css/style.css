@@ -243,6 +243,12 @@ button.fname:hover { color: var(--accent-text); }
 .fname .i { color: var(--fg-muted); }
 .fname--dir .i { color: var(--accent-alt); }
 .editor { max-width: 1100px; }
+.mono { font-family: var(--font-mono); }
+.small-input { max-width: 120px; }
+.small-select { max-width: 240px; }
+.checks { display: flex; flex-direction: column; gap: var(--app-space-3); }
+.cc-field > span { font-size: 13px; }
+.danger-card .cc-card-header svg { stroke: var(--accent-warm); }
 .editor textarea { min-height: 420px; resize: vertical; font: 12.5px/1.6 var(--font-mono); white-space: pre; tab-size: 4; }
 
 /* ---------- dialogs and the toast ---------- */

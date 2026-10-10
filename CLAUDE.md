@@ -140,12 +140,13 @@ neighbour.
 | `mcpanel/logs.py` | `setup_logging()`: JSON lines on stdout, the same lines in a rotated file, the audit log, and the filter that strips secrets. `audit()` records who did what; `start_timer()` and `log_request()` write one line per request. |
 | `mcpanel/auth.py` | The sign-in pages: `/login` (password), `/login/code` (TOTP or a recovery code), `/login/setup` (after a one-time password: a new password and TOTP, then the recovery codes), `/logout`. The session cookie and `require_login()` in front of everything else, `require_admin()`, lockouts and the sign-in throttle (`throttled()`), the halfway state (`pending()`, `pending_user()`, `setup_secret()`), the `create-user` and `reset-user` commands. |
 | `mcpanel/accounts.py` | Users, sessions and recovery codes in the database: password hashing (argon2id), one-time passwords (`create_user()`, `finish_setup()`, `reset_sign_in()`), TOTP secrets and checks, who may see which server. |
-| `mcpanel/servers.py` | Everything that talks to Docker: finding the panel's containers by label, `container_spec()` (the one place a container's settings are decided), `free_port()`, create, start, stop, restart, and `docker_errors()`, which turns Docker's errors into the messages the UI shows. |
+| `mcpanel/servers.py` | Everything that talks to Docker: finding the panel's containers by label, `container_spec()` (the one place a container's settings are decided), `free_port()`, create, `update_server()` (a stopped server's container made again with new settings), `delete_server()`, start, stop, restart, and `docker_errors()`, which turns Docker's errors into the messages the UI shows. |
 | `mcpanel/files.py` | A server's folder for the Files tab: `opened_dir()` walks a path one folder at a time with `O_NOFOLLOW`, so nothing the server writes (a link to `/etc`) leads out of it; list, read, `write()` (temporary file, then renamed over), make a folder, rename, delete. Keeps the RCON password in (`HIDDEN`, `masked_properties()`). |
+| `mcpanel/properties.py` | The game settings the Settings tab offers (`SETTINGS`: MOTD, difficulty, view distance...), read from and saved into `server.properties` in Java's escaping, every other line kept. |
 | `mcpanel/views.py` | `index()` serves the page; `healthz()` answers `/healthz`, open to anyone (`auth.OPEN_ENDPOINTS` names it). |
-| `mcpanel/api/` | One Flask blueprint per resource, all under `/api`: `servers` (list, options, create, start, stop, restart), `files` (a server's folder: list, open, save or upload, download, new folder, rename, delete), `users` (admin: list, add, change, reset sign-in, remove), `account` (me, my sessions, password, recovery codes). `__init__.py` mounts them and answers every error as `{"error": message}`. `common.py` has `json_body()`, the request's JSON object or a 400, and `usable_server()`, a server the signed-in user may use or a 404; the fields are checked where they are used (`servers.create_server()`, `users.py`). |
+| `mcpanel/api/` | One Flask blueprint per resource, all under `/api`: `servers` (list, options, create, change, delete, start, stop, restart, game settings), `files` (a server's folder: list, open, save or upload, download, new folder, rename, delete), `users` (admin: list, add, change, reset sign-in, remove), `account` (me, my sessions, password, recovery codes). `__init__.py` mounts them and answers every error as `{"error": message}`. `common.py` has `json_body()`, the request's JSON object or a 400, and `usable_server()`, a server the signed-in user may use or a 404; the fields are checked where they are used (`servers.create_server()`, `users.py`). |
 | `mcpanel/templates/` | `base.html` (head, the theme script, the cube icon), `login.html` (the password and code steps), `setup.html` (the first sign-in's new password and TOTP, then its recovery codes once), `index.html` (the app shell, its dialogs and the icon sprite). |
-| `mcpanel/static/js/` | ES modules, one per concern, entry `main.js` loaded with `<script type="module">`: `api.js`, `ui.js` (escaping, the toast, the question dialog), `state.js`, `theme.js`, `servers.js` (sidebar list polled every 5 s, the phone drawer, server header, actions and tabs, new-server dialog), `files.js` (the Files tab and its editor), `users.js` (the Users page, its add/change dialog and the one-time password shown once), `account.js` (the account menu, and the Your account page: password, recovery codes, signed-in devices). |
+| `mcpanel/static/js/` | ES modules, one per concern, entry `main.js` loaded with `<script type="module">`: `api.js`, `ui.js` (escaping, the toast, the question dialog), `state.js`, `theme.js`, `servers.js` (sidebar list polled every 5 s, the phone drawer, server header, actions and tabs, new-server dialog), `files.js` (the Files tab and its editor), `settings.js` (the Settings tab: game settings, the server's own, Delete), `users.js` (the Users page, its add/change dialog and the one-time password shown once), `account.js` (the account menu, and the Your account page: password, recovery codes, signed-in devices). |
 | `mcpanel/static/css/` | `cavecomputing.css` (the design system's `bundle.css`, copied unchanged) and `style.css` (the tokens and the panel's own layout). |
 | `mcpanel/static/favicon.svg` | The logo (see Frontend conventions), also the README's picture. |
 | `tests/` | pytest, one file per blueprint or module, and `fake_docker.py` (`FakeDocker`). Docker is faked; nothing in the suite needs a daemon. |
@@ -208,6 +209,12 @@ arbitrary container owns the machine, so:
   install; a stop timeout of `STOP_SECONDS` (75 s: the image's 60 s `STOP_DURATION` for the world to
   save, plus room to exit), so a reboot or an outside `docker stop` gives the world as long to save as
   the panel's Stop does, not Docker's default 10 s.
+- **A container's settings never change, so changing a server makes its container again** from
+  `container_spec()` (`update_server()`), with the same id, port and folder, and only while it is
+  stopped. The old container is renamed `mcpanel-<id>.old` until the new one exists, and put back if
+  Docker refuses; `list_servers()` skips it meanwhile. Deleting a server (admins only, stopped
+  first) removes its container and its folder, and the access rows naming it, so a later server
+  that gets the same id isn't given to the same members.
 - **A new server is created stopped**, and nothing starts it but Start, so mods and files go in
   before the world is generated. Docker never starts a container that has never run, `unless-stopped`
   or not, so a reboot doesn't either.
@@ -234,8 +241,8 @@ the whole perimeter:
 - **Only admins change a server's resource allocation**: its memory (the heap and the container's
   limit), and any CPU or other limit added later. Members manage everything else on the servers they
   were given, as each part lands: settings such as `view-distance`, files, mods, plugins, type,
-  version and Java. The route checks `require_admin()` for the allocation; hiding the control is not
-  enough. Files can't get round it: the image rewrites its JVM flags from the container's env on every
+  version and Java. The route checks the role for the allocation (`PUT /api/servers/<id>` refuses a member a
+  different `heap_gb`); hiding the control is not enough. Files can't get round it: the image rewrites its JVM flags from the container's env on every
   start, and the container's memory limit caps the server whatever it asks for.
 - Passwords are argon2id hashes (at least 12 characters). TOTP is required on every account: a
   sign-in is password, then a 6-digit code (a code already used is refused) or a single-use recovery

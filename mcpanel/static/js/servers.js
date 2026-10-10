@@ -3,7 +3,6 @@
  * the open server's header, Start/Stop/Restart and Overview; the empty states; the new-server dialog.
  */
 import * as api from './api.js';
-import { showFiles } from './files.js';
 import { route, serverHash, state } from './state.js';
 import { $, copyText, esc, formatDate, setHtml, showError, showView, toast } from './ui.js';
 
@@ -19,14 +18,19 @@ const ACTIONS = {
 };
 let latest = 0;     // only the newest list gets drawn
 let polling = null; // the poll's list call while it runs: one at a time, so a slow Docker's answers still get drawn
-let options = null; // /api/servers/options, fetched when the new-server dialog first opens
+let options = null; // /api/servers/options, fetched when a form first needs it
 let shownTab = '';  // '<server id>/<tab>' last opened, so a poll redraws a tab without reloading it
-// What each tab does when it opens (show) and when a poll brings the server's fresh dict (update).
-const TAB_VIEWS = { overview: {}, files: { show: showFiles } };
+// tab -> what it does when it opens (show) and when a poll brings the server's fresh dict (update).
+const TAB_VIEWS = { overview: {} };
 
-const typeName = (type) => TYPE_NAMES[type] ?? type;
+/** Give a tab its view: main.js does, so the tabs' modules can use this one. */
+export function addTab(tab, view) {
+    TAB_VIEWS[tab] = view;
+}
+
+export const typeName = (type) => TYPE_NAMES[type] ?? type;
 const versionName = (version) => (version === 'LATEST' ? 'Latest' : version);
-const javaName = (java) => java.replace(/^java/, 'Java ');
+export const javaName = (java) => java.replace(/^java/, 'Java ');
 const statusName = (status) => STATUS[status] ?? status;
 const serverWithId = (id) => state.servers.find((server) => server.id === id);
 
@@ -54,8 +58,8 @@ async function loadServers() {
     else if (where.page === 'home') showHome();
 }
 
-/** The poll: load the list unless the last poll's call hasn't come back yet. */
-function poll() {
+/** The poll: load the list unless the last poll's call hasn't come back yet. Also for a change that moves the list. */
+export function poll() {
     polling ??= loadServers().finally(() => { polling = null; });
     return polling;
 }
@@ -172,18 +176,21 @@ async function runAction(action) {
     if (route().id === id) showServer(id);
 }
 
+/** The type, Java and memory choices, fetched once, filled into a form's selects and memory field. */
+export async function fillOptions(typeSelect, javaSelect, heapInput) {
+    options ??= await api.get('/api/servers/options');
+    typeSelect.innerHTML = options.types.map((type) => `<option value="${esc(type)}">${esc(typeName(type))}</option>`).join('');
+    // Empty leaves it to the panel, which picks the Java the version needs.
+    javaSelect.innerHTML = '<option value="">Match the version</option>'
+        + options.java.map((java) => `<option value="${esc(java)}">${esc(javaName(java))}</option>`).join('');
+    Object.assign(heapInput, { min: options.heap.min, max: options.heap.max, defaultValue: options.heap.default });
+}
+
 async function openNewServer() {
-    if (!options) {
-        try {
-            options = await api.get('/api/servers/options');
-        } catch {
-            return;
-        }
-        $('serverType').innerHTML = options.types.map((type) => `<option value="${esc(type)}">${esc(typeName(type))}</option>`).join('');
-        // Empty leaves it to the panel, which picks the Java the version needs.
-        $('serverJava').innerHTML = '<option value="">Match the version</option>'
-            + options.java.map((java) => `<option value="${esc(java)}">${esc(javaName(java))}</option>`).join('');
-        Object.assign($('serverHeap'), { min: options.heap.min, max: options.heap.max, defaultValue: options.heap.default });
+    try {
+        await fillOptions($('serverType'), $('serverJava'), $('serverHeap'));
+    } catch {
+        return;
     }
     $('newServerForm').reset();
     $('createServer').disabled = true;

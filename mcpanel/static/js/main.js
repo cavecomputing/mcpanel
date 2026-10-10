@@ -1,7 +1,8 @@
 /** Entry point: wires up each module, then shows the page the address names, and again on every change. */
 import { initAccount, showAccount } from './account.js';
-import { initFiles } from './files.js';
-import { drawSidebar, initServers, showHome, showServer } from './servers.js';
+import { initFiles, showFiles } from './files.js';
+import { addTab, drawSidebar, initServers, showHome, showServer } from './servers.js';
+import { initSettings, showSettings, updateSettings } from './settings.js';
 import { route } from './state.js';
 import { initTheme } from './theme.js';
 import { initUi } from './ui.js';
@@ -24,6 +25,9 @@ initUi();
 initAccount();
 initUsers();
 initFiles();
+initSettings();
+addTab('files', { show: showFiles });
+addTab('settings', { show: showSettings, update: updateSettings });
 initServers();
 window.addEventListener('hashchange', show);
 show();

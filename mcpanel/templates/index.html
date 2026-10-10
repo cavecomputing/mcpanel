@@ -27,6 +27,9 @@
     <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v12M7 11l5 5 5-5M5 20h14"/></symbol>
     <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></symbol>
     <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5v.2a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1h-.2a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h0a1.7 1.7 0 0 0 1-1.5v-.2a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v0a1.7 1.7 0 0 0 1.5 1h.2a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3.5l9 16H3z"/><path d="M12 10v4M12 17v.5"/></symbol>
     <symbol id="i-device" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="11" rx="1.5"/><path d="M8 19.5h8M12 15.5v4"/></symbol>
 </svg>
 
@@ -91,6 +94,7 @@
                 <nav class="tabs" id="serverTabs" aria-label="Server sections">
                     <a class="tab" data-tab="overview"><svg class="i"><use href="#i-grid"/></svg>Overview</a>
                     <a class="tab" data-tab="files"><svg class="i"><use href="#i-folder"/></svg>Files</a>
+                    <a class="tab" data-tab="settings"><svg class="i"><use href="#i-gear"/></svg>Settings</a>
                 </nav>
                 <div class="page" data-tab-panel="overview">
                     <section class="cc-settings-card" aria-labelledby="overviewTitle">
@@ -123,6 +127,46 @@
                         </div>
                         <textarea class="cc-input" id="editorText" spellcheck="false" autocapitalize="off" aria-labelledby="editorName"></textarea>
                     </section>
+                </div>
+                <div class="page" data-tab-panel="settings">
+                    <form class="cc-settings-card" id="gameForm" aria-labelledby="gameTitle" autocomplete="off">
+                        <div class="cc-card-header"><svg><use href="#i-sliders"/></svg><h4 id="gameTitle">Game</h4><p>Saved in <code class="cc-code">server.properties</code>. The server reads them when it starts, so restart it to apply them.</p></div>
+                        <div class="cc-field"><div><label for="setMotd">Message of the day</label><span class="cc-field__hint">Under the name in players' server list. § codes for colour</span></div><input class="cc-input mono" id="setMotd" name="motd" maxlength="200"></div>
+                        <div class="cc-field"><label for="setMaxPlayers">Max players</label><input class="cc-input small-input" id="setMaxPlayers" name="max-players" type="number" min="1" max="1000" required></div>
+                        <div class="cc-field"><label for="setDifficulty">Difficulty</label><select class="cc-input small-select" id="setDifficulty" name="difficulty"><option value="peaceful">Peaceful</option><option value="easy">Easy</option><option value="normal">Normal</option><option value="hard">Hard</option></select></div>
+                        <div class="cc-field"><label for="setGamemode">Game mode</label><select class="cc-input small-select" id="setGamemode" name="gamemode"><option value="survival">Survival</option><option value="creative">Creative</option><option value="adventure">Adventure</option><option value="spectator">Spectator</option></select></div>
+                        <div class="cc-field"><div><label for="setView">View distance</label><span class="cc-field__hint">Chunks players see, 3 to 32. Higher needs more memory</span></div><input class="cc-input small-input" id="setView" name="view-distance" type="number" min="3" max="32" required></div>
+                        <div class="cc-field"><div><label for="setSimulation">Simulation distance</label><span class="cc-field__hint">Chunks that keep running around players, 3 to 32</span></div><input class="cc-input small-input" id="setSimulation" name="simulation-distance" type="number" min="3" max="32" required></div>
+                        <div class="cc-field"><div><label for="setSeed">World seed</label><span class="cc-field__hint">Only for a world not made yet</span></div><input class="cc-input mono" id="setSeed" name="level-seed" maxlength="200" spellcheck="false"></div>
+                        <div class="cc-field"><span>Rules</span><div class="checks">
+                            <label class="cc-checkbox"><input type="checkbox" name="pvp"><span>Players can hurt each other</span></label>
+                            <label class="cc-checkbox"><input type="checkbox" name="hardcore"><span>Hardcore: one life, hardest difficulty</span></label>
+                            <label class="cc-checkbox"><input type="checkbox" name="allow-flight"><span>Allow flying (for mods that fly)</span></label>
+                        </div></div>
+                        <div class="cc-field"><span>Who can join</span><div class="checks">
+                            <label class="cc-checkbox"><input type="checkbox" name="white-list"><span>Only players on the whitelist</span></label>
+                            <label class="cc-checkbox"><input type="checkbox" name="online-mode"><span>Check accounts with Mojang (online mode)</span></label>
+                        </div></div>
+                        <div class="row-btns"><button class="cc-btn cc-btn--primary" type="submit" id="gameSave"><span>Save</span></button></div>
+                    </form>
+                    <form class="cc-settings-card" id="serverForm" aria-labelledby="serverFormTitle" autocomplete="off">
+                        <div class="cc-card-header"><svg><use href="#i-chip"/></svg><h4 id="serverFormTitle">Server</h4><p id="serverFormNote"></p></div>
+                        <div class="cc-field"><label for="editName">Name</label><input class="cc-input" id="editName" maxlength="40" required></div>
+                        <div class="cc-field"><label for="editType">Type</label><select class="cc-input small-select" id="editType"></select></div>
+                        <div class="cc-field"><div><label for="editVersion">Version</label><span class="cc-field__hint">LATEST or e.g. 26.1. Back up first: an older version can't open a newer world</span></div><input class="cc-input small-select" id="editVersion" required spellcheck="false"></div>
+                        <div class="cc-field"><label for="editJava">Java</label><select class="cc-input small-select" id="editJava"></select></div>
+                        <div class="cc-field"><div><label for="editHeap">Memory</label><span class="cc-field__hint" id="editHeapHint">GB for the server</span></div><input class="cc-input heap-input" id="editHeap" type="number" min="1" max="32" required></div>
+                        <div class="row-btns"><button class="cc-btn cc-btn--primary" type="submit" id="serverSave"><span>Save</span></button></div>
+                    </form>
+                    {% if admin %}
+                    <section class="cc-settings-card danger-card" aria-labelledby="dangerTitle">
+                        <div class="cc-card-header"><svg><use href="#i-alert"/></svg><h4 id="dangerTitle">Delete</h4></div>
+                        <div class="list-row">
+                            <span class="list-row__main">Deletes the server and everything in its folder: the world, mods and settings. Stop it first.</span>
+                            <button class="cc-btn cc-btn--danger cc-btn--sm" type="button" id="deleteServer"><span>Delete server</span></button>
+                        </div>
+                    </section>
+                    {% endif %}
                 </div>
             </section>
 

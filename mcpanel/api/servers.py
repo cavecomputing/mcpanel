@@ -1,8 +1,10 @@
-"""Servers: list, create, start, stop, restart. Members see and run only the servers an admin gave them."""
+"""Servers: list, create, change, delete, start, stop, restart. Members see and run only the servers
+an admin gave them, and change everything on them but their memory."""
 from flask import Blueprint, abort, g
 
-from .. import accounts, auth, logs, servers
-from .common import json_body
+from .. import accounts, auth, logs, properties, servers
+from ..db import get_db
+from .common import json_body, usable_server
 
 bp = Blueprint('servers', __name__)
 
@@ -25,8 +27,7 @@ def list_servers():
 
 @bp.get('/servers/options')
 def options():
-    """The choices the new-server form offers."""
-    auth.require_admin()
+    """The choices the new-server form and the Settings tab offer."""
     return {'types': list(servers.TYPES), 'java': list(servers.JAVA_TAGS),
             'heap': {'min': 1, 'max': servers.MAX_HEAP_GB, 'default': DEFAULT_HEAP_GB}}
 
@@ -40,6 +41,51 @@ def create():
                                    data.get('heap_gb'), data.get('eula'))
     logs.audit('server_created', server=server['id'], server_name=server['name'])
     return server, 201
+
+
+@bp.put('/servers/<server_id>')
+def update(server_id):
+    """Change a stopped server: {name, type, version, java, heap_gb}; its fresh dict. Only admins
+    change its memory, which is the container's resource allocation."""
+    server = usable_server(server_id)
+    data = json_body()
+    if data.get('heap_gb') != server['heap_gb'] and g.user['role'] != 'admin':
+        abort(403, "Only admins change a server's memory")
+    server = servers.update_server(server_id, data.get('name'), data.get('type'), data.get('version'),
+                                   data.get('java'), data.get('heap_gb'))
+    logs.audit('server_changed', server=server['id'], server_name=server['name'], type=server['type'],
+               version=server['version'], java=server['java'], heap_gb=server['heap_gb'])
+    return server
+
+
+@bp.delete('/servers/<server_id>')
+def delete(server_id):
+    """Delete a stopped server, its files with it. Admins only, as creating one is."""
+    auth.require_admin()
+    server = usable_server(server_id)
+    servers.delete_server(server_id)
+    with get_db() as conn:  # so a server made later with the same id isn't given to them
+        conn.execute('DELETE FROM server_access WHERE server = ?', (server_id,))
+        conn.commit()
+    logs.audit('server_deleted', server=server['id'], server_name=server['name'])
+    return {}
+
+
+@bp.get('/servers/<server_id>/properties')
+def get_properties(server_id):
+    """The game settings in its server.properties."""
+    usable_server(server_id)
+    return properties.read(server_id)
+
+
+@bp.put('/servers/<server_id>/properties')
+def put_properties(server_id):
+    """Change some game settings: {key: value}; all of them after."""
+    server = usable_server(server_id)
+    changes = json_body()
+    values = properties.save(server_id, changes)
+    logs.audit('properties_changed', server=server['id'], server_name=server['name'], changes=changes)
+    return values
 
 
 @bp.post('/servers/<server_id>/<any(start, stop, restart):action>')

@@ -16,6 +16,8 @@ when the panel restarts, and the panel finds them again by their Docker labels.
 - Create a server (Vanilla, Paper, Purpur, Fabric, Forge, NeoForge or Quilt; a Minecraft version,
   how much memory, and a Java version, which the panel matches to the Minecraft version unless you
   pick one), then start, stop and restart it
+- Change a server's game settings (MOTD, difficulty, game mode, view distance, whitelist...), and
+  while it's stopped its name, type, version and Java; admins also change its memory and delete it
 - A new server stays stopped until you start it, so mods and files can go in its folder first
 - Each server's files in the browser: browse, edit text files such as `server.properties`, upload
   mods and plugins, download, rename, delete
