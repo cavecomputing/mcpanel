@@ -3,6 +3,7 @@
  * the open server's header, Start/Stop/Restart and Overview; the empty states; the new-server dialog.
  */
 import * as api from './api.js';
+import { showFiles } from './files.js';
 import { route, serverHash, state } from './state.js';
 import { $, copyText, esc, formatDate, setHtml, showError, showView, toast } from './ui.js';
 
@@ -19,6 +20,9 @@ const ACTIONS = {
 let latest = 0;     // only the newest list gets drawn
 let polling = null; // the poll's list call while it runs: one at a time, so a slow Docker's answers still get drawn
 let options = null; // /api/servers/options, fetched when the new-server dialog first opens
+let shownTab = '';  // '<server id>/<tab>' last opened, so a poll redraws a tab without reloading it
+// What each tab does when it opens (show) and when a poll brings the server's fresh dict (update).
+const TAB_VIEWS = { overview: {}, files: { show: showFiles } };
 
 const typeName = (type) => TYPE_NAMES[type] ?? type;
 const versionName = (version) => (version === 'LATEST' ? 'Latest' : version);
@@ -59,13 +63,13 @@ function poll() {
 /** The sidebar's server rows, each with its status in a dot and in words. Keeps focus on the row it was on. */
 export function drawSidebar() {
     const nav = $('serverNav');
-    const current = route().id;
+    const { id: current, tab } = route(); // other servers open on the same tab
     const focused = document.activeElement.closest('#serverNav [data-id]')?.dataset.id;
     let html = '';
     if (state.dockerError) html = `<p class="side-note">Can't reach Docker</p>`;
     else if (state.loaded && !state.servers.length) html = '<p class="side-note">No servers yet</p>';
     else html = state.servers.map((server) => `
-        <a class="cc-shell__row server-row" href="${esc(serverHash(server.id))}" data-id="${esc(server.id)}"${server.id === current ? ' aria-current="page"' : ''}>
+        <a class="cc-shell__row server-row" href="${esc(serverHash(server.id, tab))}" data-id="${esc(server.id)}"${server.id === current ? ' aria-current="page"' : ''}>
             <span class="dot dot--${esc(server.status)}"></span><span class="server-row__name">${esc(server.name)}</span>
             <span class="server-row__meta">${esc(statusName(server.status))} · ${esc(typeName(server.type))} ${esc(versionName(server.version))}</span>
         </a>`).join('');
@@ -97,6 +101,7 @@ function drawHome(text, offerNew = true) {
 export function showServer(id) {
     const server = serverWithId(id);
     if (!server) {
+        shownTab = '';
         document.title = 'mcpanel';
         const gone = "There's no server here. It may have been removed, or you may no longer have access to it.";
         drawHome(state.loaded && !state.dockerError ? gone : '', false);
@@ -104,6 +109,25 @@ export function showServer(id) {
     }
     showView('serverView');
     drawServer(server);
+    showTab(server);
+}
+
+/** The tab the address names: its link marked, its page shown, and opened when it wasn't open already. */
+function showTab(server) {
+    const { tab } = route();
+    for (const link of $('serverTabs').querySelectorAll('[data-tab]')) {
+        link.href = serverHash(server.id, link.dataset.tab);
+        if (link.dataset.tab === tab) link.setAttribute('aria-current', 'page');
+        else link.removeAttribute('aria-current');
+    }
+    for (const panel of $('serverView').querySelectorAll('[data-tab-panel]')) panel.hidden = panel.dataset.tabPanel !== tab;
+    const view = TAB_VIEWS[tab];
+    if (shownTab === `${server.id}/${tab}`) {
+        view.update?.(server);
+        return;
+    }
+    shownTab = `${server.id}/${tab}`;
+    view.show?.(server);
 }
 
 /** The server view's header and Overview, changing only what changed, so a poll keeps focus and selection. */
@@ -210,7 +234,10 @@ export function initServers() {
     });
     // A link closes the drawer even when it leads where the page already is, which changes no hash.
     $('side').addEventListener('click', (event) => event.target.closest('a[href], [data-new-server]') && setDrawer(false));
-    window.addEventListener('hashchange', () => setDrawer(false));
+    window.addEventListener('hashchange', () => {
+        setDrawer(false);
+        if (route().page !== 'server') shownTab = ''; // coming back opens the tab afresh
+    });
 
     $('serverView').addEventListener('click', (event) => {
         const action = event.target.closest('[data-action]')?.dataset.action;

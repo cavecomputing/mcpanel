@@ -216,6 +216,35 @@ svg.i { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-widt
 .new-codes p { margin: 0; color: var(--fg-muted); font-size: 13px; }
 .new-codes .recovery-codes { width: fit-content; column-gap: var(--app-space-6); } /* not spread across a wide card */
 
+/* ---------- a server's tabs: Overview, Files... under its header, each its own scrolling page ---------- */
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.tabs { flex: none; display: flex; gap: 2px; padding: 0 var(--app-space-6); border-bottom: 1px solid var(--border); overflow-x: auto; }
+.tab { position: relative; display: flex; align-items: center; gap: var(--app-space-3); padding: 10px 12px; color: var(--fg-muted); font-family: var(--font-mono); font-size: 13px; text-decoration: none; white-space: nowrap; }
+.tab:hover { color: var(--fg); }
+.tab[aria-current] { color: var(--accent-text); }
+.tab[aria-current]::after { content: ""; position: absolute; left: 8px; right: 8px; bottom: -1px; height: 2px; border-radius: 2px; background: var(--accent-text); }
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--app-space-3); max-width: 1100px; }
+.toolbar__end { margin-left: auto; display: flex; flex-wrap: wrap; gap: var(--app-space-3); }
+.table-wrap { max-width: 1100px; overflow-x: auto; }
+.table-wrap .cc-table { min-width: 100%; }
+.cc-table td { vertical-align: middle; }
+.cc-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cc-table td.muted { color: var(--fg-muted); white-space: nowrap; }
+.cc-table td.act { text-align: right; white-space: nowrap; }
+.cc-table td.act .cc-btn + .cc-btn { margin-left: var(--app-space-2); }
+.cc-icon-btn.danger:hover { color: var(--accent-warm); }
+.cc-table .empty-row td { color: var(--fg-muted); font-weight: 400; text-align: center; padding: var(--app-space-6); }
+.crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; min-width: 0; font-family: var(--font-mono); font-size: 13px; }
+.crumbs button { padding: 2px 4px; border: 0; border-radius: 4px; background: none; color: var(--accent-cool); }
+.crumbs button:hover { background: var(--border); }
+.crumbs span { color: var(--fg-subtle); }
+.fname { display: inline-flex; align-items: center; gap: var(--app-space-3); padding: 0; border: 0; background: none; color: var(--fg); font-family: var(--font-mono); font-weight: 400; text-align: left; word-break: break-word; }
+button.fname:hover { color: var(--accent-text); }
+.fname .i { color: var(--fg-muted); }
+.fname--dir .i { color: var(--accent-alt); }
+.editor { max-width: 1100px; }
+.editor textarea { min-height: 420px; resize: vertical; font: 12.5px/1.6 var(--font-mono); white-space: pre; tab-size: 4; }
+
 /* ---------- dialogs and the toast ---------- */
 .dialog { width: min(520px, calc(100% - 32px)); max-height: calc(100% - 32px); overflow-y: auto; color: var(--fg); }
 .dialog::backdrop { background: var(--scrim); }
@@ -254,4 +283,6 @@ svg.i { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-widt
     .head__actions { width: 100%; margin-left: 0; }
     .page { padding: var(--app-space-5); }
     .cc-field { grid-template-columns: minmax(0, 1fr); }
+    .tabs { padding: 0 var(--app-space-4); }
+    .hide-phone { display: none; }
 }

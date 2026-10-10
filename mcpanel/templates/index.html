@@ -19,6 +19,14 @@
     <symbol id="i-chip" viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="1.5"/><path d="M9.5 3v3.5M14.5 3v3.5M9.5 17.5V21M14.5 17.5V21M3 9.5h3.5M3 14.5h3.5M17.5 9.5H21M17.5 14.5H21"/></symbol>
     <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M16 7l3 3M14 9l2 2"/></symbol>
     <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l7.5 3v5.5c0 4.5-3.2 8.2-7.5 9.5-4.3-1.3-7.5-5-7.5-9.5V6z"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M6.5 3.5h7l4.5 4.5v12.5h-11.5z"/><path d="M13.5 3.5v4.5h4.5"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v12M7 11l5 5 5-5M5 20h14"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
     <symbol id="i-device" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="11" rx="1.5"/><path d="M8 19.5h8M12 15.5v4"/></symbol>
 </svg>
 
@@ -80,10 +88,40 @@
                         <span class="tags" id="serverTags"></span>
                     </div>
                 </header>
-                <div class="page">
+                <nav class="tabs" id="serverTabs" aria-label="Server sections">
+                    <a class="tab" data-tab="overview"><svg class="i"><use href="#i-grid"/></svg>Overview</a>
+                    <a class="tab" data-tab="files"><svg class="i"><use href="#i-folder"/></svg>Files</a>
+                </nav>
+                <div class="page" data-tab-panel="overview">
                     <section class="cc-settings-card" aria-labelledby="overviewTitle">
                         <div class="cc-card-header"><svg><use href="#i-chip"/></svg><h4 id="overviewTitle">Overview</h4></div>
                         <dl class="kv" id="serverDetails"></dl>
+                    </section>
+                </div>
+                <div class="page" data-tab-panel="files">
+                    <div class="toolbar">
+                        <nav class="crumbs" id="crumbs" aria-label="Folder"></nav>
+                        <span class="toolbar__end">
+                            <button class="cc-btn cc-btn--ghost cc-btn--sm" type="button" id="newFolderBtn"><svg class="i"><use href="#i-folder"/></svg><span>New folder</span></button>
+                            <button class="cc-btn cc-btn--ghost cc-btn--sm" type="button" id="newFileBtn"><svg class="i"><use href="#i-plus"/></svg><span>New file</span></button>
+                            <button class="cc-btn cc-btn--primary cc-btn--sm" type="button" id="uploadBtn"><svg class="i"><use href="#i-upload"/></svg><span>Upload</span></button>
+                            <input type="file" id="uploadInput" multiple hidden>
+                        </span>
+                    </div>
+                    <div class="table-wrap" id="fileList">
+                        <table class="cc-table">
+                            <thead><tr><th>Name</th><th class="num">Size</th><th class="hide-phone">Modified</th><th><span class="sr">Actions</span></th></tr></thead>
+                            <tbody id="fileRows"></tbody>
+                        </table>
+                    </div>
+                    <section class="cc-settings-card editor" id="editor" aria-labelledby="editorName" hidden>
+                        <div class="cc-card-header"><svg><use href="#i-file"/></svg><h4 id="editorName"></h4>
+                            <div class="cc-card-header__end">
+                                <button class="cc-btn cc-btn--ghost cc-btn--sm" type="button" id="editorClose"><span>Close</span></button>
+                                <button class="cc-btn cc-btn--primary cc-btn--sm" type="button" id="editorSave"><span>Save</span></button>
+                            </div>
+                        </div>
+                        <textarea class="cc-input" id="editorText" spellcheck="false" autocapitalize="off" aria-labelledby="editorName"></textarea>
                     </section>
                 </div>
             </section>

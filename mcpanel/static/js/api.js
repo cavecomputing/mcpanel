@@ -1,12 +1,12 @@
 /** Calls to the JSON API under /api. A failed call shows the server's message (unless it's quiet) and throws it. */
 import { showError } from './ui.js';
 
-async function request(method, url, body, quiet = false) {
+async function request(method, url, body, quiet = false, raw = false) {
     try {
         const response = await fetch(url, {
             method,
-            headers: body === undefined ? {} : { 'Content-Type': 'application/json' },
-            body: body === undefined ? undefined : JSON.stringify(body),
+            headers: body === undefined || raw ? {} : { 'Content-Type': 'application/json' },
+            body: body === undefined || raw ? body : JSON.stringify(body),
         });
         const data = await response.json().catch(() => ({}));
         if (response.status === 401) { // signed out, e.g. from another device: come back here after signing in
@@ -29,3 +29,5 @@ export const get = (url, { quiet = false } = {}) => request('GET', url, undefine
 export const post = (url, body) => request('POST', url, body);
 export const put = (url, body) => request('PUT', url, body);
 export const del = (url) => request('DELETE', url);
+/** PUT a file (a Blob, or text) as the request's body, as it is: an upload, or the editor's save. */
+export const upload = (url, body) => request('PUT', url, body, false, true);

@@ -133,7 +133,7 @@ def server_container(client, server_id):
 def server_dict(container):
     """What the UI shows of a server. Never the container's env, which holds the RCON password."""
     attrs = container.attrs
-    env = dict(item.partition('=')[::2] for item in attrs['Config'].get('Env') or [])
+    env = env_of(container)
     heap = env.get('MEMORY', '').removesuffix('G')
     game_port = next(host_ports(container), None)
     return {
@@ -149,6 +149,18 @@ def server_dict(container):
         # Docker writes UTC with nanoseconds, more digits than Python parses.
         'created': int(datetime.fromisoformat(attrs['Created'][:19] + '+00:00').timestamp()),
     }
+
+
+def env_of(container):
+    """A container's environment as a dict. It holds the RCON password: never send it anywhere."""
+    return dict(item.partition('=')[::2] for item in container.attrs['Config'].get('Env') or [])
+
+
+def rcon_password(server_id):
+    """The RCON password of a server, for talking to it and for keeping it out of what it shows."""
+    check_id(server_id)
+    with docker_errors():
+        return env_of(server_container(docker_client(), server_id)).get('RCON_PASSWORD', '')
 
 
 def status_of(attrs):

@@ -11,15 +11,18 @@ export const state = {
     busy: new Map(),   // server id -> the action under way: 'start', 'stop' or 'restart'
 };
 
+// A server's tabs, in the order they show; the first is where a server opens.
+export const TABS = ['overview', 'files'];
+
 /**
- * The page the hash names: #/servers/<id>, #/users or #/account. Anything else is home, which
- * opens the first server.
+ * The page the hash names: #/servers/<id>/<tab>, #/users or #/account. Anything else is home,
+ * which opens the first server.
  */
 export function route() {
-    const [, page = '', id = ''] = location.hash.split('/'); // '#/servers/x' -> ['#', 'servers', 'x']
-    if (page === 'servers' && id) return { page: 'server', id };
+    const [, page = '', id = '', tab = ''] = location.hash.split('/'); // '#/servers/x/files' -> ['#', 'servers', 'x', 'files']
+    if (page === 'servers' && id) return { page: 'server', id, tab: TABS.includes(tab) ? tab : TABS[0] };
     if (page === 'account' || (page === 'users' && state.admin)) return { page };
     return { page: 'home' };
 }
 
-export const serverHash = (id) => `#/servers/${id}`;
+export const serverHash = (id, tab = '') => `#/servers/${id}${tab ? `/${tab}` : ''}`;
