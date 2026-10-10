@@ -1,5 +1,6 @@
 /** Entry point: wires up each module, then shows the page the address names, and again on every change. */
 import { initAccount, showAccount } from './account.js';
+import { initConsole, showConsole, updateConsole } from './console.js';
 import { initFiles, showFiles } from './files.js';
 import { addTab, drawSidebar, initServers, showHome, showServer } from './servers.js';
 import { initSettings, showSettings, updateSettings } from './settings.js';
@@ -24,8 +25,10 @@ initTheme();
 initUi();
 initAccount();
 initUsers();
+initConsole();
 initFiles();
 initSettings();
+addTab('console', { show: showConsole, update: updateConsole });
 addTab('files', { show: showFiles });
 addTab('settings', { show: showSettings, update: updateSettings });
 initServers();

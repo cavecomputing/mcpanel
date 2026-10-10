@@ -4,12 +4,12 @@ import logging
 from flask import Blueprint, jsonify, request
 from werkzeug.exceptions import HTTPException
 
-from . import account, files, servers, users
+from . import account, console, files, servers, users
 
 logger = logging.getLogger(__name__)
 
 bp = Blueprint('api', __name__, url_prefix='/api')
-for module in (servers, files, users, account):
+for module in (servers, console, files, users, account):
     bp.register_blueprint(module.bp)
 
 

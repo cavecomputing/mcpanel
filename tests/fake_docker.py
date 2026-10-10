@@ -32,6 +32,7 @@ class FakeDocker:
         self.networks_made = {}   # network name -> the options it was created with
         self.network_ids = {}     # network name -> its id, new each time it is made
         self.inspect = {}         # container id -> attrs, as docker inspect reports them
+        self.output = {}          # container name -> [(time as Docker writes it, line)] of its log
         self.containers, self.images, self.networks = Containers(self), Images(self), Networks(self)
         self.api = Api(self)
 
@@ -120,6 +121,11 @@ def host_ports(attrs):
     return ports
 
 
+def log_seconds(stamp):
+    whole, _, fraction = stamp.removesuffix('Z').partition('.')
+    return datetime.fromisoformat(whole + '+00:00').timestamp() + float(f'0.{fraction or 0}')
+
+
 class Api:
     """The low-level APIClient calls that servers.py makes."""
     api_version = API_VERSION
@@ -183,6 +189,14 @@ class Container:
     def stop(self, timeout=None):
         self.fake.live(self.id)['State'] = {'Status': 'exited', 'Running': False, 'ExitCode': 0}
         self.fake.actions.append(('stop', self.name, timeout))
+
+    def logs(self, timestamps=False, since=None, tail='all'):
+        """The log as docker logs --timestamps writes it. since is inclusive, as Docker's is."""
+        lines = [(stamp, text) for stamp, text in self.fake.output.get(self.name, [])
+                 if since is None or log_seconds(stamp) >= since]
+        if tail != 'all':
+            lines = lines[-tail:]
+        return ''.join(f'{stamp} {text}\n' if timestamps else f'{text}\n' for stamp, text in lines).encode()
 
     def rename(self, name):
         if any(attrs['Name'] == f'/{name}' for attrs in self.fake.inspect.values()):

@@ -1,5 +1,8 @@
 import os
+import socket
+import struct
 import tempfile
+import threading
 import time
 
 # app.py builds the app at import time, and create_app() needs these. Set them before anything
@@ -12,7 +15,7 @@ os.environ['MCPANEL_PORT_RANGE'] = '25565-25570'
 import pyotp  # noqa: E402
 import pytest  # noqa: E402
 
-from mcpanel import accounts, auth, config, create_app, servers  # noqa: E402
+from mcpanel import accounts, auth, config, create_app, rcon, servers  # noqa: E402
 
 from .fake_docker import FakeDocker  # noqa: E402
 
@@ -113,3 +116,53 @@ def sign_in(client, username, password=PASSWORD, code=None, remember=False):
         step = max(int(time.time()) // 30, user['totp_last_step'] + 1)
         code = pyotp.TOTP(user['totp_secret']).generate_otp(step)
     return client.post('/login/code', data={'code': code})
+
+
+class FakeRcon:
+    """A server's RCON on 127.0.0.1, as Minecraft answers it. answers maps a command to its answer
+    (a callable gets the command); commands records what was run, passwords what logged in."""
+
+    def __init__(self):
+        self.answers, self.commands, self.passwords = {}, [], []
+        self.refuse = False  # True answers a login as a wrong password
+        self.listener = socket.create_server(('127.0.0.1', 0))
+        threading.Thread(target=self.serve, daemon=True).start()
+
+    def serve(self):
+        while True:
+            try:
+                conn, _ = self.listener.accept()
+            except OSError:
+                return
+            with conn:
+                try:
+                    while True:
+                        packet_id, packet_type, body = self.read(conn)
+                        if packet_type == rcon.LOGIN:
+                            self.passwords.append(body)
+                            rcon.send(conn, -1 if self.refuse else packet_id, rcon.COMMAND, '')
+                        elif packet_type == rcon.COMMAND:
+                            self.commands.append(body)
+                            answer = self.answers.get(body.split(' ')[0], '')
+                            answer = answer(body) if callable(answer) else answer
+                            for start in range(0, max(len(answer), 1), 4096):  # as Minecraft splits it
+                                rcon.send(conn, packet_id, rcon.RESPONSE, answer[start:start + 4096])
+                        else:
+                            rcon.send(conn, packet_id, rcon.RESPONSE, f'Unknown request {packet_type:x}')
+                except (OSError, struct.error):
+                    pass
+
+    def read(self, conn):
+        length, = struct.unpack('<i', rcon.exactly(conn, 4))
+        data = rcon.exactly(conn, length)
+        packet_id, packet_type = struct.unpack('<ii', data[:8])
+        return packet_id, packet_type, data[8:-2].decode()
+
+
+@pytest.fixture
+def rcon_server(monkeypatch):
+    """Every server's RCON, answered by one FakeRcon."""
+    fake = FakeRcon()
+    monkeypatch.setattr(rcon, 'address', lambda server_id: fake.listener.getsockname())
+    yield fake
+    fake.listener.close()

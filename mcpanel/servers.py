@@ -38,6 +38,8 @@ NETWORK = 'mcpanel'  # where the panel reaches each server's RCON by container n
 # How long a server gets to stop before Docker kills it: the image's own STOP_DURATION (60 s) for the
 # world to save, plus room for the image to exit after it.
 STOP_SECONDS = 75
+LOG_LINES = 500  # console lines the Console tab gets at most per call
+ANSI = re.compile(r'\x1b\[[0-9;?]*[A-Za-z]')
 # How long the health check gives a start before it counts: a first start downloads the server, and
 # a modded one installs its loader, which can take minutes.
 FIRST_START_SECONDS = 10 * 60
@@ -438,6 +440,38 @@ def on_network(container):
     if container.attrs['NetworkSettings']['Networks'].get(NETWORK, {}).get('NetworkID') != network.id:
         network.connect(container)  # Docker refuses this when it is on the network already
     return container
+
+
+def console_lines(server_id, since=None):
+    """A server's console output from Docker's log: (lines, the time of the last one) after since
+    (Unix seconds, as an earlier call returned it), or the last LOG_LINES lines when since is None.
+    Colour codes go, and the RCON password, should the server ever print it, is masked."""
+    check_id(server_id)
+    with docker_errors():
+        container = server_container(docker_client(), server_id)
+        raw = container.logs(timestamps=True, since=since, tail=LOG_LINES)
+    password = env_of(container).get('RCON_PASSWORD')
+    lines, last = [], since
+    for line in raw.decode('utf-8', 'replace').splitlines():
+        stamp, _, text = line.partition(' ')
+        try:
+            time = log_time(stamp)
+        except ValueError:
+            continue
+        if since is not None and time <= since:
+            continue  # Docker's since includes the line it names
+        text = ANSI.sub('', text).rstrip('\r')
+        lines.append(text.replace(password, '********') if password else text)
+        last = time
+    return lines, last
+
+
+def log_time(stamp):
+    """Docker's RFC 3339 time with up to nine digits of the second, as Unix seconds."""
+    whole, _, fraction = stamp.removesuffix('Z').partition('.')
+    if fraction and not fraction.isdigit():
+        raise ValueError(stamp)
+    return datetime.fromisoformat(whole + '+00:00').timestamp() + float(f'0.{fraction or 0}')
 
 
 def start_server(server_id):

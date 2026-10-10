@@ -242,6 +242,20 @@ svg.i { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-widt
 button.fname:hover { color: var(--accent-text); }
 .fname .i { color: var(--fg-muted); }
 .fname--dir .i { color: var(--accent-alt); }
+.console-page { overflow: hidden; gap: var(--app-space-4); }
+.log { flex: 1; min-height: 0; overflow-y: auto; margin: 0; padding: var(--app-space-4) var(--app-space-5); background: var(--bg-page); border: 1px solid var(--border); border-radius: var(--radius); font: 12.5px/1.6 var(--font-mono); white-space: pre-wrap; word-break: break-word; color: var(--fg); }
+.log .warn { color: var(--accent-warm); }
+.log .join { color: var(--accent-text); }
+.log .chat { color: var(--accent-aqua-text); }
+.log .cmd { color: var(--accent-cool); }
+.log .reply { color: var(--fg-muted); }
+.log .note { color: var(--fg-subtle); }
+.chips { display: flex; flex-wrap: wrap; gap: var(--app-space-2); }
+.chips .cc-tag { cursor: pointer; }
+.chips .cc-tag:hover { color: var(--fg); }
+.chips .cc-tag:disabled { opacity: .5; cursor: not-allowed; }
+.composer { display: flex; align-items: center; gap: var(--app-space-3); }
+.composer .prompt { color: var(--accent-text); font-family: var(--font-mono); font-weight: 700; }
 .editor { max-width: 1100px; }
 .mono { font-family: var(--font-mono); }
 .small-input { max-width: 120px; }

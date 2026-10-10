@@ -30,6 +30,8 @@
     <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5v.2a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1h-.2a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h0a1.7 1.7 0 0 0 1-1.5v-.2a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v0a1.7 1.7 0 0 0 1.5 1h.2a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
     <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></symbol>
     <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3.5l9 16H3z"/><path d="M12 10v4M12 17v.5"/></symbol>
+    <symbol id="i-term" viewBox="0 0 24 24"><path d="M4 17l6-6-6-6M12 19h8"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="M4 12l16-8-6 16-2.5-6.5z"/></symbol>
     <symbol id="i-device" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="11" rx="1.5"/><path d="M8 19.5h8M12 15.5v4"/></symbol>
 </svg>
 
@@ -93,6 +95,7 @@
                 </header>
                 <nav class="tabs" id="serverTabs" aria-label="Server sections">
                     <a class="tab" data-tab="overview"><svg class="i"><use href="#i-grid"/></svg>Overview</a>
+                    <a class="tab" data-tab="console"><svg class="i"><use href="#i-term"/></svg>Console</a>
                     <a class="tab" data-tab="files"><svg class="i"><use href="#i-folder"/></svg>Files</a>
                     <a class="tab" data-tab="settings"><svg class="i"><use href="#i-gear"/></svg>Settings</a>
                 </nav>
@@ -101,6 +104,21 @@
                         <div class="cc-card-header"><svg><use href="#i-chip"/></svg><h4 id="overviewTitle">Overview</h4></div>
                         <dl class="kv" id="serverDetails"></dl>
                     </section>
+                </div>
+                <div class="page console-page" data-tab-panel="console">
+                    <pre class="log" id="consoleLog" tabindex="0" aria-label="Console output"></pre>
+                    <div class="chips" aria-label="Quick commands">
+                        <button class="cc-tag" type="button" data-command="list">list</button>
+                        <button class="cc-tag" type="button" data-command="save-all">save-all</button>
+                        <button class="cc-tag" type="button" data-command="say " data-fill>say …</button>
+                        <button class="cc-tag" type="button" data-command="time set day">time set day</button>
+                        <button class="cc-tag" type="button" data-command="weather clear">weather clear</button>
+                    </div>
+                    <form class="composer" id="commandForm" autocomplete="off">
+                        <span class="prompt" aria-hidden="true">&gt;</span>
+                        <input class="cc-input mono" id="commandInput" aria-label="Command" spellcheck="false" autocapitalize="off" maxlength="1446">
+                        <button class="cc-btn cc-btn--primary" type="submit" id="commandSend"><svg class="i"><use href="#i-send"/></svg><span>Send</span></button>
+                    </form>
                 </div>
                 <div class="page" data-tab-panel="files">
                     <div class="toolbar">
