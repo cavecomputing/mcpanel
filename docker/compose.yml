@@ -1,7 +1,7 @@
 name: mcpanel
 
 # The build context is the repo root. Settings come from the environment or docker/.env next to
-# this file; README.md lists them.
+# this file; docs/2-setup.md lists them.
 services:
   mcpanel:
     build:
