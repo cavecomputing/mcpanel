@@ -12,6 +12,7 @@ DATA_DIR = Path(os.getenv('MCPANEL_DATA_DIR', 'data')).resolve()
 DATABASE = DATA_DIR / 'mcpanel.db'
 LOGS_DIR = DATA_DIR / 'logs'
 SERVERS_DIR = DATA_DIR / 'servers'
+BACKUPS_DIR = DATA_DIR / 'backups'
 
 # The name players type to reach a server, e.g. mc.example.com. create_app() refuses to start without it.
 PUBLIC_HOST = os.getenv('MCPANEL_PUBLIC_HOST', '').strip()

@@ -99,7 +99,7 @@ async function deleteServer() {
     const { id, name } = server;
     const done = await ask({
         title: 'Delete server?', iconName: 'alert', value: '', ok: 'Delete', danger: true,
-        text: `${name}, its world and every file in its folder will be deleted. This can't be undone. Type its name to confirm.`,
+        text: `${name}, its world, every file in its folder and its backups will be deleted. This can't be undone. Type its name to confirm.`,
         action: (typed) => {
             if (typed.trim() !== name) {
                 showError(`Type ${name} to delete it`);

@@ -2,7 +2,7 @@
 set -e
 
 : "${MCPANEL_DATA_DIR:?Set MCPANEL_DATA_DIR to the absolute path of the data folder on the host}"
-mkdir -p "$MCPANEL_DATA_DIR/logs" "$MCPANEL_DATA_DIR/servers"
+mkdir -p "$MCPANEL_DATA_DIR/logs" "$MCPANEL_DATA_DIR/servers" "$MCPANEL_DATA_DIR/backups"
 
 # If running as root, give the data folder to PUID:PGID and re-exec as them (setpriv is util-linux's
 # gosu, already in the image). Only what isn't theirs yet changes, and the worlds under servers/ are

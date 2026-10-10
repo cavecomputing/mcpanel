@@ -16,7 +16,7 @@ def create_app():
         raise RuntimeError('Set MCPANEL_PUBLIC_HOST to the name players use to reach your servers.')
     config.port_range()  # raises with what is wrong with MCPANEL_PORT_RANGE
 
-    for folder in (config.DATA_DIR, config.LOGS_DIR, config.SERVERS_DIR):
+    for folder in (config.DATA_DIR, config.LOGS_DIR, config.SERVERS_DIR, config.BACKUPS_DIR):
         folder.mkdir(parents=True, exist_ok=True)
     logs.setup_logging()
     # Browsers refuse module scripts not served as JavaScript, and some systems map .js to text/plain.

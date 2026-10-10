@@ -23,6 +23,7 @@ when the panel restarts, and the panel finds them again by their Docker labels.
 - Who is online, and the whitelist, operators and bans, each a click to change
 - Each server's files in the browser: browse, edit text files such as `server.properties`, upload
   mods and plugins, download, rename, delete
+- Back up a server's whole folder, running or not, then download, restore or delete its backups
 - One game port per server, from a range you choose, shown as the address players type
 - Admins manage every server and every user; members see and run only the servers an admin gave them
 - An admin adds each account and hands over a one-time password, valid for 24 hours; signing in
@@ -110,8 +111,10 @@ Servers keep running while the panel restarts.
 ├── logs/
 │   ├── mcpanel.log      # everything on stdout, rotated
 │   └── audit.log        # who did what, rotated
-└── servers/
-    └── <server id>/     # one server's /data, bind-mounted into its container
+├── servers/
+│   └── <server id>/     # one server's /data, bind-mounted into its container
+└── backups/
+    └── <server id>/     # its backups from the Backups tab, kept until you delete them
 ```
 
 To add mods or plugins before a new server's first start, upload them on its Files tab, or put them

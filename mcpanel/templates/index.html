@@ -32,6 +32,7 @@
     <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3.5l9 16H3z"/><path d="M12 10v4M12 17v.5"/></symbol>
     <symbol id="i-term" viewBox="0 0 24 24"><path d="M4 17l6-6-6-6M12 19h8"/></symbol>
     <symbol id="i-send" viewBox="0 0 24 24"><path d="M4 12l16-8-6 16-2.5-6.5z"/></symbol>
+    <symbol id="i-archive" viewBox="0 0 24 24"><rect x="3.5" y="4" width="17" height="4.5" rx="1"/><path d="M5 8.5v11h14v-11M10 12.5h4"/></symbol>
     <symbol id="i-device" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="11" rx="1.5"/><path d="M8 19.5h8M12 15.5v4"/></symbol>
 </svg>
 
@@ -98,6 +99,7 @@
                     <a class="tab" data-tab="console"><svg class="i"><use href="#i-term"/></svg>Console</a>
                     <a class="tab" data-tab="players"><svg class="i"><use href="#i-users"/></svg>Players</a>
                     <a class="tab" data-tab="files"><svg class="i"><use href="#i-folder"/></svg>Files</a>
+                    <a class="tab" data-tab="backups"><svg class="i"><use href="#i-archive"/></svg>Backups</a>
                     <a class="tab" data-tab="settings"><svg class="i"><use href="#i-gear"/></svg>Settings</a>
                 </nav>
                 <div class="page" data-tab-panel="overview">
@@ -168,6 +170,18 @@
                         <textarea class="cc-input" id="editorText" spellcheck="false" autocapitalize="off" aria-labelledby="editorName"></textarea>
                     </section>
                 </div>
+                <div class="page" data-tab-panel="backups">
+                    <div class="toolbar">
+                        <p class="note">The whole server folder: world, mods and settings. Kept in the panel's <code class="cc-code">backups</code> folder until you delete them; nothing makes them on a schedule.</p>
+                        <span class="toolbar__end"><button class="cc-btn cc-btn--primary cc-btn--sm" type="button" id="backupNow"><svg class="i"><use href="#i-archive"/></svg><span>Back up now</span></button></span>
+                    </div>
+                    <div class="table-wrap">
+                        <table class="cc-table">
+                            <thead><tr><th>Backup</th><th class="num">Size</th><th class="hide-phone">Taken</th><th><span class="sr">Actions</span></th></tr></thead>
+                            <tbody id="backupRows"></tbody>
+                        </table>
+                    </div>
+                </div>
                 <div class="page" data-tab-panel="settings">
                     <form class="cc-settings-card" id="gameForm" aria-labelledby="gameTitle" autocomplete="off">
                         <div class="cc-card-header"><svg><use href="#i-sliders"/></svg><h4 id="gameTitle">Game</h4><p>Saved in <code class="cc-code">server.properties</code>. The server reads them when it starts, so restart it to apply them.</p></div>
@@ -202,7 +216,7 @@
                     <section class="cc-settings-card danger-card" aria-labelledby="dangerTitle">
                         <div class="cc-card-header"><svg><use href="#i-alert"/></svg><h4 id="dangerTitle">Delete</h4></div>
                         <div class="list-row">
-                            <span class="list-row__main">Deletes the server and everything in its folder: the world, mods and settings. Stop it first.</span>
+                            <span class="list-row__main">Deletes the server, everything in its folder (the world, mods and settings) and its backups. Stop it first.</span>
                             <button class="cc-btn cc-btn--danger cc-btn--sm" type="button" id="deleteServer"><span>Delete server</span></button>
                         </div>
                     </section>

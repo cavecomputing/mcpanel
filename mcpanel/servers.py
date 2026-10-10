@@ -358,17 +358,19 @@ def update_server(server_id, name, type, version, java, heap_gb):
 
 
 def delete_server(server_id):
-    """Remove a stopped server's container and its folder, world and all. Its port and id become free."""
+    """Remove a stopped server's container, its folder, world and all, and its backups. Its port
+    and id become free."""
     check_id(server_id)
     with docker_errors():
         stopped_container(docker_client(), server_id, 'deleting it').remove()
-    try:
-        shutil.rmtree(config.SERVERS_DIR / server_id)
-    except FileNotFoundError:
-        pass
-    except OSError as e:  # the container is gone: report what's left rather than fail
-        logger.warning("Deleted server %s, but couldn't delete all its files: %s", server_id, e,
-                       extra={'server': server_id})
+    for folder in (config.SERVERS_DIR / server_id, config.BACKUPS_DIR / server_id):
+        try:
+            shutil.rmtree(folder)
+        except FileNotFoundError:
+            pass
+        except OSError as e:  # the container is gone: report what's left rather than fail
+            logger.warning("Deleted server %s, but couldn't delete all of %s: %s", server_id, folder, e,
+                           extra={'server': server_id})
     logger.info('Deleted server %s', server_id, extra={'server': server_id})
 
 
