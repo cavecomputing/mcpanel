@@ -444,6 +444,26 @@ def on_network(container):
     return container
 
 
+def usage(server_id):
+    """{memory, memory_limit, cpu} of a running server from one docker stats sample: memory in bytes
+    as docker stats counts it (less the page cache), cpu in percent of one core. None when it isn't running."""
+    check_id(server_id)
+    with docker_errors():
+        container = server_container(docker_client(), server_id)
+        if container.attrs['State']['Status'] != 'running':
+            return None
+        stats = container.stats(stream=False)  # Docker samples twice, a second apart, for the CPU
+    memory = stats.get('memory_stats') or {}
+    cpu, before = stats.get('cpu_stats') or {}, stats.get('precpu_stats') or {}
+    used = (cpu.get('cpu_usage') or {}).get('total_usage', 0) - (before.get('cpu_usage') or {}).get('total_usage', 0)
+    elapsed = cpu.get('system_cpu_usage', 0) - before.get('system_cpu_usage', 0)
+    return {
+        'memory': max(0, memory.get('usage', 0) - (memory.get('stats') or {}).get('inactive_file', 0)),
+        'memory_limit': memory.get('limit'),
+        'cpu': round(used / elapsed * (cpu.get('online_cpus') or 1) * 100, 1) if elapsed > 0 and used >= 0 else 0.0,
+    }
+
+
 def console_lines(server_id, since=None):
     """A server's console output from Docker's log: (lines, the time of the last one) after since
     (Unix seconds, as an earlier call returned it), or the last LOG_LINES lines when since is None.

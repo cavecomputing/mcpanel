@@ -2,7 +2,7 @@
 an admin gave them, and change everything on them but their memory."""
 from flask import Blueprint, abort, g
 
-from .. import accounts, auth, logs, properties, servers
+from .. import accounts, auth, logs, players, properties, servers
 from ..db import get_db
 from .common import json_body, usable_server
 
@@ -69,6 +69,17 @@ def delete(server_id):
         conn.commit()
     logs.audit('server_deleted', server=server['id'], server_name=server['name'])
     return {}
+
+
+@bp.get('/servers/<server_id>/stats')
+def stats(server_id):
+    """{usage, players, max_players} for the Overview: usage is servers.usage(), and players who
+    is online. Each is null when the server isn't running or can't say yet."""
+    server = usable_server(server_id)
+    running = server['status'] not in ('stopped', 'crashed')
+    names, most = (players.online(server_id) if running else None) or (None, None)
+    return {'usage': servers.usage(server_id) if running else None,
+            'players': None if names is None else len(names), 'max_players': most}
 
 
 @bp.get('/servers/<server_id>/properties')

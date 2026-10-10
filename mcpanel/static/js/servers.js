@@ -21,7 +21,8 @@ let polling = null; // the poll's list call while it runs: one at a time, so a s
 let options = null; // /api/servers/options, fetched when a form first needs it
 let shownTab = '';  // '<server id>/<tab>' last opened, so a poll redraws a tab without reloading it
 // tab -> what it does when it opens (show) and when a poll brings the server's fresh dict (update).
-const TAB_VIEWS = { overview: {} };
+const TAB_VIEWS = { overview: { show: loadStats, update: loadStats } };
+let stats = null;   // the Overview's stats call while it runs
 
 /** Give a tab its view: main.js does, so the tabs' modules can use this one. */
 export function addTab(tab, view) {
@@ -158,6 +159,26 @@ function drawServer(server) {
         ['Memory', `${esc(server.heap_gb)} GB`],
         ['Created', esc(formatDate(server.created))],
     ].map(([term, value]) => `<dt>${term}</dt><dd>${value}</dd>`).join(''));
+}
+
+/** The Overview's players, memory and CPU, fetched on opening it and on each poll: a dash while it can't say. */
+function loadStats(server) {
+    if (['stopped', 'crashed'].includes(server.status)) {
+        drawStats(server, null);
+        return;
+    }
+    stats ??= api.get(`/api/servers/${server.id}/stats`, { quiet: true })
+        .then((data) => route().id === server.id && drawStats(server, data))
+        .catch(() => {})
+        .finally(() => { stats = null; });
+}
+
+function drawStats(server, data) {
+    const gb = (bytes) => (bytes / 1024 ** 3).toFixed(1);
+    const usage = data?.usage;
+    setHtml($('statPlayers'), data?.players == null ? '–' : `${esc(data.players)} <small>/ ${esc(data.max_players)}</small>`);
+    setHtml($('statMemory'), usage ? `${gb(usage.memory)} <small>/ ${gb(usage.memory_limit)} GB</small>` : '–');
+    setHtml($('statCpu'), usage ? `${esc(usage.cpu)}<small>% of a core</small>` : '–');
 }
 
 /** Start, stop or restart the open server. Stopping can take up to a minute while the world saves. */

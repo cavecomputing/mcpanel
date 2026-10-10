@@ -190,6 +190,14 @@ class Container:
         self.fake.live(self.id)['State'] = {'Status': 'exited', 'Running': False, 'ExitCode': 0}
         self.fake.actions.append(('stop', self.name, timeout))
 
+    def stats(self, stream=True):
+        """One sample, as docker stats --no-stream reads it: 4 of 8 cores busy, 3 GiB used of which
+        512 MiB is page cache."""
+        assert not stream
+        return {'memory_stats': {'usage': 3 * 1024 ** 3, 'limit': 5 * 1024 ** 3, 'stats': {'inactive_file': 512 * 1024 ** 2}},
+                'cpu_stats': {'cpu_usage': {'total_usage': 3_000_000_000}, 'system_cpu_usage': 104_000_000_000, 'online_cpus': 8},
+                'precpu_stats': {'cpu_usage': {'total_usage': 1_000_000_000}, 'system_cpu_usage': 100_000_000_000}}
+
     def logs(self, timestamps=False, since=None, tail='all'):
         """The log as docker logs --timestamps writes it. since is inclusive, as Docker's is."""
         lines = [(stamp, text) for stamp, text in self.fake.output.get(self.name, [])

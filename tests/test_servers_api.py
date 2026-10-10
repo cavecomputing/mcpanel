@@ -212,3 +212,15 @@ def test_every_server_action_is_audited(admin, member, data_dir):
         ('server_restarted', 'survival', 'Survival', 'member'),
         ('server_stopped', 'survival', 'Survival', 'admin'),
     ]
+
+
+def test_stats_say_nothing_while_stopped_then_usage_and_players(admin, member, docker, rcon_server):
+    create(admin)
+    assert admin.get('/api/servers/survival/stats').get_json() == {'usage': None, 'players': None, 'max_players': None}
+    assert rcon_server.commands == []
+    admin.post('/api/servers/survival/start')
+    rcon_server.answers['list'] = 'There are 1 of a max of 20 players online: Steve'
+    assert admin.get('/api/servers/survival/stats').get_json() == {
+        'usage': {'memory': int(2.5 * 1024 ** 3), 'memory_limit': 5 * 1024 ** 3, 'cpu': 400.0},
+        'players': 1, 'max_players': 20}
+    assert member.get('/api/servers/survival/stats').status_code == 404
