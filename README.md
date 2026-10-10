@@ -8,6 +8,10 @@
   A small web panel for hosting Minecraft servers on one machine
 </p>
 
+> **Work in progress.** mcpanel is early and still changing. It hasn't yet been run against real
+> Minecraft servers on a real host or tested by someone trying to break it, so don't rely on it
+> for anything you can't afford to lose, and expect rough edges and changes between updates.
+
 mcpanel lets a handful of people run Minecraft servers from a browser. Every server is its own
 [`itzg/minecraft-server`](https://github.com/itzg/docker-minecraft-server) container. The panel is
 one more container next to them that talks to Docker, the way Portainer does. Servers keep running
