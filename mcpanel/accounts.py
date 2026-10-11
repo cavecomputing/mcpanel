@@ -70,8 +70,9 @@ def create_user(username, role, server_ids):
 
 
 def create_first_admin(username, password, totp_secret, totp_step):
-    """Add the panel's first account, its platform admin, with its own password and TOTP secret, the code for
-    totp_step used up: its id, or None when an account exists already (another browser was first)."""
+    """Add the panel's first account, its platform admin, with its own password and TOTP secret ('' for
+    none), the code for totp_step used up: its id, or None when an account exists already (another
+    browser was first)."""
     now = time.time()
     with get_db() as conn:
         cursor = conn.execute('''INSERT INTO users (username, role, password_hash, password_changed, created, totp_secret,
@@ -83,15 +84,17 @@ def create_first_admin(username, password, totp_secret, totp_step):
 
 
 def finish_setup(user, password, totp_secret, totp_step):
-    """Give an account signing in for the first time its own password and its TOTP secret, the code
-    for totp_step used up; whether that happened. user is its row as the set-up checked it: nothing
+    """Give an account signing in for the first time its own password and its TOTP secret ('' for
+    none), the code for totp_step used up, or with password None, give an account that has a password
+    but no TOTP its secret; whether that happened. user is its row as the set-up checked it: nothing
     happens when its password changed since (a reset), or another tab finished the set-up first."""
+    password_hash, changed = (hasher.hash(password), time.time()) if password else (user['password_hash'], user['password_changed'])
     with get_db() as conn:
         done = conn.execute('''UPDATE users SET password_hash = ?, password_changed = ?, totp_secret = ?, totp_last_step = ?,
                                                 failed_tries = 0
-                               WHERE id = ? AND totp_secret IS NULL AND password_changed = ?''',
-                            (hasher.hash(password), time.time(), totp_secret, totp_step,
-                             user['id'], user['password_changed'])).rowcount
+                               WHERE id = ? AND totp_secret IS ? AND password_changed = ?''',
+                            (password_hash, changed, totp_secret, totp_step, user['id'], None if password else '',
+                             user['password_changed'])).rowcount
         conn.commit()
     return bool(done)
 
@@ -161,6 +164,8 @@ def totp_step(secret, code, last_step):
 
 def code_matches(user, code):
     """Whether code is user's current TOTP code and newer than the last one they used; records its step."""
+    if not user['totp_secret']:  # '' (no TOTP, set up with MFA off) would make codes anyone can work out
+        return False
     step = totp_step(user['totp_secret'], code, user['totp_last_step'])
     if step is None:
         return False

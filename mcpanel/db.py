@@ -12,7 +12,8 @@ USERS_TABLE = '''
         role TEXT NOT NULL CHECK (role IN ('platform_admin', 'admin', 'member')),
         password_hash TEXT NOT NULL,              -- argon2id
         -- base32. NULL until the first sign-in sets it up: the password is then a one-time one an admin
-        -- handed out, which works for 24 hours from password_changed.
+        -- handed out, which works for 24 hours from password_changed. '' when that sign-in chose a
+        -- password but no TOTP, with MCPANEL_MFA_ENFORCEMENT off: the next sign-in with it on sets TOTP up.
         totp_secret TEXT,
         totp_last_step INTEGER NOT NULL DEFAULT 0, -- the last 30-second step a code was accepted for
         failed_tries INTEGER NOT NULL DEFAULT 0,  -- wrong passwords or codes in a row

@@ -8,6 +8,12 @@ account can start containers on the machine.
 - Every page and API route needs a session, except the sign-in pages, `/healthz` and static files.
 - Every account has a password (at least 8 characters, stored as an argon2id hash) and TOTP
   two-factor sign-in. A code already used is refused. Each account gets 10 single-use recovery codes.
+- `MCPANEL_MFA_ENFORCEMENT=off` switches two-factor sign-in off: a password alone signs in, so the
+  account lock and the password are all that stand between a stranger and the panel. Everything else
+  on this page still holds, the panel logs a warning on every start while it is off, and switching
+  it back on asks for codes again at the next sign-in (see
+  [Setup](2-setup.md#two-factor-sign-in)). Sessions signed in while it was off stay signed in, so
+  after switching it on because of a leak, sign everyone out by resetting them from the Users page.
 - Five wrong passwords or codes in a row lock the account for 15 minutes. While it is locked every
   password is wrong, so the lock stops guessing instead of confirming a right guess. An unknown
   username takes as long to refuse as a wrong password, so names can't be probed.

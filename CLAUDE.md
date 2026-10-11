@@ -30,7 +30,8 @@ environment variables, the cookie and the Docker labels all change together.
   members see and run only the servers they were given, and can't delete them. The platform admin is
   made in the browser by whoever opens a panel with no accounts. After that an admin makes each
   account and hands over its one-time password; on that first sign-in the person chooses their own password and sets
-  up TOTP two-factor sign-in, with recovery codes. Every account has both from then on.
+  up TOTP two-factor sign-in, with recovery codes. Every account has both from then on, unless
+  `MCPANEL_MFA_ENFORCEMENT=off` (see Access).
 - **It is on the public internet.** Treat every route as reachable by strangers. See Access below.
 - **No logging knobs.** Logging uses fixed defaults (see Logging). Don't add `LOG_*` variables.
 
@@ -110,7 +111,8 @@ node --check mcpanel/static/js/<file>.js       # frontend syntax check; there is
 docker compose -f docker/compose.yml up --build   # settings go in docker/.env
 ```
 
-The app refuses to start without `MCPANEL_PUBLIC_HOST` and a valid `MCPANEL_PORT_RANGE`.
+The app refuses to start without `MCPANEL_PUBLIC_HOST` and a valid `MCPANEL_PORT_RANGE`, or with an
+`MCPANEL_MFA_ENFORCEMENT` that is neither on nor off.
 
 Dependencies are declared in `pyproject.toml` and pinned in `uv.lock`; Python is pinned in
 `.python-version`. Change them with `uv add` / `uv remove` (or edit `pyproject.toml` and run
@@ -139,7 +141,7 @@ neighbour.
 | `app.py` | Entry point, and the **only** Python file at the repo root: `app = create_app()`, which `uv run app.py`, `flask --app app` and `gunicorn app:app` all name. No logic lives here. |
 | `mcpanel/` | The application package. Everything else in Python goes in here. |
 | `mcpanel/__init__.py` | `create_app()`: logging and the request log, `ProxyFix`, cookie settings, `init_db()`, the cross-site write guard (`reject_cross_site_writes()`), the login guard, blueprints, the `create-user` and `reset-user` CLI commands. |
-| `mcpanel/config.py` | Settings read once from the environment: paths under `MCPANEL_DATA_DIR`, `MCPANEL_PUBLIC_HOST`, `MCPANEL_PORT_RANGE`. |
+| `mcpanel/config.py` | Settings read once from the environment: paths under `MCPANEL_DATA_DIR`, `MCPANEL_PUBLIC_HOST`, `MCPANEL_PORT_RANGE`, `MCPANEL_MFA_ENFORCEMENT` (`mfa_enforced()`). |
 | `mcpanel/db.py` | Schema (`init_db()`, idempotent: it also remakes an older `users` table whose role CHECK predates `platform_admin`, and makes the earliest admin the platform admin when there is none) and `get_db()`, a short-lived connection per use. |
 | `mcpanel/logs.py` | `setup_logging()`: JSON lines on stdout, the same lines in a rotated file, the audit log, and the filter that strips secrets. `audit()` records who did what; `start_timer()` and `log_request()` write one line per request. |
 | `mcpanel/auth.py` | The sign-in pages: `/login` (password, or with no accounts yet the first admin's username, posted to `/login/first`), `/login/code` (TOTP or a recovery code), `/login/setup` (after a one-time password or `/login/first`: a new password and TOTP, then the recovery codes), `/logout`. The session cookie and `require_login()` in front of everything else, `require_admin()` (admins and platform admins), lockouts and the sign-in throttle (`throttled()`), the halfway state (`pending()`, `pending_user()`, `setup_secret()`), the `create-user` and `reset-user` commands. |
@@ -182,7 +184,8 @@ data/                    # MCPANEL_DATA_DIR, default ./data
 
 - `MCPANEL_PUBLIC_HOST` is the name players type (shown as the server's address); `MCPANEL_PORT_RANGE`
   (`25565-25600`) is the host ports the panel may publish, one per server. The router forwards the
-  same range. That is the whole configuration; don't add knobs.
+  same range. `MCPANEL_MFA_ENFORCEMENT` (on unless `off`; `MFA_ENFORCEMENT` is read too) turns the
+  TOTP step off, at Matt's request. That is the whole configuration; don't add knobs.
 - **`MCPANEL_DATA_DIR` must be the same path inside the panel's container as on the host.** A
   server's data is a bind mount, and Docker reads bind-mount paths on the host, so the panel passes
   `<data dir>/servers/<id>` as the host path and also reads and writes it itself. `compose.yml`
@@ -192,8 +195,9 @@ data/                    # MCPANEL_DATA_DIR, default ./data
   every time. A server id that Docker no longer has is stale, not an error. Nothing in it may sign
   anyone in: the key for Flask's cookie (a sign-in halfway through) is random for each process,
   since kept there, a copy of the database could sign that cookie and skip the password. An account
-  waiting for its first sign-in is one with no TOTP secret; its one-time password works for 24 hours
-  from `password_changed`.
+  waiting for its first sign-in is one with no TOTP secret (NULL); its one-time password works for
+  24 hours from `password_changed`. A secret of `''` is an account that chose its password while MFA
+  was off and has no TOTP; `code_matches()` never accepts a code for it.
 - Backups are made only when someone presses Back up now, and kept until someone deletes them; a
   server's are deleted with it. A backup is the whole folder, server jar and `libraries/` included,
   even though the image could download those again: it has to work on another host or for someone
@@ -293,6 +297,13 @@ the whole perimeter:
   from the per-process key, so nothing stores it before the set-up does. The halfway state carries
   the account's `password_changed`, so a reset or a set-up finished elsewhere ends it, and an
   account with TOTP never reaches the set-up.
+- **`MCPANEL_MFA_ENFORCEMENT=off`** drops the TOTP step and nothing else: the password, its throttle,
+  lock and dummy hash are unchanged, and a one-time password still leads to `/login/setup`, which
+  then asks only for a new password (saved with TOTP secret `''`, no recovery codes). Accounts keep
+  any TOTP secret they have, so switching back on asks them for codes again; an account with `''`
+  goes from the right password to a TOTP-only `/login/setup`, never to a session. The switch is read
+  per request, but in production only changes with a restart, which also ends every halfway sign-in
+  (new key). Signed-in sessions survive the switch either way.
 - **Files are confined to the server's folder, and the server's own code is untrusted**: a plugin
   can write links, FIFOs or anything else there. `files.py` never follows a link (each step is
   opened relative to the last with `O_NOFOLLOW`), refuses `.` and `..`, opens only regular files,

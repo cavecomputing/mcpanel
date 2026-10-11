@@ -1,10 +1,11 @@
+import importlib
 import logging
 import re
 
 import pyotp
 import pytest
 
-from mcpanel import accounts, auth
+from mcpanel import accounts, auth, config, create_app
 from mcpanel.db import get_db
 
 from .conftest import PASSWORD, make_user, sign_in
@@ -584,3 +585,296 @@ def test_the_first_admin_set_up_runs_out(anon, clock):
     response = set_up(anon, code='123456')
     assert response.status_code == 401 and b'action="/login/first"' in response.data  # start again
     assert user_row('matt') is None
+
+
+# MCPANEL_MFA_ENFORCEMENT: on unless set to off, when the password alone signs in
+
+@pytest.fixture
+def mfa_off(monkeypatch):
+    monkeypatch.setattr(config, 'MFA_ENFORCEMENT', 'off')
+
+
+def mfa_on(monkeypatch):
+    monkeypatch.setattr(config, 'MFA_ENFORCEMENT', 'on')
+
+
+def set_up_password_only(client, password=NEW_PASSWORD):
+    """With MFA off: post the set-up's password form."""
+    return client.post('/login/setup', data={'password': password, 'again': password})
+
+
+@pytest.mark.parametrize('value, enforced', [('on', True), ('ON', True), ('true', True), ('1', True), ('enabled', True),
+                                             ('off', False), ('False', False), ('0', False), ('disabled', False)])
+def test_mfa_enforcement_values(monkeypatch, value, enforced):
+    monkeypatch.setattr(config, 'MFA_ENFORCEMENT', value.lower())
+    assert config.mfa_enforced() is enforced
+
+
+def test_mfa_enforcement_is_read_from_the_environment(monkeypatch):
+    def read(**env):
+        for name in ('MCPANEL_MFA_ENFORCEMENT', 'MFA_ENFORCEMENT'):
+            monkeypatch.delenv(name, raising=False)
+        for name, value in env.items():
+            monkeypatch.setenv(name, value)
+        importlib.reload(config)
+        return config.mfa_enforced()
+
+    try:
+        assert read() is True  # on unless switched off
+        assert read(MCPANEL_MFA_ENFORCEMENT='') is True  # compose's ${MCPANEL_MFA_ENFORCEMENT:-}
+        assert read(MCPANEL_MFA_ENFORCEMENT=' Off ') is False
+        assert read(MFA_ENFORCEMENT='off') is False  # the name it was asked for
+        assert read(MCPANEL_MFA_ENFORCEMENT='on', MFA_ENFORCEMENT='off') is True  # MCPANEL_ wins
+        with pytest.raises(ValueError, match='on or off'):
+            read(MCPANEL_MFA_ENFORCEMENT='flase')
+    finally:
+        monkeypatch.undo()
+        importlib.reload(config)
+
+
+def test_the_panel_refuses_to_start_with_a_mistyped_mfa_enforcement(data_dir, docker, monkeypatch):
+    monkeypatch.setattr(config, 'MFA_ENFORCEMENT', 'of')
+    with pytest.raises(ValueError, match='MCPANEL_MFA_ENFORCEMENT must be on or off'):
+        create_app()
+
+
+def test_the_panel_warns_on_start_when_mfa_is_off(data_dir, docker, mfa_off, caplog):
+    caplog.set_level(logging.WARNING)
+    create_app()
+    assert any('Two-factor sign-in is off' in record.getMessage() for record in caplog.records)
+
+
+def test_with_mfa_off_the_password_alone_signs_in(app, anon, matt, mfa_off, caplog):
+    caplog.set_level(logging.INFO)
+    anon.post('/login', data={'username': 'matt', 'password': 'wrong password'})
+    assert failed_tries(matt) == 1
+    response = anon.post('/login', query_string={'next': '/servers/smp'},
+                         data={'username': 'Matt', 'password': PASSWORD, 'remember': 'on'})
+    assert response.status_code == 302 and response.headers['Location'] == '/servers/smp'
+    assert f'Max-Age={30 * 24 * 3600}' in session_cookie(response)
+    assert anon.get('/api/me').get_json()['username'] == 'matt'
+    assert anon.get_cookie('mcpanel_signin') is None  # no halfway state left behind
+    assert failed_tries(matt) == 0
+    assert user_row('matt')['totp_secret'] == matt['totp_secret']  # kept for when MFA is on again
+    assert any(getattr(record, 'factor', None) == 'password' for record in caplog.records)
+    assert anon.get('/login').headers['Location'] == '/'  # signed in, nothing more to do
+
+
+def test_with_mfa_off_wrong_passwords_and_the_lock_still_hold(app, anon, matt, mfa_off, clock):
+    assert sign_in(anon, 'matt', 'wrong password').status_code == 401
+    assert auth.WRONG_PASSWORD.encode() in sign_in(anon, 'nobody', PASSWORD).data
+    assert anon.get('/api/me').status_code == 401
+    for _ in range(4):
+        sign_in(anon, 'matt', 'wrong password')
+    response = sign_in(anon, 'matt')  # the right password, while locked
+    assert response.status_code == 401 and b'Wrong username or password' in response.data
+    assert anon.get('/api/me').status_code == 401
+    clock['now'] += 15 * 60 + 1
+    assert sign_in(anon, 'matt').headers['Location'] == '/'
+
+
+def test_with_mfa_off_the_code_and_set_up_steps_are_not_a_way_in(anon, matt, mfa_off):
+    assert anon.get('/login/code').headers['Location'] == '/login'
+    response = anon.post('/login/code', data={'code': pyotp.TOTP(matt['totp_secret']).now()})
+    assert response.status_code == 401 and anon.get('/api/me').status_code == 401
+    response = anon.post('/login/setup', data={'password': NEW_PASSWORD, 'again': NEW_PASSWORD})
+    assert response.status_code == 401 and anon.get('/api/me').status_code == 401
+    assert accounts.password_matches(user_row('matt'), PASSWORD)
+
+
+def test_with_mfa_off_a_first_sign_in_chooses_only_a_password(app, anon, sam, mfa_off, clock):
+    assert first_sign_in(anon, sam).headers['Location'] == '/login/setup'
+    assert anon.get('/api/me').status_code == 401  # the one-time password alone signs nobody in
+    page = anon.get('/login/setup').get_data(as_text=True)
+    assert 'autocomplete="new-password"' in page and 'one-time-code' not in page
+    assert 'totp-key' not in page and '<svg' not in page.split('</span>', 1)[1]  # no QR code past the logo
+    assert f'at least {accounts.MIN_PASSWORD} characters'.encode() in set_up_password_only(anon, 'short').data
+    response = anon.post('/login/setup', data={'password': NEW_PASSWORD, 'again': 'something else'})
+    assert b"The two passwords aren" in response.data
+    response = set_up_password_only(anon)
+    assert response.status_code == 302 and response.headers['Location'] == '/'  # no recovery codes to show
+    assert anon.get('/api/me').get_json() == {'username': 'sam', 'role': 'member', 'recovery_codes_left': 0}
+    row = user_row('sam')
+    assert row['totp_secret'] == '' and accounts.password_matches(row, NEW_PASSWORD)
+    assert sign_in(app.test_client(), 'sam', sam['one_time_password']).status_code == 401
+    assert sign_in(app.test_client(), 'sam', NEW_PASSWORD).headers['Location'] == '/'
+    clock['now'] += 25 * 3600  # long past a one-time password's 24 hours: this one is their own
+    assert sign_in(app.test_client(), 'sam', NEW_PASSWORD).headers['Location'] == '/'
+
+
+def test_with_mfa_off_the_set_up_refuses_the_one_time_password(anon, sam, mfa_off):
+    first_sign_in(anon, sam)
+    response = set_up_password_only(anon, sam['one_time_password'])  # 19 characters, past the length check
+    assert response.status_code == 400 and b'not the one-time one' in response.data
+    assert user_row('sam')['totp_secret'] is None
+
+
+def test_with_mfa_off_a_one_time_password_still_expires(anon, sam, mfa_off, clock):
+    clock['now'] += 24 * 3600 + 1
+    response = first_sign_in(anon, sam)
+    assert response.status_code == 401 and b'expired' in response.data
+
+
+def test_with_mfa_off_the_first_admin_chooses_only_a_password(app, anon, mfa_off):
+    page = anon.get('/login').get_data(as_text=True)
+    assert 'making the platform admin' in page and 'two-factor' not in page
+    anon.post('/login/first', data={'username': 'matt'})
+    page = anon.get('/login/setup').get_data(as_text=True)
+    assert 'account is made when you finish' in page and 'one-time-code' not in page
+    assert user_row('matt') is None
+    assert set_up_password_only(anon).headers['Location'] == '/'
+    assert anon.get('/api/me').get_json()['role'] == 'platform_admin'
+    assert user_row('matt')['totp_secret'] == ''
+    other = app.test_client()
+    assert other.post('/login/first', data={'username': 'eve'}).headers['Location'] == '/login'
+    assert user_row('eve') is None
+
+
+def test_with_mfa_off_the_account_page_hides_recovery_codes(admin, monkeypatch):
+    assert 'aria-labelledby="codesTitle" >' in admin.get('/').get_data(as_text=True)
+    monkeypatch.setattr(config, 'MFA_ENFORCEMENT', 'off')
+    page = admin.get('/').get_data(as_text=True)
+    assert 'aria-labelledby="codesTitle" hidden>' in page and 'set up two-factor' not in page
+
+
+def test_switching_mfa_on_sets_up_totp_for_accounts_without_it(app, anon, sam, mfa_off, monkeypatch, clock):
+    first_sign_in(anon, sam)
+    set_up_password_only(anon)
+    signed_in_before = anon
+    mfa_on(monkeypatch)
+
+    # The session from before the switch keeps working: switching on doesn't sign anyone out.
+    assert signed_in_before.get('/api/me').status_code == 200
+
+    client = app.test_client()
+    assert sign_in(client, 'sam', 'wrong password').status_code == 401  # the password still comes first
+    response = sign_in(client, 'sam', NEW_PASSWORD)
+    assert response.headers['Location'] == '/login/setup'
+    assert client.get('/api/me').status_code == 401  # not signed in until TOTP is set up
+    page = client.get('/login/setup')
+    html = page.get_data(as_text=True)
+    assert 'now required' in html and 'new-password' not in html and 'one-time-code' in html
+    secret = shown_secret(page)
+
+    # A password sent along changes nothing, and a missing or wrong code sets nothing up.
+    response = client.post('/login/setup', data={'password': 'a different password', 'again': 'a different password'})
+    assert response.status_code == 400 and b"That code didn" in response.data
+    assert b"That code didn" in client.post('/login/setup', data={'code': '000000'}).data
+    assert user_row('sam')['totp_secret'] == ''
+
+    code = pyotp.TOTP(secret).at(clock['now'])
+    response = client.post('/login/setup', data={'code': code, 'password': 'a different password'})
+    assert response.status_code == 200
+    codes = re.findall(r'<li>([0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4})</li>', response.get_data(as_text=True))
+    assert len(codes) == 10 and client.get('/api/me').get_json()['recovery_codes_left'] == 10
+    row = user_row('sam')
+    assert row['totp_secret'] == secret and row['totp_last_step'] == int(clock['now']) // 30
+    assert accounts.password_matches(row, NEW_PASSWORD) and not accounts.password_matches(row, 'a different password')
+    assert accounts.servers_for(row) == {'smp'}
+
+    # From now on the code step, like any account with TOTP.
+    clock['now'] += 30
+    other = app.test_client()
+    assert other.post('/login', data={'username': 'sam', 'password': NEW_PASSWORD}).headers['Location'] == '/login/code'
+    assert other.post('/login/code', data={'code': pyotp.TOTP(secret).at(clock['now'])}).headers['Location'] == '/'
+    halfway = app.test_client()
+    halfway.post('/login', data={'username': 'sam', 'password': NEW_PASSWORD})
+    assert halfway.get('/login/setup').headers['Location'] == '/login'  # an account with TOTP never reaches it
+
+
+def test_an_account_without_totp_matches_no_code(app, sam, mfa_off):
+    client = app.test_client()
+    first_sign_in(client, sam)
+    set_up_password_only(client)
+    row = user_row('sam')
+    assert row['totp_secret'] == '' and not accounts.code_matches(row, pyotp.TOTP('').now())
+
+
+def test_after_switching_mfa_on_a_password_alone_never_makes_a_session(app, sam, mfa_off, monkeypatch):
+    client = app.test_client()
+    first_sign_in(client, sam)
+    set_up_password_only(client)
+    mfa_on(monkeypatch)
+    client = app.test_client()
+    sign_in(client, 'sam', NEW_PASSWORD)
+    for attempt in ({'password': NEW_PASSWORD, 'again': NEW_PASSWORD}, {'code': ''}, {'code': '12345'}, {}):
+        client.post('/login/setup', data=attempt)
+        assert client.get_cookie('mcpanel_session') is None and client.get('/api/me').status_code == 401
+    assert client.post('/login/code', data={'code': '123456'}).status_code == 401
+    assert client.post('/login/code?recovery=1', data={'code': '0000-0000-0000'}).status_code == 401
+    assert client.get_cookie('mcpanel_session') is None
+
+
+def test_recovery_codes_made_with_mfa_off_skip_no_set_up(app, sam, mfa_off, monkeypatch):
+    client = app.test_client()
+    first_sign_in(client, sam)
+    set_up_password_only(client)
+    codes = client.post('/api/account/recovery-codes', json={'password': NEW_PASSWORD}).get_json()['codes']
+    mfa_on(monkeypatch)
+    client = app.test_client()
+    assert sign_in(client, 'sam', NEW_PASSWORD).headers['Location'] == '/login/setup'
+    response = client.post('/login/code?recovery=1', data={'code': codes[0]})
+    assert response.status_code == 401 and client.get('/api/me').status_code == 401
+    assert sign_in(client, 'sam', NEW_PASSWORD).headers['Location'] == '/login/setup'  # still has to set up TOTP
+
+
+def test_a_set_up_begun_with_mfa_off_asks_for_totp_once_it_is_on(app, anon, sam, mfa_off, monkeypatch):
+    first_sign_in(anon, sam)
+    mfa_on(monkeypatch)
+    response = set_up_password_only(anon)
+    assert response.status_code == 400 and b"That code didn" in response.data
+    assert user_row('sam')['totp_secret'] is None and anon.get('/api/me').status_code == 401
+    assert set_up(anon).status_code == 200
+    assert user_row('sam')['totp_secret']
+
+
+def test_switching_mfa_off_and_on_again_keeps_totp(app, anon, matt, monkeypatch, clock):
+    sign_in(anon, 'matt')
+    codes = anon.post('/api/account/recovery-codes', json={'password': PASSWORD}).get_json()['codes']
+    monkeypatch.setattr(config, 'MFA_ENFORCEMENT', 'off')
+    assert anon.get('/api/me').status_code == 200  # still signed in
+    password_only = app.test_client()
+    assert sign_in(password_only, 'matt').headers['Location'] == '/'
+    mfa_on(monkeypatch)
+    assert anon.get('/api/me').status_code == 200 and password_only.get('/api/me').status_code == 200
+    client = app.test_client()
+    response = client.post('/login', data={'username': 'matt', 'password': PASSWORD})
+    assert response.headers['Location'] == '/login/code'  # the same TOTP as before, no new set-up
+    clock['now'] += 30
+    assert client.post('/login/code', data={'code': code_at(matt, clock['now'])}).headers['Location'] == '/'
+    other = app.test_client()
+    other.post('/login', data={'username': 'matt', 'password': PASSWORD})
+    assert other.post('/login/code?recovery=1', data={'code': codes[0]}).headers['Location'] == '/'
+
+
+def test_a_halfway_sign_in_does_not_survive_a_restart_that_switches_mfa(data_dir, docker, monkeypatch):
+    on = create_app().test_client()
+    make_user('matt')
+    on.post('/login', data={'username': 'matt', 'password': PASSWORD})
+    halfway = on.get_cookie('mcpanel_signin').value
+    monkeypatch.setattr(config, 'MFA_ENFORCEMENT', 'off')
+    off = create_app().test_client()  # a restart, with a new key for Flask's cookie
+    off.set_cookie('mcpanel_signin', halfway)
+    assert off.get('/login/code').headers['Location'] == '/login'
+    assert off.post('/login/code', data={'code': '123456'}).status_code == 401
+    assert off.post('/login/setup', data={'password': NEW_PASSWORD, 'again': NEW_PASSWORD}).status_code == 401
+    assert off.get_cookie('mcpanel_session') is None
+
+
+def test_with_mfa_off_a_reset_account_chooses_only_a_password(app, platform_admin, mfa_off):
+    admin = platform_admin
+    matt = make_user('matt')
+    password = admin.post(f'/api/users/{matt["id"]}/reset').get_json()['one_time_password']
+    client = app.test_client()
+    assert sign_in(client, 'matt', password).headers['Location'] == '/login/setup'
+    assert set_up_password_only(client).headers['Location'] == '/'
+    assert user_row('matt')['totp_secret'] == ''
+    listed = next(user for user in admin.get('/api/users').get_json()['users'] if user['username'] == 'matt')
+    assert listed['one_time_password_expires'] is None  # signed in, not waiting for a first sign-in
+
+
+def test_the_commands_say_whether_two_factor_comes_next(app, monkeypatch):
+    assert 'two-factor' in app.test_cli_runner().invoke(args=['create-user', 'matt']).output
+    monkeypatch.setattr(config, 'MFA_ENFORCEMENT', 'off')
+    output = app.test_cli_runner().invoke(args=['create-user', 'sam']).output
+    assert 'choose their own password.' in output and 'two-factor' not in output

@@ -16,6 +16,8 @@ Every account starts with a one-time password, made by an admin. It works once, 
    place of a code, for when you don't have your phone.
 
 From then on, signing in is your password and then a 6-digit code from the app, or a recovery code.
+(If the panel's owner switched two-factor sign-in off, steps 3 and 4 are skipped and the password is
+enough. If they switch it on later, you are asked to do step 3 after your password next time.)
 Tick "Keep this device signed in" to stay signed in for 30 days.
 
 If you lose both your phone and your recovery codes, an admin can reset your sign-in from the Users

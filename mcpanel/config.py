@@ -20,6 +20,10 @@ PUBLIC_HOST = os.getenv('MCPANEL_PUBLIC_HOST', '').strip()
 # The host ports the panel may publish, one per server, e.g. "25565-25600". The router forwards the same range.
 PORT_RANGE = os.getenv('MCPANEL_PORT_RANGE', '').strip()
 
+# Whether signing in takes a TOTP code as well as the password: on unless set to off. MFA_ENFORCEMENT
+# is the same setting under the name it was first asked for; MCPANEL_MFA_ENFORCEMENT wins.
+MFA_ENFORCEMENT = (os.getenv('MCPANEL_MFA_ENFORCEMENT') or os.getenv('MFA_ENFORCEMENT') or 'on').strip().lower()
+
 
 def port_range():
     """PORT_RANGE as (first, last), or a ValueError saying what is wrong with it."""
@@ -30,3 +34,12 @@ def port_range():
     if not 1024 <= first <= last <= 65535:
         raise ValueError(f'MCPANEL_PORT_RANGE must be two ports from 1024 to 65535, lowest first, not "{PORT_RANGE}"')
     return first, last
+
+
+def mfa_enforced():
+    """MFA_ENFORCEMENT as True or False, or a ValueError, so a typo doesn't quietly pick one."""
+    if MFA_ENFORCEMENT in ('on', 'true', 'yes', '1', 'enabled'):
+        return True
+    if MFA_ENFORCEMENT in ('off', 'false', 'no', '0', 'disabled'):
+        return False
+    raise ValueError(f'MCPANEL_MFA_ENFORCEMENT must be on or off, not "{MFA_ENFORCEMENT}"')

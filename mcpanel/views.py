@@ -1,14 +1,14 @@
 """The page, and /healthz."""
 from flask import Blueprint, render_template
 
-from . import servers
+from . import config, servers
 
 bp = Blueprint('views', __name__)
 
 
 @bp.get('/')
 def index():
-    return render_template('index.html')
+    return render_template('index.html', mfa=config.mfa_enforced())
 
 
 @bp.get('/healthz')

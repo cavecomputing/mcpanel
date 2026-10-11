@@ -29,7 +29,7 @@
     {% elif no_users %}
     <form class="cc-settings-card cc-signin__card" method="post" action="{{ url_for('auth.login_first') }}">
         <span class="cc-brand"><svg class="logo" aria-hidden="true"><use href="#i-cube"/></svg><span class="cc-wordmark">mcpanel</span></span>
-        <p>Welcome. There are no accounts yet, so start by making the platform admin, the account in charge of everyone else's. Next you'll choose its password and set up two-factor sign-in.</p>
+        <p>Welcome. There are no accounts yet, so start by making the platform admin, the account in charge of everyone else's. Next you'll choose its password{{ ' and set up two-factor sign-in' if mfa }}.</p>
         {% if error %}<p class="cc-signin__error" role="alert">{{ error }}</p>{% endif %}
         <div class="cc-field cc-field--stack">
             <label for="username">Username</label>

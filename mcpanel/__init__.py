@@ -1,4 +1,5 @@
 """mcpanel: a small web panel for hosting Minecraft servers in Docker."""
+import logging
 import mimetypes
 import secrets
 from urllib.parse import urlsplit
@@ -11,14 +12,18 @@ from .db import init_db
 
 
 def create_app():
-    """The app. Refuses to start without MCPANEL_PUBLIC_HOST and a valid MCPANEL_PORT_RANGE."""
+    """The app. Refuses to start without MCPANEL_PUBLIC_HOST and a valid MCPANEL_PORT_RANGE, or with
+    an MCPANEL_MFA_ENFORCEMENT that is neither on nor off."""
     if not config.PUBLIC_HOST:
         raise RuntimeError('Set MCPANEL_PUBLIC_HOST to the name players use to reach your servers.')
     config.port_range()  # raises with what is wrong with MCPANEL_PORT_RANGE
+    mfa = config.mfa_enforced()  # raises the same way
 
     for folder in (config.DATA_DIR, config.LOGS_DIR, config.SERVERS_DIR, config.BACKUPS_DIR):
         folder.mkdir(parents=True, exist_ok=True)
     logs.setup_logging()
+    if not mfa:
+        logging.getLogger(__name__).warning('Two-factor sign-in is off (MCPANEL_MFA_ENFORCEMENT): a password alone signs in')
     # Browsers refuse module scripts not served as JavaScript, and some systems map .js to text/plain.
     mimetypes.add_type('text/javascript', '.js')
 

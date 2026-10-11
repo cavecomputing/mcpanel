@@ -79,7 +79,7 @@ function openDialog(user = null) {
     $('userIntro').hidden = false;
     $('userIntro').textContent = user
         ? 'A new role or server list applies to their next click.'
-        : 'They get a one-time password to sign in with, then choose their own and set up two-factor sign-in.';
+        : $('userIntro').dataset.new;
     $('newUsernameField').hidden = Boolean(user);
     $('newUsername').required = !user;
     $('userRole').value = user?.role ?? 'member';

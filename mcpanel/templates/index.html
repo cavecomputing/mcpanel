@@ -264,7 +264,7 @@
                         <div class="cc-field"><label for="againPassword">New password again</label><input class="cc-input" id="againPassword" type="password" minlength="8" autocomplete="new-password" required></div>
                         <div class="row-btns"><button class="cc-btn cc-btn--primary" type="submit"><span>Change password</span></button></div>
                     </form>
-                    <section class="cc-settings-card" aria-labelledby="codesTitle">
+                    <section class="cc-settings-card" aria-labelledby="codesTitle" {{ 'hidden' if not mfa }}>
                         <div class="cc-card-header"><svg><use href="#i-shield"/></svg><h4 id="codesTitle">Recovery codes</h4><p>Each one signs you in once if you lose your authenticator app.</p></div>
                         <div class="rows">
                             <div class="list-row">
@@ -326,7 +326,7 @@
 
 <dialog class="cc-settings-card dialog" id="userDialog" aria-labelledby="userTitle">
     <div class="stack">
-        <header class="cc-card-header"><svg><use href="#i-users"/></svg><h4 id="userTitle"></h4><p id="userIntro"></p></header>
+        <header class="cc-card-header"><svg><use href="#i-users"/></svg><h4 id="userTitle"></h4><p id="userIntro" data-new="They get a one-time password to sign in with, then choose their own{{ ' and set up two-factor sign-in' if mfa }}."></p></header>
         <form id="userForm" autocomplete="off">
             <div class="cc-field" id="newUsernameField"><div><label for="newUsername">Username</label><span class="cc-field__hint">What they sign in with</span></div><input class="cc-input" id="newUsername" maxlength="32" autocapitalize="none" spellcheck="false"></div>
             <div class="cc-field"{% if not platform_admin %} hidden{% endif %}><label for="userRole">Role</label><select class="cc-input" id="userRole"><option value="member">Member</option>{% if platform_admin %}<option value="admin">Admin</option><option value="platform_admin">Platform admin</option>{% endif %}</select></div>
@@ -338,7 +338,7 @@
         </form>
         <div class="stack" id="passwordDone" hidden>
             <div class="secret"><code id="oneTimePassword"></code><button class="cc-icon-btn copy-btn" type="button" id="copyPassword" title="Copy the password" aria-label="Copy the password"><svg><use href="#i-copy"/></svg></button></div>
-            <p>They sign in with it, then choose their own password and set up two-factor sign-in. It works for 24 hours and is shown only this once, so give it to them privately.</p>
+            <p>They sign in with it, then choose their own password{{ ' and set up two-factor sign-in' if mfa }}. It works for 24 hours and is shown only this once, so give it to them privately.</p>
             <div class="row-btns"><button class="cc-btn cc-btn--primary" type="button" data-close><span>Done</span></button></div>
         </div>
     </div>

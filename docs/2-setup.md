@@ -21,6 +21,7 @@ Put them in `docker/.env`:
 MCPANEL_PUBLIC_HOST=mc.example.com
 MCPANEL_PORT_RANGE=25565-25600
 MCPANEL_DATA_DIR=/srv/mcpanel
+# MCPANEL_MFA_ENFORCEMENT=off
 PUID=1000
 PGID=1000
 ```
@@ -30,6 +31,7 @@ PGID=1000
 | `MCPANEL_PUBLIC_HOST` | The name players type, shown as each server's address. Required. |
 | `MCPANEL_PORT_RANGE` | The host ports the panel may give to servers, one each, such as `25565-25600`. Required. |
 | `MCPANEL_DATA_DIR` | An absolute path on the host for everything the panel keeps. The container mounts it at the same path, because each server's folder in it is bind-mounted into that server's container. |
+| `MCPANEL_MFA_ENFORCEMENT` | `on` (the default) or `off`. Off, signing in takes only the password, with no code from an authenticator app. See [Two-factor sign-in](#two-factor-sign-in). `MFA_ENFORCEMENT` works too. |
 | `PUID`, `PGID` | Who owns the data folder. The panel and every server run as them. Default 1000. |
 
 That is the whole configuration. Logging has fixed defaults and no settings.
@@ -48,10 +50,29 @@ lists and PvP setting reach each server over. If you edit `compose.yml` to give 
 networks, keep `default` in its `networks:` list, or the console says the panel can't find the server
 on the `mcpanel` network.
 
+## Two-factor sign-in
+
+Every account signs in with its password and then a code from an authenticator app, unless
+`MCPANEL_MFA_ENFORCEMENT=off` is in `docker/.env`. To switch it either way, change that line and run
+`docker compose -f docker/compose.yml up -d`. Nobody is signed out, and nobody's sign-in breaks:
+
+- **Switched off**, everyone signs in with their password alone. Anyone who had two-factor sign-in
+  keeps it set up, unused. A new account chooses its password on its first sign-in and that's all.
+- **Switched back on**, those who had it set up are asked for codes again, from the same app, and
+  their recovery codes work again. Anyone who never set it up (an account made while it was off) is
+  shown the QR code after their password on their next sign-in, and has to finish that set-up to get
+  in.
+
+Until they have, their password alone is what sets up their two-factor sign-in, so if a password may
+have leaked, reset that account from the Users page rather than waiting for them.
+
+The panel refuses to start with a value other than on or off, and logs a warning on every start
+while it is off.
+
 ## The platform admin
 
 While the panel has no accounts, opening it in a browser asks for the platform admin's username, then
-its password and two-factor sign-in, the same set-up as in
+its password and (unless it is switched off) two-factor sign-in, the same set-up as in
 [Signing in for the first time](1-getting-started.md#signing-in-for-the-first-time). The account is
 made when that set-up is done, and from then on the page is gone. Add everyone else from the Users
 page.

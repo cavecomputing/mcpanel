@@ -1,5 +1,5 @@
-"""Signing in (a password, then a TOTP or recovery code, or on the first sign-in setting both up),
-signing out, lockouts, the session cookie and the guard in front of every other route, and the
+"""Signing in (a password, then a TOTP or recovery code, or on the first sign-in setting both up;
+with MCPANEL_MFA_ENFORCEMENT off, the password alone), signing out, lockouts, the session cookie and the guard in front of every other route, and the
 commands that make an account and reset one."""
 import base64
 import hmac
@@ -16,7 +16,7 @@ from flask.sessions import SecureCookieSessionInterface
 from markupsafe import Markup
 from werkzeug.exceptions import HTTPException
 
-from . import accounts, logs
+from . import accounts, config, logs
 from .db import get_db
 
 bp = Blueprint('auth', __name__)
@@ -141,7 +141,7 @@ def pending_user():
     password changed since the password step: a reset, a set-up finished in another tab. For the
     first admin, which the set-up makes, a stand-in with no id, or None once any account exists."""
     if session['user_id'] is None:
-        return None if not no_users() else {'id': None, 'username': session['username']}
+        return None if not no_users() else {'id': None, 'username': session['username'], 'totp_secret': None}
     user = accounts.user_by_id(session['user_id'])
     return user if user and user['password_changed'] == session['password_changed'] else None
 
@@ -155,7 +155,7 @@ def no_users():
 def login_page(status=200, **context):
     """login.html: the password step, the code step with step='code', or with no accounts yet, the
     first admin's username."""
-    return render_template('login.html', no_users=no_users(), **context), status
+    return render_template('login.html', no_users=no_users(), mfa=config.mfa_enforced(), **context), status
 
 
 def signed_in(response, user_id, remember):
@@ -169,7 +169,8 @@ def signed_in(response, user_id, remember):
 @bp.route('/login', methods=['GET', 'POST'])
 def login():
     """The first step: username and password. The right ones lead on to the code step, or for an
-    account signing in with its one-time password, to the set-up."""
+    account signing in with its one-time password, or without TOTP while it is enforced, to the
+    set-up. With MCPANEL_MFA_ENFORCEMENT off, any other account is signed in."""
     next_path = local_target(request.args.get('next'))
     if g.user:
         return redirect(next_path)
@@ -200,9 +201,16 @@ def login():
     if error:
         return login_page(429 if error == TOO_FAST else 401, next=next_path, error=error, username=username, remember=remember)
     # Flask's signed cookie carries the sign-in to the code step, or for an account without TOTP yet
-    # (signed in with its one-time password) to the set-up, and nothing else ever goes in it.
-    step = 'setup' if user['totp_secret'] is None else 'code'
+    # (signed in with its one-time password, or set up while MFA was off) to the set-up, and nothing
+    # else ever goes in it. An account's TOTP secret is kept while MFA is off, for when it is on again.
     session.clear()
+    if not config.mfa_enforced() and user['totp_secret'] is not None:
+        with get_db() as conn:
+            conn.execute('UPDATE users SET failed_tries = 0 WHERE id = ?', (user['id'],))
+            conn.commit()
+        logs.audit('sign_in', user_id=user['id'], username=user['username'], remember=remember, factor='password')
+        return signed_in(redirect(next_path), user['id'], remember)
+    step = 'code' if user['totp_secret'] else 'setup'
     session.update(user_id=user['id'], password_changed=user['password_changed'], step=step, remember=remember,
                    when=time.time(), next=next_path)
     return redirect(url_for(f'auth.login_{step}'))
@@ -287,12 +295,13 @@ def setup_secret():
 
 
 def setup_page(user, secret, error=None):
-    """setup.html's form: a new password twice, the QR code and key for secret, a code. Not cached,
-    since it shows the secret."""
-    uri = pyotp.TOTP(secret).provisioning_uri(name=user['username'], issuer_name='mcpanel')
-    qr = Markup(segno.make(uri).svg_inline(scale=4))
+    """setup.html's form: a new password twice unless the account has its own, and unless secret is
+    None, the QR code and key for it and a code. Not cached, since it shows the secret."""
+    qr = secret and Markup(segno.make(pyotp.TOTP(secret).provisioning_uri(name=user['username'], issuer_name='mcpanel'))
+                           .svg_inline(scale=4))
     response = make_response(render_template('setup.html', username=user['username'], first=user['id'] is None,
-                                             secret=secret, qr=qr, error=error),
+                                             new_password=user['totp_secret'] is None, secret=secret, qr=qr,
+                                             error=error),
                              429 if error == TOO_FAST else 400 if error else 200)
     response.headers['Cache-Control'] = 'no-store'
     return response
@@ -302,7 +311,8 @@ def setup_page(user, secret, error=None):
 def login_setup():
     """The first sign-in's second step, after the one-time password or the first admin's username:
     choose a password and add TOTP to an authenticator app. Done, the account is signed in (the first
-    admin made) and shown its recovery codes, once."""
+    admin made) and shown its recovery codes, once. With MCPANEL_MFA_ENFORCEMENT off, only the
+    password; with it on, for an account that chose its password while it was off, only TOTP."""
     user = pending('setup') and pending_user()
     if not user:
         error = CHANGED if pending('setup') else TOO_SLOW
@@ -310,38 +320,44 @@ def login_setup():
         if request.method == 'GET':
             return redirect(url_for('auth.login'))
         return login_page(401, error=error, remember=True)
-    secret = setup_secret()
+    secret = setup_secret() if config.mfa_enforced() else None
     if request.method == 'GET':
         return setup_page(user, secret)
-    password = request.form.get('password', '')
+    # None when the account keeps the password it has: one chosen while MFA was off.
+    password = request.form.get('password', '') if user['totp_secret'] is None else None
+    step = 0
 
     def check():
-        if user['id'] and accounts.password_matches(user, password):
+        nonlocal step
+        if password and user['id'] and accounts.password_matches(user, password):
             return 'Choose a new password, not the one-time one.'
-        step = accounts.totp_step(secret, request.form.get('code', ''), 0)
-        if step is None:
-            logs.audit('sign_in_failed', user_id=user['id'], username=user['username'], step='setup')
-            return WRONG_CODE
+        if secret:
+            step = accounts.totp_step(secret, request.form.get('code', ''), 0)
+            if step is None:
+                logs.audit('sign_in_failed', user_id=user['id'], username=user['username'], step='setup')
+                return WRONG_CODE
         if user['id'] is None:
-            user['id'] = accounts.create_first_admin(user['username'], password, secret, step)
+            user['id'] = accounts.create_first_admin(user['username'], password, secret or '', step)
             if user['id']:
                 logs.audit('user_created', user_id=user['id'], username=user['username'], role='platform_admin', servers=[],
                            by='first visit')
             return None if user['id'] else CHANGED
-        return None if accounts.finish_setup(user, password, secret, step) else CHANGED
+        return None if accounts.finish_setup(user, password, secret or '', step) else CHANGED
 
-    if len(password) < accounts.MIN_PASSWORD:
+    if password is not None and len(password) < accounts.MIN_PASSWORD:
         error = f'Choose a password of at least {accounts.MIN_PASSWORD} characters.'
-    elif password != request.form.get('again'):
+    elif password is not None and password != request.form.get('again'):
         error = "The two passwords aren't the same."
     else:
         error = throttled(check)
     if error:
         return setup_page(user, secret, error)
-    codes = accounts.new_recovery_codes(user['id'])
     remember, next_path = session['remember'], session['next']
     session.clear()
-    logs.audit('setup_done', user_id=user['id'], username=user['username'], remember=remember)
+    logs.audit('setup_done', user_id=user['id'], username=user['username'], remember=remember, totp=bool(secret))
+    if not secret:  # no TOTP, so no recovery codes to show
+        return signed_in(redirect(next_path), user['id'], remember)
+    codes = accounts.new_recovery_codes(user['id'])
     response = make_response(render_template('setup.html', username=user['username'], codes=codes, next=next_path))
     response.headers['Cache-Control'] = 'no-store'
     return signed_in(response, user['id'], remember)
@@ -351,7 +367,7 @@ def one_time_note(username, password):
     """What the commands print: the one-time password and what to do with it."""
     return (f'The one-time password for {username}, which works for {accounts.ONE_TIME_FOR // 3600} hours:\n\n'
             f'    {password}\n\n'
-            'They sign in with it, then choose their own password and set up two-factor sign-in.')
+            f'They sign in with it, then choose their own password{" and set up two-factor sign-in" if config.mfa_enforced() else ""}.')
 
 
 @click.command('create-user')
