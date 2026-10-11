@@ -64,28 +64,22 @@ def test_a_refused_create_leaves_the_server_as_it_was(admin, docker, monkeypatch
     assert admin.get('/api/servers').get_json()['servers'][0]['name'] == 'Survival'
 
 
-def test_only_admins_change_memory(admin, member, docker):
-    create(admin)
-    grant(admin, member, 'survival')
-    response = change(member, memory_gb=8)
-    assert response.status_code == 403 and response.get_json() == {'error': "Only admins change a server's memory"}
-    assert env(docker)['MEMORY'] == '3072M'
-    response = change(member, name='Mine', type='PURPUR', version='1.21.5', java='java25')
-    assert response.status_code == 200 and response.get_json()['memory_gb'] == 4
-    assert change(admin, memory_gb=8).get_json()['memory_gb'] == 8
-
-
-def test_only_admins_change_the_cpu_limit(admin, member, docker):
+def test_only_admins_change_the_server(admin, member, docker):
     create(admin, cpus=2)
     grant(admin, member, 'survival')
-    for cpus in (4, None):  # a higher limit, or none at all
-        response = change(member, cpus=cpus)
-        assert response.status_code == 403 and response.get_json() == {'error': "Only admins change a server's CPU"}
-    assert docker.live('mcpanel-survival')['HostConfig']['NanoCpus'] == 2 * 10 ** 9
-    response = change(member, cpus=2, name='Mine')  # as the Settings tab sends it, the limit unchanged
-    assert response.status_code == 200 and response.get_json()['cpus'] == 2
-    assert docker.live('mcpanel-survival')['HostConfig']['NanoCpus'] == 2 * 10 ** 9  # kept on the new container
+    before = docker.live('mcpanel-survival')['Id']
+    for fields in ({}, {'name': 'Mine'}, {'version': '1.20.1'}, {'type': 'PURPUR'}, {'java': 'java25'},
+                   {'memory_gb': 8}, {'cpus': None}):
+        response = change(member, **{'cpus': 2, **fields})
+        assert response.status_code == 403 and response.get_json() == {'error': 'Admins only'}
+    assert docker.live('mcpanel-survival')['Id'] == before
+    assert change(admin, name='Mine', memory_gb=8).get_json()['memory_gb'] == 8
+
+
+def test_admins_set_or_clear_the_cpu_limit(admin, docker):
+    create(admin, cpus=2)
     assert change(admin, cpus=1.5).get_json()['cpus'] == 1.5
+    assert docker.live('mcpanel-survival')['HostConfig']['NanoCpus'] == 15 * 10 ** 8
     assert change(admin, cpus=None).get_json()['cpus'] is None
     assert 'NanoCpus' not in docker.live('mcpanel-survival')['HostConfig']
 
@@ -105,7 +99,7 @@ def test_bad_changes_are_400(admin, docker, fields, error):
 
 def test_servers_a_member_may_not_use_look_missing(admin, member, docker):
     create(admin)
-    for response in (change(member), member.get('/api/servers/survival/properties'),
+    for response in (member.get('/api/servers/survival/properties'),
                      member.put('/api/servers/survival/properties', json={'pvp': False})):
         assert response.status_code == 404 and response.get_json() == {'error': 'No such server'}
 

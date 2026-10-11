@@ -33,7 +33,7 @@ account can start containers on the machine.
   or platform admin or make one. Make admins and platform admins only people you'd trust with the
   machine.
 - Members see only the servers an admin gave them, and can't create or delete servers or
-  change their memory or CPU. The server checks this on every request; hiding a button isn't relied on. A member can't
+  change their name, type, version, Java, memory or CPU. The server checks this on every request; hiding a button isn't relied on. A member can't
   raise memory through the files either: the image sets Java's memory from the container on every
   start, and the container's memory limit caps the server whatever it asks for.
 

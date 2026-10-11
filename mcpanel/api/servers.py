@@ -53,14 +53,11 @@ def create():
 
 @bp.put('/servers/<server_id>')
 def update(server_id):
-    """Change a stopped server: {name, type, version, java, memory_gb, cpus}; its fresh dict. Only
-    admins change its memory and CPU, which are the container's resource allocation."""
-    server = usable_server(server_id)
+    """Change a stopped server: {name, type, version, java, memory_gb, cpus}; its fresh dict. Admins
+    only: what it runs and what it may take are theirs, members keep its game settings and files."""
+    auth.require_admin()
+    usable_server(server_id)
     data = json_body()
-    if data.get('memory_gb') != server['memory_gb'] and g.user['role'] == 'member':
-        abort(403, "Only admins change a server's memory")
-    if data.get('cpus') != server['cpus'] and g.user['role'] == 'member':
-        abort(403, "Only admins change a server's CPU")
     server = servers.update_server(server_id, data.get('name'), data.get('type'), data.get('version'),
                                    data.get('java'), data.get('memory_gb'), data.get('cpus'))
     logs.audit('server_changed', server=server['id'], server_name=server['name'], type=server['type'],

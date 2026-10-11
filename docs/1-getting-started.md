@@ -31,10 +31,11 @@ There are three kinds of account:
   admins and platform admins. The first account on a panel is its platform admin. A platform admin
   can make someone else one too, and the panel always keeps at least one.
 - **Admins** see and manage every server, and add and manage members. Only admins and platform
-  admins create and delete servers, and only they change how much memory and CPU a server gets.
-- **Members** see only the servers an admin gave them. On those, they do everything else:
-  start and stop it, its console, players, files, mods, backups, game settings, type, version and
-  Java. They can't delete a server.
+  admins create and delete servers, and only they change a server's name, type, version, Java,
+  memory and CPU.
+- **Members** see only the servers an admin gave them. On those, they start and stop it and use its
+  console, players, files, mods, backups and game settings. They see the server's own settings but
+  can't change them, and can't delete a server.
 
 A panel from before there were platform admins makes its earliest admin the platform admin the
 first time it starts after the update.
@@ -102,6 +103,6 @@ Start, Stop and Restart sit in the server's header. Below it:
   in the world: it changes right away, only while the server is running, and is greyed out while
   it's stopped. A server moved from an older version to 1.21.9 or later starts with PvP on whatever
   the file said, so check it after the first start. Below them, the server's own settings: its name,
-  type, version and Java, and for admins its memory and CPU. Those change only while it is stopped, because
+  type, version, Java, memory and CPU, which only admins change (members see them greyed out). Those change only while it is stopped, because
   the panel makes its container again with them (its world, files and port stay). Admins and platform
   admins also delete the server here, once it is stopped, which removes its folder and its backups.

@@ -27,7 +27,7 @@ environment variables, the cookie and the Docker labels all change together.
 - **Users:** a few accounts, each `platform_admin`, `admin` or `member`. Admins manage every
   server (create, change, delete, memory and CPU) and members (add them, give them servers, reset,
   remove); platform admins also manage admins and platform admins, which nobody else may touch;
-  members see and run only the servers they were given, and can't delete them. The platform admin is
+  members see and run only the servers they were given, and can't change or delete them. The platform admin is
   made in the browser by whoever opens a panel with no accounts. After that an admin makes each
   account and hands over its one-time password; on that first sign-in the person chooses their own password and sets
   up TOTP two-factor sign-in, with recovery codes. Every account has both from then on, unless
@@ -229,7 +229,7 @@ arbitrary container owns the machine, so:
   save, plus room to exit), so a reboot or an outside `docker stop` gives the world as long to save as
   the panel's Stop does, not Docker's default 10 s.
 - **A container's settings never change, so changing a server makes its container again** from
-  `container_spec()` (`update_server()`), with the same id, port and folder, and only while it is
+  `container_spec()` (`update_server()`), by an admin, with the same id, port and folder, and only while it is
   stopped. The old container is renamed `mcpanel-<id>.old` until the new one exists, and put back if
   Docker refuses; `list_servers()` skips it meanwhile. Deleting a server (admins and platform admins, never members;
   stopped first) removes its container and its folder, and the access rows naming it, so a later server
@@ -267,11 +267,12 @@ the whole perimeter:
   that makes, changes, resets or removes an admin or platform admin, or promotes a member
   (`users.may_manage()`). A platform admin does all of it, and may make another account a platform admin, and the panel always keeps one: the last
   can't be demoted (checked in the `UPDATE` itself) and nobody removes themselves.
-- **Only admins (and platform admins) change a server's resource allocation**: its memory (the container's limit, and the
-  heap that follows from it), its CPU limit, and any other limit added later. Members manage everything else on the servers they
-  were given, as each part lands: settings such as `view-distance`, files, mods, plugins, type,
-  version and Java. The route checks the role for the allocation (`PUT /api/servers/<id>` refuses a member a
-  different `memory_gb` or `cpus`); hiding the control is not enough. Files can't get round it: the image rewrites its JVM flags from the container's env on every
+- **Only admins (and platform admins) change a server's container**: the Settings tab's Server section
+  (name, type, version, Java, memory, CPU, and any limit added later) and Delete. A wrong version or
+  type can break a world, and memory and CPU are the host's to share. Members manage everything else on
+  the servers they were given: game settings such as `view-distance`, files, mods, plugins, console,
+  players, backups; they see the Server section greyed out. The route checks the role
+  (`PUT /api/servers/<id>` is `require_admin()`); hiding the control is not enough. Files can't get round the memory limit: the image rewrites its JVM flags from the container's env on every
   start, and the container's memory limit caps the server whatever it asks for.
 - Passwords are argon2id hashes (at least 8 characters). TOTP is required on every account: a
   sign-in is password, then a 6-digit code (a code already used is refused) or a single-use recovery

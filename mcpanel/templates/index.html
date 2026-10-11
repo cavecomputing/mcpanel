@@ -216,10 +216,10 @@
                         <div class="cc-field"><label for="editType">Type</label><select class="cc-input small-select" id="editType"></select></div>
                         <div class="cc-field"><div><label for="editVersion">Version</label><span class="cc-field__hint">LATEST or e.g. 26.1. Back up first: an older version can't open a newer world</span></div><input class="cc-input small-select" id="editVersion" required spellcheck="false"></div>
                         <div class="cc-field"><label for="editJava">Java</label><select class="cc-input small-select" id="editJava"></select></div>
-                        <div class="cc-field"><div><label for="editMemory">Memory</label><span class="cc-field__hint" id="editMemoryHint">GB it may use, Java heap included</span></div><input class="cc-input heap-input" id="editMemory" type="number" min="1" max="32" required></div>
-                        <div class="cc-field"><div><label for="editCpus">CPU</label><span class="cc-field__hint" id="editCpusHint">Cores it may use; empty for no limit</span></div><input class="cc-input heap-input" id="editCpus" type="number" min="0.5" step="0.5" placeholder="No limit"></div>
-                        {% if admin %}<p class="host-note" id="editHostNote" hidden></p>{% endif %}
-                        <div class="row-btns"><button class="cc-btn cc-btn--primary" type="submit" id="serverSave"><span>Save</span></button></div>
+                        <div class="cc-field"><div><label for="editMemory">Memory</label><span class="cc-field__hint">GB it may use, Java heap included</span></div><input class="cc-input heap-input" id="editMemory" type="number" min="1" max="32" required></div>
+                        <div class="cc-field"><div><label for="editCpus">CPU</label><span class="cc-field__hint">Cores it may use; empty for no limit</span></div><input class="cc-input heap-input" id="editCpus" type="number" min="0.5" step="0.5" placeholder="No limit"></div>
+                        {% if admin %}<p class="host-note" id="editHostNote" hidden></p>
+                        <div class="row-btns"><button class="cc-btn cc-btn--primary" type="submit" id="serverSave"><span>Save</span></button></div>{% endif %}
                     </form>
                     {% if admin %}
                     <section class="cc-settings-card danger-card" aria-labelledby="dangerTitle">

@@ -1,6 +1,6 @@
 /**
- * The Settings tab: the game settings in server.properties; the server's name, type, version, Java,
- * memory and CPU (only admins change those two), changed while it is stopped; and, for admins, Delete.
+ * The Settings tab: the game settings in server.properties; for admins, the server's name, type,
+ * version, Java, memory and CPU, changed while it is stopped (members see them greyed out), and Delete.
  */
 import * as api from './api.js';
 import { cpusOf, drawHost, fillOptions, poll } from './servers.js';
@@ -69,12 +69,9 @@ function drawServerForm(fill = true) {
         $('editMemory').value = server.memory_gb;
         $('editCpus').value = server.cpus ?? '';
     }
-    for (const input of $('serverForm').elements) input.disabled = !stopped();
-    $('editMemory').disabled ||= !state.admin;
-    $('editCpus').disabled ||= !state.admin;
-    $('editMemoryHint').textContent = state.admin ? 'GB it may use, Java heap included' : 'Only admins change memory';
-    $('editCpusHint').textContent = state.admin ? 'Cores it may use; empty for no limit' : 'Only admins change CPU';
-    $('serverFormNote').textContent = stopped()
+    for (const input of $('serverForm').elements) input.disabled = !state.admin || !stopped();
+    if (!state.admin) $('serverFormNote').textContent = 'Only admins change these.';
+    else $('serverFormNote').textContent = stopped()
         ? 'Saving makes its container again with these settings; its world and files stay.'
         : 'Stop the server to change these.';
 }
