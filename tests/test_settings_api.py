@@ -169,3 +169,60 @@ def test_members_change_game_settings_on_their_servers(admin, member, docker):
     create(admin)
     grant(admin, member, 'survival')
     assert member.put('/api/servers/survival/properties', json={'view-distance': 16}).get_json()['view-distance'] == 16
+
+
+@pytest.mark.parametrize('version, game_rule', [
+    ('1.20.1', False), ('1.21', False), ('1.21.8', False), ('1.21.9', True), ('1.21.11', True), ('26.1', True),
+    ('LATEST', True),
+])
+def test_pvp_is_a_game_rule_from_1_21_9(version, game_rule):
+    assert properties.pvp_is_game_rule(version) is game_rule
+
+
+def pvp_rule(rcon_server, value, wording='Gamerule pvp is {} set to: {}'):
+    """Answer gamerule pvp as a server whose pvp game rule is value, which the command can change."""
+    rule = {'pvp': value}
+
+    def answer(command):
+        if command == 'gamerule pvp':
+            return wording.format('currently', rule['pvp'])
+        rule['pvp'] = command.removeprefix('gamerule pvp ')
+        return wording.format('now', rule['pvp'])
+    rcon_server.answers['gamerule'] = answer
+
+
+def test_pvp_is_the_running_servers_game_rule_from_1_21_9(admin, docker, rcon_server):
+    create(admin, version='1.21.9', java='')
+    admin.post('/api/servers/survival/start')
+    path = config.SERVERS_DIR / 'survival' / 'server.properties'
+    path.write_text('pvp=false\nmotd=Hi\n')  # a line 1.21.9 ignores
+    pvp_rule(rcon_server, 'true')
+    assert admin.get('/api/servers/survival/properties').get_json()['pvp'] is True
+    response = admin.put('/api/servers/survival/properties', json={'pvp': False, 'motd': 'New'})
+    assert response.status_code == 200 and response.get_json()['pvp'] is False
+    assert rcon_server.commands[-2:] == ['gamerule pvp false', 'gamerule pvp']
+    assert path.read_text() == 'pvp=false\nmotd=New\n'
+    # 26.x words it differently, and says "already" for the value it has.
+    rcon_server.answers['gamerule'] = 'Game rule pvp is already set to false'
+    assert admin.put('/api/servers/survival/properties', json={'pvp': False}).get_json()['pvp'] is False
+
+
+def test_pvp_cant_change_while_the_server_cant_say_from_1_21_9(admin, docker, rcon_server):
+    create(admin, version='LATEST', java='')
+    path = config.SERVERS_DIR / 'survival' / 'server.properties'
+    path.write_text('pvp=true\n')
+    error = {'error': "PvP can only change while the server is running. From Minecraft 1.21.9 it's a game rule, "
+                      'kept in the world.'}
+    assert admin.get('/api/servers/survival/properties').get_json()['pvp'] is None
+    response = admin.put('/api/servers/survival/properties', json={'pvp': False, 'motd': 'New'})
+    assert response.status_code == 409 and response.get_json() == error
+    assert path.read_text() == 'pvp=true\n'  # nothing saved
+    assert rcon_server.commands == []
+    assert admin.put('/api/servers/survival/properties', json={'motd': 'New'}).get_json()['pvp'] is None
+    assert path.read_text() == 'pvp=true\nmotd=New\n'
+    # Running, but its RCON not answering yet: the same.
+    admin.post('/api/servers/survival/start')
+    rcon_server.refuse = True
+    assert admin.get('/api/servers/survival/properties').get_json()['pvp'] is None
+    response = admin.put('/api/servers/survival/properties', json={'pvp': False})
+    assert response.status_code == 409 and response.get_json() == error

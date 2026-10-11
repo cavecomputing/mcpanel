@@ -8,36 +8,51 @@ import { state } from './state.js';
 import { $, ask, esc, showError, toast } from './ui.js';
 
 let server = null; // the dict of the server the tab shows, fresh from each poll
+let saved = {}; // its game settings as last read or saved, so Save sends only what changed
 
 const stopped = () => ['stopped', 'crashed'].includes(server.status);
 
 export async function showSettings(fresh) {
     server = fresh;
+    saved = {};
     $('gameForm').reset();
     drawServerForm();
     try {
         await fillOptions($('editType'), $('editJava'), $('editHeap'));
     } catch { /* api.js showed why */ }
     drawServerForm();
-    let values;
-    try {
-        values = await api.get(`/api/servers/${fresh.id}/properties`);
-    } catch {
-        return;
-    }
-    if (server.id !== fresh.id) return;
-    for (const input of $('gameForm').elements) {
-        if (!(input.name in values)) continue;
-        if (input.type === 'checkbox') input.checked = values[input.name];
-        else input.value = values[input.name];
-    }
+    await loadGame(fresh.id);
 }
 
-/** A poll's fresh dict: the server form follows whether the server is stopped, keeping what's typed. */
+/** A poll's fresh dict: the server form follows whether the server is stopped, keeping what's typed.
+ * While it runs, the game settings it couldn't say before are asked for again. */
 export function updateSettings(fresh) {
     const was = server && stopped();
     server = fresh;
     if (was !== stopped()) drawServerForm(false);
+    if (fresh.status === 'running' && Object.values(saved).includes(null)) loadGame(fresh.id, true);
+}
+
+async function loadGame(id, onlyUnread = false) {
+    let values;
+    try {
+        values = await api.get(`/api/servers/${id}/properties`, { quiet: onlyUnread });
+    } catch {
+        return;
+    }
+    if (server.id === id) fillGame(values, onlyUnread);
+}
+
+/** Put game settings in the form: all of them, or with onlyUnread those it couldn't say before. One
+ * the server can't say now (null: PvP's game rule from 1.21.9, while it's stopped) is greyed out. */
+function fillGame(values, onlyUnread = false) {
+    for (const input of $('gameForm').elements) {
+        if (!(input.name in values) || (onlyUnread && saved[input.name] !== null)) continue;
+        if (input.type === 'checkbox') input.checked = values[input.name];
+        else input.value = values[input.name];
+        input.disabled = values[input.name] === null;
+        saved[input.name] = values[input.name];
+    }
 }
 
 function drawServerForm(fill = true) {
@@ -60,12 +75,13 @@ async function saveGame(event) {
     event.preventDefault();
     const changes = {};
     for (const input of $('gameForm').elements) {
-        if (!input.name) continue;
-        changes[input.name] = input.type === 'checkbox' ? input.checked : input.type === 'number' ? Number(input.value) : input.value;
+        if (!input.name || input.disabled) continue;
+        const value = input.type === 'checkbox' ? input.checked : input.type === 'number' ? Number(input.value) : input.value;
+        if (value !== saved[input.name]) changes[input.name] = value;
     }
     $('gameSave').disabled = true;
     try {
-        await api.put(`/api/servers/${server.id}/properties`, changes);
+        fillGame(await api.put(`/api/servers/${server.id}/properties`, changes));
         toast(stopped() ? 'Saved. They apply when the server starts.' : 'Saved. Restart the server to apply them.');
     } catch { /* api.js showed why */ }
     $('gameSave').disabled = false;

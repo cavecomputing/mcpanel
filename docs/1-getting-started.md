@@ -79,8 +79,11 @@ Start, Stop and Restart sit in the server's header. Below it:
 - **Backups**: back up the whole folder, download a backup, restore one, or delete it. See
   [Data and backups](3-data-and-backups.md#backups).
 - **Settings**: the game settings (MOTD, max players, difficulty, game mode, hardcore, PvP, view and
-  simulation distance, flight, whitelist, online mode, seed), saved into `server.properties` and used
-  from the next start. Below them, the server's own settings: its name, type, version and Java, and
-  for admins its memory. Those change only while it is stopped, because the panel makes its container
-  again with them (its world, files and port stay). Admins also delete the server here, once it is
-  stopped, which removes its folder and its backups.
+  simulation distance, flight, whitelist, online mode, seed), saved into `server.properties` and
+  used from the next start. PvP is different from Minecraft 1.21.9 on, where it is a game rule kept
+  in the world: it changes right away, only while the server is running, and is greyed out while
+  it's stopped. A server moved from an older version to 1.21.9 or later starts with PvP on whatever
+  the file said, so check it after the first start. Below them, the server's own settings: its name,
+  type, version and Java, and for admins its memory. Those change only while it is stopped, because
+  the panel makes its container again with them (its world, files and port stay). Admins also delete
+  the server here, once it is stopped, which removes its folder and its backups.

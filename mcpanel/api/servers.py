@@ -84,9 +84,9 @@ def stats(server_id):
 
 @bp.get('/servers/<server_id>/properties')
 def get_properties(server_id):
-    """The game settings in its server.properties."""
-    usable_server(server_id)
-    return properties.read(server_id)
+    """The game settings in its server.properties; pvp from its game rule from 1.21.9, null while it
+    can't say."""
+    return properties.read(usable_server(server_id))
 
 
 @bp.put('/servers/<server_id>/properties')
@@ -94,7 +94,7 @@ def put_properties(server_id):
     """Change some game settings: {key: value}; all of them after."""
     server = usable_server(server_id)
     changes = json_body()
-    values = properties.save(server_id, changes)
+    values = properties.save(server, changes)
     logs.audit('properties_changed', server=server['id'], server_name=server['name'], changes=changes)
     return values
 

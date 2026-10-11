@@ -4,13 +4,18 @@ The image only writes the properties it has an environment variable for, and the
 these, so what is saved here stays. The server reads the file when it starts: a restart applies it.
 The file is Java's properties format, read and written here for the keys below only; every other
 line is kept as it was.
+
+Minecraft 1.21.9 moved PvP out of the file into the pvp game rule, kept in the world: the file's pvp
+line does nothing from then on, not even when a 1.21.8 world is upgraded. Only a running server reads
+or changes a game rule, so on those versions PvP goes over RCON instead and takes effect at once, and
+is None while the server is stopped or starting.
 """
 import re
 
 from flask import abort
-from werkzeug.exceptions import NotFound
+from werkzeug.exceptions import BadGateway, NotFound
 
-from . import files, servers
+from . import files, rcon, servers
 
 # key -> (default, what the value may be): a tuple of choices, (lowest, highest) for a number, a
 # type for a flag or text. The defaults are the server's own, for a file that doesn't have the key yet.
@@ -29,6 +34,10 @@ SETTINGS = {
     'level-seed': ('', str),
 }
 MAX_TEXT = 200
+PVP_RULE_SINCE = (1, 21, 9)  # the first release with the pvp game rule
+# What gamerule pvp answers, with a value or without: "Game rule pvp is currently set to true" (or
+# now, or already, for a value it had); 1.21.9 says "Gamerule pvp is now set to: true".
+PVP_RULE = re.compile(r'pvp is (?:\w+ )?set to:? (true|false)')
 KEY = re.compile(r'\s*((?:[^\s=:\\]|\\.)+)\s*[=:\s]?\s*(.*)')
 ESCAPES = {'t': '\t', 'n': '\n', 'r': '\r', 'f': '\f'}
 
@@ -79,16 +88,37 @@ def lines_of(server_id):
         return []
 
 
-def read(server_id):
-    """{key: value} of every setting, the server's default for those the file leaves out."""
+def read(server):
+    """{key: value} of every setting, the server's default for those the file leaves out, and PvP
+    from the game rule on the versions that keep it there."""
     values = {key: default for key, (default, _) in SETTINGS.items()}
-    for line in lines_of(server_id):
+    for line in lines_of(server['id']):
         match = KEY.fullmatch(line)
         if match and not line.lstrip().startswith(('#', '!')):
             key = unescape(match[1])
             if key in SETTINGS:
                 values[key] = parsed(key, unescape(match[2]))
+    if pvp_is_game_rule(server['version']):
+        values['pvp'] = pvp_rule(server)
     return values
+
+
+def pvp_is_game_rule(version):
+    """Whether a checked version keeps PvP in the pvp game rule: 1.21.9 on, so LATEST too."""
+    return version == 'LATEST' or tuple(int(part) for part in version.split('.')) >= PVP_RULE_SINCE
+
+
+def pvp_rule(server, value=None):
+    """A server's pvp game rule, after setting it to value unless that is None. None when the server
+    can't say: stopped, still starting, or an answer worded otherwise."""
+    if server['status'] in ('stopped', 'crashed'):
+        return None
+    command = 'gamerule pvp' if value is None else f'gamerule pvp {as_text(value)}'
+    try:
+        match = PVP_RULE.search(rcon.run(server['id'], servers.rcon_password(server['id']), command))
+    except BadGateway:
+        return None
+    return match[1] == 'true' if match else None
 
 
 def checked(key, value):
@@ -112,10 +142,16 @@ def checked(key, value):
     return value
 
 
-def save(server_id, changes):
-    """Set some settings, keeping every other line of the file as it was; returns them all."""
+def save(server, changes):
+    """Set some settings, keeping every other line of the file as it was; returns them all. PvP in
+    the game rule is set first, so the file stays as it was when the server can't change it."""
     changes = {key: checked(key, value) for key, value in changes.items()}
-    lines, done = lines_of(server_id), set()
+    if 'pvp' in changes and pvp_is_game_rule(server['version']):
+        pvp = changes.pop('pvp')
+        if pvp_rule(server, pvp) != pvp:
+            abort(409, "PvP can only change while the server is running. From Minecraft 1.21.9 it's a game "
+                       'rule, kept in the world.')
+    lines, done = lines_of(server['id']), set()
     for i, line in enumerate(lines):
         match = KEY.fullmatch(line)
         if match and not line.lstrip().startswith(('#', '!')) and unescape(match[1]) in changes:
@@ -123,5 +159,6 @@ def save(server_id, changes):
             lines[i] = f'{key}={escape(as_text(changes[key]))}'
             done.add(key)
     lines += [f'{key}={escape(as_text(value))}' for key, value in changes.items() if key not in done]
-    files.write(server_id, files.PROPERTIES, [('\n'.join(lines) + '\n').encode()], servers.rcon_password(server_id))
-    return read(server_id)
+    files.write(server['id'], files.PROPERTIES, [('\n'.join(lines) + '\n').encode()],
+                servers.rcon_password(server['id']))
+    return read(server)
