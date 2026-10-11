@@ -23,7 +23,7 @@ bp = Blueprint('auth', __name__)
 
 COOKIE = 'mcpanel_session'
 # Everything else needs a signed-in session, so a new route is protected without opting in.
-OPEN_ENDPOINTS = {'auth.login', 'auth.login_code', 'auth.login_setup', 'auth.logout', 'views.healthz', 'static'}
+OPEN_ENDPOINTS = {'auth.login', 'auth.login_first', 'auth.login_code', 'auth.login_setup', 'auth.logout', 'views.healthz', 'static'}
 MAX_TRIES = 5  # wrong passwords or codes in a row before the account locks
 LOCK_FOR = 15 * 60
 # From the right password to the code, or on a first sign-in to finishing the set-up, which may mean
@@ -136,16 +136,24 @@ def pending(step):
 
 def pending_user():
     """The account signing in halfway through, read afresh, or None when it has been removed or its
-    password changed since the password step: a reset, a set-up finished in another tab."""
+    password changed since the password step: a reset, a set-up finished in another tab. For the
+    first admin, which the set-up makes, a stand-in with no id, or None once any account exists."""
+    if session['user_id'] is None:
+        return None if not no_users() else {'id': None, 'username': session['username']}
     user = accounts.user_by_id(session['user_id'])
     return user if user and user['password_changed'] == session['password_changed'] else None
 
 
-def login_page(status=200, **context):
-    """login.html: the password step, or the code step with step='code'."""
+def no_users():
+    """Whether the panel has no accounts yet, so the sign-in page offers to make the first admin."""
     with get_db() as conn:
-        no_users = conn.execute('SELECT 1 FROM users LIMIT 1').fetchone() is None
-    return render_template('login.html', no_users=no_users, **context), status
+        return conn.execute('SELECT 1 FROM users LIMIT 1').fetchone() is None
+
+
+def login_page(status=200, **context):
+    """login.html: the password step, the code step with step='code', or with no accounts yet, the
+    first admin's username."""
+    return render_template('login.html', no_users=no_users(), **context), status
 
 
 def signed_in(response, user_id, remember):
@@ -196,6 +204,24 @@ def login():
     session.update(user_id=user['id'], password_changed=user['password_changed'], step=step, remember=remember,
                    when=time.time(), next=next_path)
     return redirect(url_for(f'auth.login_{step}'))
+
+
+@bp.post('/login/first')
+def login_first():
+    """The first visit to a panel with no accounts: the username of its first admin, which goes on to
+    the set-up. The account is made only when the set-up is done, so a visitor who leaves halfway
+    leaves nothing behind, and once any account exists this is gone."""
+    if not no_users():
+        return redirect(url_for('auth.login'))
+    username, remember = request.form.get('username', ''), request.form.get('remember') == 'on'
+    try:
+        username = accounts.check_username(username)
+    except HTTPException as e:
+        return login_page(400, error=e.description, username=username, remember=remember)
+    session.clear()
+    session.update(user_id=None, username=username, password_changed=time.time(), step='setup', remember=remember,
+                   when=time.time(), next='/')
+    return redirect(url_for('auth.login_setup'))
 
 
 @bp.route('/login/code', methods=['GET', 'POST'])
@@ -263,7 +289,8 @@ def setup_page(user, secret, error=None):
     since it shows the secret."""
     uri = pyotp.TOTP(secret).provisioning_uri(name=user['username'], issuer_name='mcpanel')
     qr = Markup(segno.make(uri).svg_inline(scale=4))
-    response = make_response(render_template('setup.html', username=user['username'], secret=secret, qr=qr, error=error),
+    response = make_response(render_template('setup.html', username=user['username'], first=user['id'] is None,
+                                             secret=secret, qr=qr, error=error),
                              429 if error == TOO_FAST else 400 if error else 200)
     response.headers['Cache-Control'] = 'no-store'
     return response
@@ -271,8 +298,9 @@ def setup_page(user, secret, error=None):
 
 @bp.route('/login/setup', methods=['GET', 'POST'])
 def login_setup():
-    """The first sign-in's second step, after the one-time password: choose a password and add TOTP to
-    an authenticator app. Done, the account is signed in and shown its recovery codes, once."""
+    """The first sign-in's second step, after the one-time password or the first admin's username:
+    choose a password and add TOTP to an authenticator app. Done, the account is signed in (the first
+    admin made) and shown its recovery codes, once."""
     user = pending('setup') and pending_user()
     if not user:
         error = CHANGED if pending('setup') else TOO_SLOW
@@ -286,12 +314,18 @@ def login_setup():
     password = request.form.get('password', '')
 
     def check():
-        if accounts.password_matches(user, password):
+        if user['id'] and accounts.password_matches(user, password):
             return 'Choose a new password, not the one-time one.'
         step = accounts.totp_step(secret, request.form.get('code', ''), 0)
         if step is None:
             logs.audit('sign_in_failed', user_id=user['id'], username=user['username'], step='setup')
             return WRONG_CODE
+        if user['id'] is None:
+            user['id'] = accounts.create_first_admin(user['username'], password, secret, step)
+            if user['id']:
+                logs.audit('user_created', user_id=user['id'], username=user['username'], role='admin', servers=[],
+                           by='first visit')
+            return None if user['id'] else CHANGED
         return None if accounts.finish_setup(user, password, secret, step) else CHANGED
 
     if len(password) < accounts.MIN_PASSWORD:

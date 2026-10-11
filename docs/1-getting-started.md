@@ -5,8 +5,9 @@ This page is about using the panel once it is running. To install it, see
 
 ## Signing in for the first time
 
-Every account starts with a one-time password, made by an admin (or, for the first admin, by the
-`create-user` command in [Setup](2-setup.md#the-first-admin)). It works once, for 24 hours.
+Every account starts with a one-time password, made by an admin. It works once, for 24 hours. (The
+first admin is made in the browser on the panel's first visit, and starts at step 2: see
+[Setup](2-setup.md#the-first-admin).)
 
 1. Sign in with your username and the one-time password.
 2. Choose your own password, at least 12 characters.

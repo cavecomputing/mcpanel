@@ -45,14 +45,22 @@ panel stops, restarts or crashes, and it finds them again when it comes back.
 
 ## The first admin
 
+While the panel has no accounts, opening it in a browser asks for the first admin's username, then
+its password and two-factor sign-in, the same set-up as in
+[Signing in for the first time](1-getting-started.md#signing-in-for-the-first-time). The account is
+made when that set-up is done, and from then on the page is gone. Add everyone else from the Users
+page.
+
+Whoever gets there first becomes the admin, so do it as soon as Caddy points at the panel, before you
+tell anyone its address. If you would rather not, make the first admin from the command line before
+Caddy is set up:
+
 ```bash
 docker compose -f docker/compose.yml exec -u 1000:1000 mcpanel flask --app app create-user matt --admin
 ```
 
 Use your `PUID:PGID` after `-u`, so the files the command writes stay the panel's. It prints a
-one-time password, good for 24 hours. Sign in with it on the panel's address and follow
-[Signing in for the first time](1-getting-started.md#signing-in-for-the-first-time). Add everyone else
-from the Users page. Leave out `--admin` to make a member.
+one-time password, good for 24 hours, to sign in with. Leave out `--admin` to make a member.
 
 ### When every admin is locked out
 

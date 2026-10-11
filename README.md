@@ -42,15 +42,14 @@ MCPANEL_DATA_DIR=/srv/mcpanel
 That is the name players type, the game ports the panel may give out (one per server), and an
 absolute path on the host for its data.
 
-Then start it and create the first admin:
+Then start it:
 
 ```bash
 docker compose -f docker/compose.yml up --build -d
-docker compose -f docker/compose.yml exec -u 1000:1000 mcpanel flask --app app create-user matt --admin
 ```
 
-Point Caddy at `127.0.0.1:5000`, forward the port range on your router, and sign in with the
-one-time password it printed. [Setup](docs/2-setup.md) has the details.
+Point Caddy at `127.0.0.1:5000`, forward the port range on your router, and open the panel: the first
+visit makes the first admin. [Setup](docs/2-setup.md) has the details.
 
 ## Updating
 

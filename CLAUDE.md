@@ -25,7 +25,8 @@ environment variables, the cookie and the Docker labels all change together.
   `mcpanel` Docker network and is never published. No second ports (voice chat, Geyser/Bedrock,
   query): not now, not as an option.
 - **Users:** a few accounts, each `admin` or `member`. Admins manage everything, including users;
-  members see and run only the servers an admin gave them. An admin makes each account and hands
+  members see and run only the servers an admin gave them. The very first admin is made in the
+  browser by whoever opens a panel with no accounts. After that an admin makes each account and hands
   over its one-time password; on that first sign-in the person chooses their own password and sets
   up TOTP two-factor sign-in, with recovery codes. Every account has both from then on.
 - **It is on the public internet.** Treat every route as reachable by strangers. See Access below.
@@ -95,8 +96,9 @@ uv sync                                        # install the locked dependencies
 MCPANEL_PUBLIC_HOST=localhost MCPANEL_PORT_RANGE=25565-25575 uv run app.py --debug
 MCPANEL_DATA_DIR=/path/to/data ...             # data directory (default: ./data)
 
-# The first account: prints a one-time password for an admin. reset-user <name> starts an
-# account's sign-in over the same way, for when every admin is locked out.
+# The first account: with none yet, the first visit makes the first admin. Or this prints a one-time
+# password for one. reset-user <name> starts an account's sign-in over the same way, for when every
+# admin is locked out.
 MCPANEL_PUBLIC_HOST=localhost MCPANEL_PORT_RANGE=25565-25575 uv run flask --app app create-user matt --admin
 
 uv run pytest                                  # full suite (use `uv run`, not bare pytest)
@@ -138,7 +140,7 @@ neighbour.
 | `mcpanel/config.py` | Settings read once from the environment: paths under `MCPANEL_DATA_DIR`, `MCPANEL_PUBLIC_HOST`, `MCPANEL_PORT_RANGE`. |
 | `mcpanel/db.py` | Schema (`init_db()`, idempotent) and `get_db()`, a short-lived connection per use. |
 | `mcpanel/logs.py` | `setup_logging()`: JSON lines on stdout, the same lines in a rotated file, the audit log, and the filter that strips secrets. `audit()` records who did what; `start_timer()` and `log_request()` write one line per request. |
-| `mcpanel/auth.py` | The sign-in pages: `/login` (password), `/login/code` (TOTP or a recovery code), `/login/setup` (after a one-time password: a new password and TOTP, then the recovery codes), `/logout`. The session cookie and `require_login()` in front of everything else, `require_admin()`, lockouts and the sign-in throttle (`throttled()`), the halfway state (`pending()`, `pending_user()`, `setup_secret()`), the `create-user` and `reset-user` commands. |
+| `mcpanel/auth.py` | The sign-in pages: `/login` (password, or with no accounts yet the first admin's username, posted to `/login/first`), `/login/code` (TOTP or a recovery code), `/login/setup` (after a one-time password or `/login/first`: a new password and TOTP, then the recovery codes), `/logout`. The session cookie and `require_login()` in front of everything else, `require_admin()`, lockouts and the sign-in throttle (`throttled()`), the halfway state (`pending()`, `pending_user()`, `setup_secret()`), the `create-user` and `reset-user` commands. |
 | `mcpanel/accounts.py` | Users, sessions and recovery codes in the database: password hashing (argon2id), one-time passwords (`create_user()`, `finish_setup()`, `reset_sign_in()`), TOTP secrets and checks, who may see which server. |
 | `mcpanel/servers.py` | Everything that talks to Docker: finding the panel's containers by label, `container_spec()` (the one place a container's settings are decided), `free_port()`, create, `update_server()` (a stopped server's container made again with new settings), `delete_server()`, start, stop, restart, `usage()` (memory and CPU from one `docker stats` sample), `console_lines()` (the Console's output, from Docker's log), and `docker_errors()`, which turns Docker's errors into the messages the UI shows. |
 | `mcpanel/backups.py` | A server's backups: `.tar.gz` of its folder in `backups/<id>/`, made link-safe like `files.py` (a running server is told `save-off` meanwhile), restored only while it is stopped (extracted with tarfile's `data` filter, then swapped in), downloaded, deleted. One at a time per server (`LOCKS`). |
@@ -266,6 +268,12 @@ the whole perimeter:
   password take effect at once. The cookie (`mcpanel_session`) holds only a random token, stored
   hashed; it is `HttpOnly`, `SameSite=Lax`, `Secure` behind HTTPS (`X-Forwarded-Proto` via
   `ProxyFix`), and lasts 30 days when "Keep this device signed in" is ticked.
+- **The first admin** is made in the browser while the users table is empty: `/login` asks for a
+  username (`/login/first`), then the same `/login/setup` with no one-time password. The account is
+  inserted only when the set-up is done, by one `INSERT ... WHERE NOT EXISTS (SELECT 1 FROM users)`
+  (`accounts.create_first_admin()`), so two browsers can't both win and an abandoned set-up leaves
+  nothing. Once any account exists the page is gone; it is never an invite or sign-up for later
+  accounts. Whoever reaches a fresh panel first is its admin, which the setup docs say.
 - Adding an account, or resetting one's sign-in (which also drops its TOTP secret, recovery codes,
   sessions and lock), gives the admin a one-time password: 80 random bits, stored as an argon2id
   hash, shown once, good for 24 hours, and checked like any password (throttle, lock, dummy hash).

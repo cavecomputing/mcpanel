@@ -236,13 +236,7 @@ def test_signed_in_login_page_moves_on(anon, matt):
     assert anon.get('/login?next=/servers/smp').headers['Location'] == '/servers/smp'
 
 
-def test_login_page_says_how_to_make_the_first_account(anon):
-    assert b'flask --app app create-user &lt;name&gt; --admin' in anon.get('/login').data
-    make_user('matt')
-    assert b'flask --app app create-user' not in anon.get('/login').data
-
-
-def test_login_page_fields(anon):
+def test_login_page_fields(anon, matt):
     page = anon.get('/login').data
     assert b'autocomplete="username"' in page and b'autocomplete="current-password"' in page
     assert b'href="#i-cube"' in page and b'mcpanel</span>' in page
@@ -524,3 +518,60 @@ def test_no_secret_reaches_the_logs_on_a_first_sign_in(app, admin, caplog):
     for secret_text in (created, secret, code, NEW_PASSWORD, 'too short', *codes, token, accounts.hashed(token), reset):
         assert secret_text not in logged
     assert re.search(r'[0-9a-z]{4}(-[0-9a-z]{4}){3}', printed).group() not in logged
+
+
+def test_the_first_visit_makes_the_first_admin(app, anon, clock):
+    page = anon.get('/login').get_data(as_text=True)
+    assert 'making the first admin' in page and 'action="/login/first"' in page and 'current-password' not in page
+    response = anon.post('/login/first', data={'username': 'Matt', 'remember': 'on'})
+    assert response.status_code == 302 and response.headers['Location'] == '/login/setup'
+    page = anon.get('/login/setup')
+    assert b'<b>matt</b>' in page.data and b'Your admin account is made when you finish' in page.data
+    assert user_row('matt') is None  # nothing is made until the set-up is done
+    secret = shown_secret(page)
+    code = pyotp.TOTP(secret).at(clock['now'])
+    response = anon.post('/login/setup', data={'password': NEW_PASSWORD, 'again': NEW_PASSWORD, 'code': code})
+    assert response.status_code == 200 and len(re.findall(r'<li>[0-9a-f-]{14}</li>', response.get_data(as_text=True))) == 10
+    assert f'Max-Age={30 * 24 * 3600}' in session_cookie(response)
+    assert anon.get('/api/me').get_json() == {'username': 'matt', 'role': 'admin', 'recovery_codes_left': 10}
+    row = user_row('matt')
+    assert (row['totp_secret'], row['totp_last_step']) == (secret, int(clock['now']) // 30)
+    assert accounts.password_matches(row, NEW_PASSWORD)
+
+    # Once an account exists the first-run form is gone, and posting it makes nothing.
+    stranger = app.test_client()
+    assert b'action="/login/first"' not in stranger.get('/login').data
+    assert stranger.post('/login/first', data={'username': 'eve'}).headers['Location'] == '/login'
+    assert user_row('eve') is None
+
+
+def test_only_one_browser_makes_the_first_admin(app, anon):
+    other = app.test_client()
+    anon.post('/login/first', data={'username': 'matt'})
+    other.post('/login/first', data={'username': 'eve'})
+    assert set_up(anon).status_code == 200
+    response = set_up(other, code='123456')
+    assert response.status_code == 401 and b'This account changed while you were signing in' in response.data
+    assert user_row('eve') is None and other.get('/api/me').status_code == 401
+
+
+def test_the_first_admin_needs_a_valid_username(anon):
+    response = anon.post('/login/first', data={'username': 'not ok'})
+    assert response.status_code == 400 and b'A username is 1-32 characters' in response.data
+    assert b'action="/login/first"' in response.data and anon.get('/login/setup').headers['Location'] == '/login'
+
+
+def test_the_first_admin_set_up_checks_its_form(anon):
+    anon.post('/login/first', data={'username': 'matt'})
+    assert b'at least 12 characters' in set_up(anon, password='too short').data
+    assert b"That code didn" in set_up(anon, code='000000').data
+    assert user_row('matt') is None
+    assert set_up(anon).status_code == 200
+
+
+def test_the_first_admin_set_up_runs_out(anon, clock):
+    anon.post('/login/first', data={'username': 'matt'})
+    clock['now'] += 15 * 60 + 1
+    response = set_up(anon, code='123456')
+    assert response.status_code == 401 and b'action="/login/first"' in response.data  # start again
+    assert user_row('matt') is None

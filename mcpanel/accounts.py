@@ -69,6 +69,19 @@ def create_user(username, role, server_ids):
     return user_id, password
 
 
+def create_first_admin(username, password, totp_secret, totp_step):
+    """Add the panel's first account, an admin with its own password and TOTP secret, the code for
+    totp_step used up: its id, or None when an account exists already (another browser was first)."""
+    now = time.time()
+    with get_db() as conn:
+        cursor = conn.execute('''INSERT INTO users (username, role, password_hash, password_changed, created, totp_secret,
+                                                    totp_last_step)
+                                 SELECT ?, 'admin', ?, ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM users)''',
+                              (username, hasher.hash(password), now, now, totp_secret, totp_step))
+        conn.commit()
+    return cursor.lastrowid if cursor.rowcount else None
+
+
 def finish_setup(user, password, totp_secret, totp_step):
     """Give an account signing in for the first time its own password and its TOTP secret, the code
     for totp_step used up; whether that happened. user is its row as the set-up checked it: nothing

@@ -26,6 +26,19 @@
             <a href="{{ url_for('auth.login_code', recovery=None if recovery else 1) }}">{{ 'Use your authenticator app' if recovery else 'Use a recovery code' }}</a>
         </div>
     </form>
+    {% elif no_users %}
+    <form class="cc-settings-card cc-signin__card" method="post" action="{{ url_for('auth.login_first') }}">
+        <span class="cc-brand"><svg class="logo" aria-hidden="true"><use href="#i-cube"/></svg><span class="cc-wordmark">mcpanel</span></span>
+        <p>Welcome. There are no accounts yet, so start by making the first admin. Next you'll choose its password and set up two-factor sign-in.</p>
+        {% if error %}<p class="cc-signin__error" role="alert">{{ error }}</p>{% endif %}
+        <div class="cc-field cc-field--stack">
+            <label for="username">Username</label>
+            <input class="cc-input" id="username" name="username" value="{{ username }}" maxlength="32" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus>
+            <span class="cc-field__hint">Up to 32 of a-z, 0-9, dot, underscore and dash.</span>
+        </div>
+        <label class="cc-checkbox"><input type="checkbox" name="remember" {{ 'checked' if remember }}> Keep this device signed in for 30 days</label>
+        <button class="cc-btn cc-btn--primary cc-btn--block" type="submit"><span>Continue</span></button>
+    </form>
     {% else %}
     <form class="cc-settings-card cc-signin__card" method="post" action="{{ url_for('auth.login', next=next) }}">
         <span class="cc-brand"><svg class="logo" aria-hidden="true"><use href="#i-cube"/></svg><span class="cc-wordmark">mcpanel</span></span>
@@ -41,7 +54,6 @@
         </div>
         <label class="cc-checkbox"><input type="checkbox" name="remember" {{ 'checked' if remember }}> Keep this device signed in for 30 days</label>
         <button class="cc-btn cc-btn--primary cc-btn--block" type="submit"><span>Sign in</span></button>
-        {% if no_users %}<p>No accounts yet. Make the first one on the server with <code class="cc-code">flask --app app create-user &lt;name&gt; --admin</code>.</p>{% endif %}
     </form>
     {% endif %}
 </main>

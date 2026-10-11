@@ -219,3 +219,13 @@ def test_the_cookie_signing_key_is_never_stored(app):
     assert len(app.secret_key) == 32 and create_app().secret_key != app.secret_key
     with get_db() as conn:
         assert app.secret_key.hex() not in '\n'.join(conn.iterdump()).lower()
+
+
+def test_only_the_first_admin_is_made_by_create_first_admin(app):
+    secret = pyotp.random_base32()
+    user_id = accounts.create_first_admin('matt', PASSWORD, secret, 7)
+    row = user_row(user_id)
+    assert (row['username'], row['role'], row['totp_secret'], row['totp_last_step']) == ('matt', 'admin', secret, 7)
+    assert accounts.password_matches(row, PASSWORD)
+    assert accounts.create_first_admin('eve', PASSWORD, secret, 7) is None
+    assert accounts.user_named('eve') is None
