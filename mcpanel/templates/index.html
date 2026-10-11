@@ -256,8 +256,8 @@
                         {# For password managers, so they save the new password under the right name. #}
                         <input name="username" value="{{ g.user.username }}" autocomplete="username" readonly hidden>
                         <div class="cc-field"><label for="currentPassword">Current password</label><input class="cc-input" id="currentPassword" type="password" autocomplete="current-password" required></div>
-                        <div class="cc-field"><div><label for="newPassword">New password</label><span class="cc-field__hint">At least 12 characters</span></div><input class="cc-input" id="newPassword" type="password" minlength="12" autocomplete="new-password" required></div>
-                        <div class="cc-field"><label for="againPassword">New password again</label><input class="cc-input" id="againPassword" type="password" minlength="12" autocomplete="new-password" required></div>
+                        <div class="cc-field"><div><label for="newPassword">New password</label><span class="cc-field__hint">At least 8 characters</span></div><input class="cc-input" id="newPassword" type="password" minlength="8" autocomplete="new-password" required></div>
+                        <div class="cc-field"><label for="againPassword">New password again</label><input class="cc-input" id="againPassword" type="password" minlength="8" autocomplete="new-password" required></div>
                         <div class="row-btns"><button class="cc-btn cc-btn--primary" type="submit"><span>Change password</span></button></div>
                     </form>
                     <section class="cc-settings-card" aria-labelledby="codesTitle">

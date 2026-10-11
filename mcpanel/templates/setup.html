@@ -24,12 +24,12 @@
         <input name="username" value="{{ username }}" autocomplete="username" readonly hidden>
         <div class="cc-field cc-field--stack">
             <label for="password">New password</label>
-            <input class="cc-input" id="password" name="password" type="password" minlength="12" autocomplete="new-password" required autofocus>
-            <span class="cc-field__hint">At least 12 characters.</span>
+            <input class="cc-input" id="password" name="password" type="password" minlength="8" autocomplete="new-password" required autofocus>
+            <span class="cc-field__hint">At least 8 characters.</span>
         </div>
         <div class="cc-field cc-field--stack">
             <label for="again">New password again</label>
-            <input class="cc-input" id="again" name="again" type="password" minlength="12" autocomplete="new-password" required>
+            <input class="cc-input" id="again" name="again" type="password" minlength="8" autocomplete="new-password" required>
         </div>
         <p>Scan this with your authenticator app, or type the key into it.</p>
         <div class="qr" role="img" aria-label="QR code for your authenticator app">{{ qr }}</div>

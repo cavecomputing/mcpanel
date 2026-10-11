@@ -6,7 +6,7 @@ account can start containers on the machine.
 ## Signing in
 
 - Every page and API route needs a session, except the sign-in pages, `/healthz` and static files.
-- Every account has a password (at least 12 characters, stored as an argon2id hash) and TOTP
+- Every account has a password (at least 8 characters, stored as an argon2id hash) and TOTP
   two-factor sign-in. A code already used is refused. Each account gets 10 single-use recovery codes.
 - Five wrong passwords or codes in a row lock the account for 15 minutes. While it is locked every
   password is wrong, so the lock stops guessing instead of confirming a right guess. An unknown

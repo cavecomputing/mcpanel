@@ -63,10 +63,15 @@ def test_change_password(app, member):
     assert sign_in(app.test_client(), 'member', 'a brand new password').status_code == 302
 
 
+def test_eight_characters_is_long_enough(app, member):
+    assert member.post('/api/account/password', json={'current': PASSWORD, 'new': 'eight888'}).status_code == 200
+    assert sign_in(app.test_client(), 'member', 'eight888').status_code == 302
+
+
 @pytest.mark.parametrize('body, status', [
     ({'current': 'not my password', 'new': 'a brand new password'}, 403),
     ({'new': 'a brand new password'}, 403),
-    ({'current': PASSWORD, 'new': 'too short'}, 400),
+    ({'current': PASSWORD, 'new': 'tooshrt'}, 400),
     ({'current': PASSWORD}, 400),
     ({'current': PASSWORD, 'new': 1234567890123}, 400),
 ])

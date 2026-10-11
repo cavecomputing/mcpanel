@@ -19,7 +19,7 @@ from .db import get_db
 
 ROLES = ('admin', 'member')
 USERNAME = re.compile(r'[a-z0-9._-]{1,32}')
-MIN_PASSWORD = 12
+MIN_PASSWORD = 8
 REMEMBER_FOR = 30 * 24 * 3600  # "Keep this device signed in"
 SESSION_FOR = 24 * 3600  # otherwise the cookie ends with the browser, and the session after a day at most
 ONE_TIME_FOR = 24 * 3600  # how long a one-time password works

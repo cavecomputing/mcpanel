@@ -258,7 +258,7 @@ the whole perimeter:
   version and Java. The route checks the role for the allocation (`PUT /api/servers/<id>` refuses a member a
   different `heap_gb`); hiding the control is not enough. Files can't get round it: the image rewrites its JVM flags from the container's env on every
   start, and the container's memory limit caps the server whatever it asks for.
-- Passwords are argon2id hashes (at least 12 characters). TOTP is required on every account: a
+- Passwords are argon2id hashes (at least 8 characters). TOTP is required on every account: a
   sign-in is password, then a 6-digit code (a code already used is refused) or a single-use recovery
   code. 5 wrong passwords or codes in a row lock that account for 15 minutes, and while it is locked
   every password is wrong (the dummy hash is checked), so the lock stops guessing instead of

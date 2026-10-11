@@ -10,7 +10,7 @@ first admin is made in the browser on the panel's first visit, and starts at ste
 [Setup](2-setup.md#the-first-admin).)
 
 1. Sign in with your username and the one-time password.
-2. Choose your own password, at least 12 characters.
+2. Choose your own password, at least 8 characters.
 3. Scan the QR code with an authenticator app (any TOTP app) and type in the code it shows.
 4. Keep the recovery codes the panel shows next. You see them once. Each one signs you in once in
    place of a code, for when you don't have your phone.

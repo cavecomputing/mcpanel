@@ -345,7 +345,7 @@ def test_setting_up_returns_to_next(anon, sam):
 
 
 @pytest.mark.parametrize('form, message', [
-    ({'password': 'too short'}, b'at least 12 characters'),
+    ({'password': 'tooshrt'}, b'at least 8 characters'),
     ({'again': 'something else entirely'}, b'The two passwords'),
     ({'password': 'ONE TIME'}, b'not the one-time one'),
     ({'code': '000000'}, b"That code didn"),
@@ -505,7 +505,7 @@ def test_no_secret_reaches_the_logs_on_a_first_sign_in(app, admin, caplog):
     client = app.test_client()
     sign_in(client, 'sam', created)
     secret = shown_secret(client.get('/login/setup'))
-    set_up(client, password='too short')
+    set_up(client, password='tooshrt')
     code = pyotp.TOTP(secret).now()
     response = set_up(client, code=code)
     codes = re.findall(r'<li>([0-9a-f-]{14})</li>', response.get_data(as_text=True))
@@ -515,7 +515,7 @@ def test_no_secret_reaches_the_logs_on_a_first_sign_in(app, admin, caplog):
     printed = app.test_cli_runner().invoke(args=['reset-user', 'sam']).output
     logged = '\n'.join(str(vars(record)) for record in caplog.records)
     assert all(event in logged for event in ('user_created', 'setup_done', 'sign_in_reset'))
-    for secret_text in (created, secret, code, NEW_PASSWORD, 'too short', *codes, token, accounts.hashed(token), reset):
+    for secret_text in (created, secret, code, NEW_PASSWORD, 'tooshrt', *codes, token, accounts.hashed(token), reset):
         assert secret_text not in logged
     assert re.search(r'[0-9a-z]{4}(-[0-9a-z]{4}){3}', printed).group() not in logged
 
@@ -563,7 +563,7 @@ def test_the_first_admin_needs_a_valid_username(anon):
 
 def test_the_first_admin_set_up_checks_its_form(anon):
     anon.post('/login/first', data={'username': 'matt'})
-    assert b'at least 12 characters' in set_up(anon, password='too short').data
+    assert b'at least 8 characters' in set_up(anon, password='tooshrt').data
     assert b"That code didn" in set_up(anon, code='000000').data
     assert user_row('matt') is None
     assert set_up(anon).status_code == 200
