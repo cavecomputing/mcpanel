@@ -24,12 +24,42 @@ def access(user_id):
 
 
 @pytest.mark.parametrize('method, path, body', USER_CALLS)
-@pytest.mark.parametrize('role', ['admin', 'member'])
-def test_only_platform_admins_manage_users(app, role, method, path, body):
-    client = signed_in_client(app, make_user('someone', role))
-    response = getattr(client, method)(path, json=body)
-    assert response.status_code == 403 and response.get_json() == {'error': 'Platform admins only'}
-    assert accounts.user_named('sam') is None and accounts.user_by_id(1)['role'] == role
+def test_members_get_403_on_user_calls(member, method, path, body):
+    response = getattr(member, method)(path, json=body)
+    assert response.status_code == 403 and response.get_json() == {'error': 'Admins only'}
+    assert accounts.user_named('sam') is None and accounts.user_by_id(1)['role'] == 'member'
+
+
+def test_admins_manage_members(admin, anon):
+    make_servers('SMP', 'Creative')
+    response = admin.post('/api/users', json={'username': 'sam', 'role': 'member', 'servers': ['smp']})
+    assert response.status_code == 201 and response.get_json()['user']['servers'] == ['smp']
+    sam = response.get_json()['user']['id']
+    assert admin.put(f'/api/users/{sam}', json={'role': 'member', 'servers': ['creative']}).status_code == 200
+    assert access(sam) == {'creative'}
+    password = admin.post(f'/api/users/{sam}/reset').get_json()['one_time_password']
+    assert sign_in(anon, 'sam', password).headers['Location'] == '/login/setup'
+    assert admin.delete(f'/api/users/{sam}').status_code == 200 and accounts.user_by_id(sam) is None
+
+
+@pytest.mark.parametrize('role', ['admin', 'platform_admin'])
+def test_admins_cant_touch_admins(app, admin, role):
+    kim = make_user('kim', role)
+    sam = make_user('sam')
+    calls = [
+        admin.post('/api/users', json={'username': 'ana', 'role': role}),  # make one
+        admin.put(f'/api/users/{sam["id"]}', json={'role': role}),  # promote a member
+        admin.put(f'/api/users/{kim["id"]}', json={'role': 'member', 'servers': []}),  # demote one
+        admin.put(f'/api/users/{kim["id"]}', json={'role': role}),  # or even save it as it is
+        admin.post(f'/api/users/{kim["id"]}/reset'),
+        admin.delete(f'/api/users/{kim["id"]}'),
+    ]
+    for response in calls:
+        assert response.status_code == 403 and response.get_json() == {'error': 'Only platform admins manage admins'}
+    assert accounts.user_named('ana') is None
+    assert (accounts.user_by_id(sam['id'])['role'], accounts.user_by_id(kim['id'])['role']) == ('member', role)
+    assert accounts.user_by_id(kim['id'])['totp_secret'] == kim['totp_secret']
+    assert {user['username'] for user in admin.get('/api/users').get_json()['users']} == {'admin', 'kim', 'sam'}
 
 
 @pytest.mark.parametrize('method, path, body', USER_CALLS)
@@ -119,11 +149,13 @@ def test_change_a_member(platform_admin):
 
 def test_changes_take_effect_at_once(platform_admin, app):
     sam = signed_in_client(app, make_user('sam'))
+    kim = make_user('kim', 'admin')
     assert sam.get('/api/users').status_code == 403 and sam.post('/api/servers', json={}).status_code == 403
     platform_admin.put(f'/api/users/{sam.user["id"]}', json={'role': 'admin'})
-    assert sam.get('/api/users').status_code == 403 and sam.post('/api/servers', json={}).status_code == 400
+    assert sam.get('/api/users').status_code == 200 and sam.post('/api/servers', json={}).status_code == 400
+    assert sam.delete(f'/api/users/{kim["id"]}').status_code == 403
     platform_admin.put(f'/api/users/{sam.user["id"]}', json={'role': 'platform_admin'})
-    assert sam.get('/api/users').status_code == 200
+    assert sam.delete(f'/api/users/{kim["id"]}').status_code == 200
 
 
 @pytest.mark.parametrize('role', ['admin', 'member'])

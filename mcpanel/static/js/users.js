@@ -1,5 +1,5 @@
 /**
- * The Users page, for platform admins: everyone who can sign in, and one dialog that either adds an account
+ * The Users page, for admins (who manage members) and platform admins (who manage anyone): everyone who can sign in, and one dialog that either adds an account
  * or changes a user's role and servers, and shows a new one-time password once.
  */
 import * as api from './api.js';
@@ -14,6 +14,7 @@ const roleBadge = (role) => ({
     admin: '<span class="cc-badge cc-badge--info">Admin</span>',
     member: '<span class="cc-badge">Member</span>',
 })[role];
+const mayManage = (user) => state.platformAdmin || user.role === 'member';
 const serverName = (id) => state.servers.find((server) => server.id === id)?.name ?? id;
 
 /** What a user may use, in words. */
@@ -48,7 +49,7 @@ export async function showUsers() {
                 <div class="sub">${serversLine(user.role, user.servers)}</div>
                 <div class="sub">${signInLine(user)}</div>
             </div>
-            <div class="list-row__actions">${user.username === state.username ? '<span class="cc-tag">You</span>' : `
+            <div class="list-row__actions">${user.username === state.username ? '<span class="cc-tag">You</span>' : !mayManage(user) ? '' : `
                 <button class="cc-btn cc-btn--ghost cc-btn--sm" type="button" data-action="edit" data-user="${user.id}"><span>Edit</span></button>
                 <button class="cc-btn cc-btn--ghost cc-btn--sm" type="button" data-action="reset" data-user="${user.id}"><span>Reset sign-in</span></button>
                 <button class="cc-btn cc-btn--danger cc-btn--sm" type="button" data-action="remove" data-user="${user.id}"><span>Remove</span></button>`}
@@ -149,7 +150,7 @@ async function remove(user) {
 }
 
 export function initUsers() {
-    if (!state.platformAdmin) return;
+    if (!state.admin) return;
     $('addUserBtn').addEventListener('click', () => openDialog());
     $('userRows').addEventListener('click', (event) => {
         const button = event.target.closest('[data-action]');

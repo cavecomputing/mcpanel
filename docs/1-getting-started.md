@@ -5,7 +5,7 @@ This page is about using the panel once it is running. To install it, see
 
 ## Signing in for the first time
 
-Every account starts with a one-time password, made by a platform admin. It works once, for 24 hours.
+Every account starts with a one-time password, made by an admin. It works once, for 24 hours.
 (The platform admin is made in the browser on the panel's first visit, and starts at step 2: see
 [Setup](2-setup.md#the-platform-admin).)
 
@@ -18,19 +18,19 @@ Every account starts with a one-time password, made by a platform admin. It work
 From then on, signing in is your password and then a 6-digit code from the app, or a recovery code.
 Tick "Keep this device signed in" to stay signed in for 30 days.
 
-If you lose both your phone and your recovery codes, a platform admin can reset your sign-in from the
-Users page: you get a new one-time password and set up two-factor sign-in again.
+If you lose both your phone and your recovery codes, an admin can reset your sign-in from the Users
+page: you get a new one-time password and set up two-factor sign-in again.
 
 ## Platform admins, admins and members
 
 There are three kinds of account:
 
-- **Platform admins** do everything admins do, and are the only ones who manage accounts: the Users
-  page is theirs alone. The first account on a panel is its platform admin. A platform admin can make
-  someone else one too, and the panel always keeps at least one.
-- **Admins** see and manage every server. Only admins and platform admins create and delete
-  servers, and only they change how much memory and CPU a server gets.
-- **Members** see only the servers a platform admin gave them. On those, they do everything else:
+- **Platform admins** do everything admins do, and are the only ones who add, change, reset or remove
+  admins and platform admins. The first account on a panel is its platform admin. A platform admin
+  can make someone else one too, and the panel always keeps at least one.
+- **Admins** see and manage every server, and add and manage members. Only admins and platform
+  admins create and delete servers, and only they change how much memory and CPU a server gets.
+- **Members** see only the servers an admin gave them. On those, they do everything else:
   start and stop it, its console, players, files, mods, backups, game settings, type, version and
   Java. They can't delete a server.
 
@@ -39,10 +39,10 @@ first time it starts after the update.
 
 ### Adding someone
 
-On the Users page, a platform admin adds an account, picks platform admin, admin or member, and for a
-member ticks the servers they may use. The panel shows that account's one-time password once: pass it
-on, and they follow the steps above. From the same page a platform admin changes someone's role or
-servers, resets their sign-in, or removes them.
+On the Users page, an admin adds an account and ticks the servers it may use. The panel shows that
+account's one-time password once: pass it on, and they follow the steps above. From the same page an
+admin changes a member's servers, resets their sign-in, or removes them. Admins only add and manage
+members; a platform admin also picks the role (platform admin, admin or member) and manages admins.
 
 ### Your account
 

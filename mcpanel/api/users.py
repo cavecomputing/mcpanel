@@ -1,4 +1,5 @@
-"""Users, for platform admins: list, add, change role and servers, reset sign-in, remove."""
+"""Users, for admins: list, add, change role and servers, reset sign-in, remove. An admin acts only on
+members; a platform admin on anyone."""
 import json
 
 from flask import Blueprint, abort, g
@@ -8,10 +9,17 @@ from ..db import get_db
 from .common import json_body
 
 bp = Blueprint('users', __name__)
-bp.before_request(auth.require_platform_admin)  # every route here is for platform admins
+bp.before_request(auth.require_admin)  # every route here is for admins
 
 # Holds unless the user is the only platform admin left: mcpanel always keeps one.
 NOT_LAST_PLATFORM_ADMIN = "(role != 'platform_admin' OR (SELECT COUNT(*) FROM users WHERE role = 'platform_admin') > 1)"
+
+
+def may_manage(role):
+    """Abort with a 403 unless the signed-in user may act on an account with role: a platform admin
+    on any, an admin only on a member."""
+    if role != 'member' and g.user['role'] != 'platform_admin':
+        abort(403, 'Only platform admins manage admins')
 
 
 def role_arg(role):
@@ -63,6 +71,7 @@ def create_user():
     shown only here, signs them in once to choose their own and set up two-factor sign-in."""
     data = json_body()
     username, role = accounts.check_username(data.get('username')), role_arg(data.get('role'))
+    may_manage(role)
     server_ids = servers_arg(data.get('servers')) if role == 'member' else []
     user_id, password = accounts.create_user(username, role, server_ids)
     logs.audit('user_created', user_id=user_id, username=username, role=role, servers=server_ids)
@@ -76,8 +85,11 @@ def change_user(user_id):
     role = role_arg(data.get('role'))
     server_ids = servers_arg(data.get('servers')) if role == 'member' else []
     with get_db() as conn:
-        if conn.execute('SELECT 1 FROM users WHERE id = ?', (user_id,)).fetchone() is None:
+        user = conn.execute('SELECT role FROM users WHERE id = ?', (user_id,)).fetchone()
+        if user is None:
             abort(404, 'No such user')
+        may_manage(user['role'])
+        may_manage(role)
         if not conn.execute(f"UPDATE users SET role = :role WHERE id = :id AND (:role = 'platform_admin' OR {NOT_LAST_PLATFORM_ADMIN})",
                             {'role': role, 'id': user_id}).rowcount:
             abort(409, "That's the only platform admin; make someone else one first")
@@ -100,6 +112,7 @@ def reset_user(user_id):
     user = accounts.user_by_id(user_id)
     if user is None:
         abort(404, 'No such user')
+    may_manage(user['role'])
     password = accounts.reset_sign_in(user_id)
     logs.audit('sign_in_reset', user_id=user_id, username=user['username'])
     return {'one_time_password': password}
@@ -111,9 +124,10 @@ def remove_user(user_id):
     if user_id == g.user['id']:
         abort(400, "You can't remove yourself")
     with get_db() as conn:
-        user = conn.execute('SELECT username FROM users WHERE id = ?', (user_id,)).fetchone()
+        user = conn.execute('SELECT username, role FROM users WHERE id = ?', (user_id,)).fetchone()
         if user is None:
             abort(404, 'No such user')
+        may_manage(user['role'])
         if not conn.execute(f'DELETE FROM users WHERE id = ? AND {NOT_LAST_PLATFORM_ADMIN}', (user_id,)).rowcount:
             abort(409, "That's the only platform admin; make someone else one first")
         conn.commit()

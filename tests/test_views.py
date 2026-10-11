@@ -29,11 +29,12 @@ def test_page_renders_for_a_platform_admin(platform_admin):
     assert 'id="newServerDialog"' in html and 'href="#/users"' in html and 'id="userDialog"' in html
 
 
-def test_page_leaves_the_users_page_out_for_an_admin(admin):
+def test_page_offers_an_admin_only_members(admin):
     html = admin.get('/').text
     assert 'data-username="admin" data-role="admin"' in html
     assert 'id="newServerDialog"' in html and 'id="deleteServer"' in html
-    assert 'href="#/users"' not in html and 'usersView' not in html and 'userDialog' not in html
+    assert 'href="#/users"' in html and 'id="userDialog"' in html
+    assert '<option value="member">' in html and '<option value="admin">' not in html and 'value="platform_admin"' not in html
 
 
 def test_page_leaves_the_admin_parts_out_for_a_member(member):

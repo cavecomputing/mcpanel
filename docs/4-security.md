@@ -22,10 +22,11 @@ account can start containers on the machine.
 ## Who may do what
 
 - Platform admins manage every account and every server; only they add, change, reset or remove
-  accounts. The panel always keeps at least one.
-- Admins manage every server, but not accounts. Make admins and platform admins only people you'd
-  trust with the machine.
-- Members see only the servers a platform admin gave them, and can't create or delete servers or
+  admins and platform admins. The panel always keeps at least one.
+- Admins manage every server, and add, change, reset and remove members, but can't touch an admin
+  or platform admin or make one. Make admins and platform admins only people you'd trust with the
+  machine.
+- Members see only the servers an admin gave them, and can't create or delete servers or
   change their memory or CPU. The server checks this on every request; hiding a button isn't relied on. A member can't
   raise memory through the files either: the image sets Java's memory from the container on every
   start, and the container's memory limit caps the server whatever it asks for.

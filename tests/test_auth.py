@@ -399,7 +399,7 @@ def test_a_one_time_password_works_for_24_hours(app, sam, clock):
     clock['now'] += 2
     client = app.test_client()
     right = first_sign_in(client, sam)
-    assert right.status_code == 401 and b'This one-time password has expired. Ask a platform admin for a new one.' in right.data
+    assert right.status_code == 401 and b'This one-time password has expired. Ask an admin for a new one.' in right.data
     assert client.get_cookie('mcpanel_signin') is None
     wrong = sign_in(client, 'sam', 'wrong password!')
     assert b'Wrong username or password.' in wrong.data and b'expired' not in wrong.data  # only to whoever knows it

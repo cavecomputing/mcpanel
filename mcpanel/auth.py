@@ -34,7 +34,7 @@ WRONG_PASSWORD = f'Wrong username or password. {MAX_TRIES} wrong tries in a row 
 WRONG_CODE = "That code didn't work. Codes change every 30 seconds, so use the one showing now."
 WRONG_RECOVERY_CODE = "That recovery code didn't work. Each one works once."
 TOO_FAST = 'Too many wrong tries just now. Wait a moment and try again.'
-EXPIRED = 'This one-time password has expired. Ask a platform admin for a new one.'
+EXPIRED = 'This one-time password has expired. Ask an admin for a new one.'
 TOO_SLOW = 'That took too long. Sign in again.'
 CHANGED = 'This account changed while you were signing in. Sign in again.'
 
@@ -72,11 +72,6 @@ def require_admin():
     if g.user['role'] == 'member':
         abort(403, 'Admins only')
 
-
-def require_platform_admin():
-    """Abort with a 403 unless the signed-in user is a platform admin, the only role that manages users."""
-    if g.user['role'] != 'platform_admin':
-        abort(403, 'Platform admins only')
 
 
 def local_target(target):
@@ -362,11 +357,11 @@ def one_time_note(username, password):
 @click.command('create-user')
 @click.argument('username')
 @click.option('--admin', is_flag=True, help='Make an admin rather than a member.')
-@click.option('--platform-admin', is_flag=True, help='Make a platform admin, who also manages users.')
+@click.option('--platform-admin', is_flag=True, help='Make a platform admin, who also manages admins.')
 def create_user_command(username, admin, platform_admin):
     """Make an account called USERNAME and print its one-time password.
 
-    A member starts with no servers; a platform admin gives them some on the Users page.
+    A member starts with no servers; an admin gives them some on the Users page.
     """
     role = 'platform_admin' if platform_admin else 'admin' if admin else 'member'
     try:
