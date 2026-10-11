@@ -39,6 +39,18 @@ def test_output_is_capped_and_masks_the_rcon_password(admin, docker, running, mo
     assert admin.get('/api/servers/survival/console').get_json()['lines'] == ['line 3', 'rcon password is ********']
 
 
+def test_output_leaves_out_the_lines_each_rcon_connection_logs(admin, docker, running):
+    docker.output['mcpanel-survival'] = [
+        ('2026-10-10T16:00:00Z', '[16:00:00] [RCON Listener #1/INFO]: Thread RCON Client /172.18.0.2 started'),
+        ('2026-10-10T16:00:01Z', '[16:00:01] [Server thread/INFO]: System chat: [Rcon: Saved the game]'),
+        ('2026-10-10T16:00:02Z', '[16:00:02] [RCON Client /172.18.0.2 #8/INFO]: Thread RCON Client /172.18.0.2 shutting down'),
+    ]
+    first = admin.get('/api/servers/survival/console').get_json()
+    assert first['lines'] == ['[16:00:01] [Server thread/INFO]: System chat: [Rcon: Saved the game]']
+    # The time to ask from next still moves past the left-out lines, so they aren't fetched again.
+    assert admin.get('/api/servers/survival/console', query_string={'since': first['since']}).get_json()['lines'] == []
+
+
 def test_a_command_goes_over_rcon_with_the_servers_password(admin, docker, running, rcon_server, data_dir):
     rcon_server.answers['list'] = '§6There are 0 of a max of 20 players online: '
     response = admin.post('/api/servers/survival/console', json={'command': '/list'})

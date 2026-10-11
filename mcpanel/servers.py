@@ -40,6 +40,9 @@ NETWORK = 'mcpanel'  # where the panel reaches each server's RCON by container n
 STOP_SECONDS = 75
 LOG_LINES = 500  # console lines the Console tab gets at most per call
 ANSI = re.compile(r'\x1b\[[0-9;?]*[A-Za-z]')
+# What the server logs for every RCON connection: the panel's own commands, and the Overview's and
+# Players tab's polls of who is online, would otherwise fill the Console.
+RCON_CHATTER = re.compile(r'Thread RCON Client /\S+ (?:started|shutting down)$')
 # How long the health check gives a start before it counts: a first start downloads the server, and
 # a modded one installs its loader, which can take minutes.
 FIRST_START_SECONDS = 10 * 60
@@ -482,9 +485,10 @@ def console_lines(server_id, since=None):
             continue
         if since is not None and time <= since:
             continue  # Docker's since includes the line it names
-        text = ANSI.sub('', text).rstrip('\r')
-        lines.append(text.replace(password, '********') if password else text)
         last = time
+        text = ANSI.sub('', text).rstrip('\r')
+        if not RCON_CHATTER.search(text):
+            lines.append(text.replace(password, '********') if password else text)
     return lines, last
 
 
