@@ -17,6 +17,10 @@ services:
       # reads bind-mount paths on the host.
       - ${MCPANEL_DATA_DIR}:${MCPANEL_DATA_DIR}
       - /var/run/docker.sock:/var/run/docker.sock
+    # The servers' network, where the panel reaches their RCON by container name. Giving the service
+    # other networks drops this one unless it stays listed, and the console stops answering.
+    networks:
+      - default
     restart: unless-stopped
     environment:
       - MCPANEL_PUBLIC_HOST=${MCPANEL_PUBLIC_HOST:?Set MCPANEL_PUBLIC_HOST in docker/.env to the name players connect to}

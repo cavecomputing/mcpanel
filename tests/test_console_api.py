@@ -74,6 +74,12 @@ def test_a_server_that_isnt_listening_yet_is_502(admin, running, monkeypatch):
     assert response.get_json() == {'error': "The server's console isn't answering yet; it may still be starting"}
 
 
+def test_a_panel_off_the_servers_network_is_told_so(admin, running, monkeypatch):
+    monkeypatch.setattr(rcon, 'address', lambda server_id: ('mcpanel-survival.invalid', 25575))
+    response = admin.post('/api/servers/survival/console', json={'command': 'list'})
+    assert response.status_code == 502 and 'mcpanel network' in response.get_json()['error']
+
+
 def test_a_refused_password_is_502(admin, running, rcon_server):
     rcon_server.refuse = True
     response = admin.post('/api/servers/survival/console', json={'command': 'list'})

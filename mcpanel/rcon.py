@@ -39,6 +39,8 @@ def run(server_id, password, command):
                 if packet_id != 2:
                     break
                 answer.append(body)
+    except socket.gaierror:  # Docker's DNS names containers only for others on the same network
+        abort(502, "The panel can't find the server on the mcpanel network; put the panel's container on it (docs/2-setup.md)")
     except OSError:
         abort(502, "The server's console isn't answering yet; it may still be starting")
     return FORMATTING.sub('', ''.join(answer))

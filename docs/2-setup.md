@@ -43,6 +43,11 @@ docker compose -f docker/compose.yml up --build -d
 The panel listens on `127.0.0.1:5000`, for Caddy on the same machine. Servers keep running when the
 panel stops, restarts or crashes, and it finds them again when it comes back.
 
+The panel and the servers share the `mcpanel` Docker network, which the panel's console, player
+lists and PvP setting reach each server over. If you edit `compose.yml` to give the service other
+networks, keep `default` in its `networks:` list, or the console says the panel can't find the server
+on the `mcpanel` network.
+
 ## The first admin
 
 While the panel has no accounts, opening it in a browser asks for the first admin's username, then
