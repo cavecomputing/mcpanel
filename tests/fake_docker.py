@@ -46,6 +46,11 @@ class FakeDocker:
         self.answer()
         return True
 
+    def info(self):
+        """The host, as docker info reports it: 8 cores and 32 GiB."""
+        self.answer()
+        return {'NCPU': 8, 'MemTotal': 32 * 1024 ** 3}
+
     def add(self, name, image='nginx:latest', **options):
         """A container made from containers.create() options, skipping the image and network checks.
         add('web', ports={'80/tcp': 25566}) is another app's container holding port 25566."""

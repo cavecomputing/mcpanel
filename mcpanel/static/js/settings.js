@@ -1,9 +1,9 @@
 /**
- * The Settings tab: the game settings in server.properties; the server's name, type, version, Java
- * and memory (only admins change memory), changed while it is stopped; and, for admins, Delete.
+ * The Settings tab: the game settings in server.properties; the server's name, type, version, Java,
+ * memory and CPU (only admins change those two), changed while it is stopped; and, for admins, Delete.
  */
 import * as api from './api.js';
-import { fillOptions, poll } from './servers.js';
+import { cpusOf, fillOptions, poll } from './servers.js';
 import { state } from './state.js';
 import { $, ask, esc, showError, toast } from './ui.js';
 
@@ -18,7 +18,7 @@ export async function showSettings(fresh) {
     $('gameForm').reset();
     drawServerForm();
     try {
-        await fillOptions($('editType'), $('editJava'), $('editHeap'));
+        await fillOptions($('editType'), $('editJava'), $('editHeap'), $('editCpus'));
     } catch { /* api.js showed why */ }
     drawServerForm();
     await loadGame(fresh.id);
@@ -66,10 +66,13 @@ function drawServerForm(fill = true) {
         $('editVersion').value = server.version;
         $('editJava').value = server.java;
         $('editHeap').value = server.heap_gb;
+        $('editCpus').value = server.cpus ?? '';
     }
     for (const input of $('serverForm').elements) input.disabled = !stopped();
     $('editHeap').disabled ||= !state.admin;
+    $('editCpus').disabled ||= !state.admin;
     $('editHeapHint').textContent = state.admin ? 'GB for the server' : 'Only admins change memory';
+    $('editCpusHint').textContent = state.admin ? 'Cores it may use; empty for no limit' : 'Only admins change CPU';
     $('serverFormNote').textContent = stopped()
         ? 'Saving makes its container again with these settings; its world and files stay.'
         : 'Stop the server to change these.';
@@ -111,6 +114,7 @@ async function saveServer(event) {
             version: $('editVersion').value,
             java: $('editJava').value,
             heap_gb: Number($('editHeap').value),
+            cpus: cpusOf($('editCpus')),
         });
         server = fresh;
         state.servers = state.servers.map((each) => (each.id === fresh.id ? fresh : each));

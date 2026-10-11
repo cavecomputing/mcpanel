@@ -157,6 +157,7 @@ function drawServer(server) {
         ['Version', esc(versionName(server.version))],
         ['Java', esc(javaName(server.java))],
         ['Memory', `${esc(server.heap_gb)} GB`],
+        ['CPU', server.cpus ? `${esc(server.cpus)} ${server.cpus === 1 ? 'core' : 'cores'}` : 'No limit'],
         ['Created', esc(formatDate(server.created))],
     ].map(([term, value]) => `<dt>${term}</dt><dd>${value}</dd>`).join(''));
 }
@@ -197,19 +198,23 @@ async function runAction(action) {
     if (route().id === id) showServer(id);
 }
 
-/** The type, Java and memory choices, fetched once, filled into a form's selects and memory field. */
-export async function fillOptions(typeSelect, javaSelect, heapInput) {
+/** The type, Java, memory and CPU choices, fetched once, filled into a form's selects and fields. */
+export async function fillOptions(typeSelect, javaSelect, heapInput, cpusInput) {
     options ??= await api.get('/api/servers/options');
     typeSelect.innerHTML = options.types.map((type) => `<option value="${esc(type)}">${esc(typeName(type))}</option>`).join('');
     // Empty leaves it to the panel, which picks the Java the version needs.
     javaSelect.innerHTML = '<option value="">Match the version</option>'
         + options.java.map((java) => `<option value="${esc(java)}">${esc(javaName(java))}</option>`).join('');
     Object.assign(heapInput, { min: options.heap.min, max: options.heap.max, defaultValue: options.heap.default });
+    cpusInput.min = options.cpus.min;
 }
+
+/** A CPU field's cores, or null for no limit when it's empty. */
+export const cpusOf = (input) => (input.value === '' ? null : Number(input.value));
 
 async function openNewServer() {
     try {
-        await fillOptions($('serverType'), $('serverJava'), $('serverHeap'));
+        await fillOptions($('serverType'), $('serverJava'), $('serverHeap'), $('serverCpus'));
     } catch {
         return;
     }
@@ -230,6 +235,7 @@ async function createServer(event) {
             version: $('serverVersion').value,
             java: $('serverJava').value,
             heap_gb: Number($('serverHeap').value),
+            cpus: cpusOf($('serverCpus')),
             eula: $('serverEula').checked,
         });
         $('newServerDialog').close();

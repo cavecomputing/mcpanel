@@ -215,6 +215,7 @@
                         <div class="cc-field"><div><label for="editVersion">Version</label><span class="cc-field__hint">LATEST or e.g. 26.1. Back up first: an older version can't open a newer world</span></div><input class="cc-input small-select" id="editVersion" required spellcheck="false"></div>
                         <div class="cc-field"><label for="editJava">Java</label><select class="cc-input small-select" id="editJava"></select></div>
                         <div class="cc-field"><div><label for="editHeap">Memory</label><span class="cc-field__hint" id="editHeapHint">GB for the server</span></div><input class="cc-input heap-input" id="editHeap" type="number" min="1" max="32" required></div>
+                        <div class="cc-field"><div><label for="editCpus">CPU</label><span class="cc-field__hint" id="editCpusHint">Cores it may use; empty for no limit</span></div><input class="cc-input heap-input" id="editCpus" type="number" min="0.5" step="0.5" placeholder="No limit"></div>
                         <div class="row-btns"><button class="cc-btn cc-btn--primary" type="submit" id="serverSave"><span>Save</span></button></div>
                     </form>
                     {% if admin %}
@@ -309,6 +310,7 @@
         <div class="cc-field"><div><label for="serverVersion">Version</label><span class="cc-field__hint">LATEST (updates on every restart) or e.g. 26.1</span></div><input class="cc-input" id="serverVersion" value="LATEST" required spellcheck="false"></div>
         <div class="cc-field"><label for="serverJava">Java</label><select class="cc-input" id="serverJava"></select></div>
         <div class="cc-field"><div><label for="serverHeap">Memory</label><span class="cc-field__hint">GB for the server</span></div><input class="cc-input heap-input" id="serverHeap" type="number" min="1" max="32" value="4" required></div>
+        <div class="cc-field"><div><label for="serverCpus">CPU</label><span class="cc-field__hint">Cores it may use; empty for no limit</span></div><input class="cc-input heap-input" id="serverCpus" type="number" min="0.5" step="0.5" placeholder="No limit"></div>
         <label class="cc-checkbox"><input type="checkbox" id="serverEula" required><span>I accept the <a href="https://aka.ms/MinecraftEULA" target="_blank" rel="noopener">Minecraft EULA</a></span></label>
         <p>It stays stopped until you start it, so mods and files can go in first. Creating one can take a few minutes when the image for its Java version needs downloading.</p>
         <div class="row-btns">

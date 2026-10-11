@@ -59,7 +59,7 @@ def test_list_users(admin, app, clock):
 
 def make_servers(*names):
     for name in names:
-        servers.create_server(name, 'VANILLA', 'LATEST', '', 1, True)
+        servers.create_server(name, 'VANILLA', 'LATEST', '', 1, None, True)
 
 
 def test_add_a_user(admin, anon):

@@ -23,7 +23,7 @@ account can start containers on the machine.
 
 - Admins manage every server and every account. Make admins only people you'd trust with the machine.
 - Members see only the servers an admin gave them, and can't create or delete servers or change their
-  memory. The server checks this on every request; hiding a button isn't relied on. A member can't
+  memory or CPU. The server checks this on every request; hiding a button isn't relied on. A member can't
   raise memory through the files either: the image sets Java's memory from the container on every
   start, and the container's memory limit caps the server whatever it asks for.
 
@@ -34,7 +34,8 @@ The panel holds the Docker socket, which is root on the machine. So:
 - It only ever runs `itzg/minecraft-server`, with one of its Java tags.
 - Each server's only mount is its own folder under `servers/`. Never privileged, no host network, no
   extra devices or capabilities, and never any option a client sent.
-- Each container's memory is capped at the heap plus headroom, and its log is rotated.
+- Each container's memory is capped at the heap plus headroom, its CPU at the cores an admin gave it
+  (if any), and its log is rotated.
 - Console commands go over RCON on the private `mcpanel` network. Nothing in the panel opens a shell
   in a container.
 

@@ -75,11 +75,27 @@ def test_only_admins_change_memory(admin, member, docker):
     assert change(admin, heap_gb=8).get_json()['heap_gb'] == 8
 
 
+def test_only_admins_change_the_cpu_limit(admin, member, docker):
+    create(admin, cpus=2)
+    grant(admin, member, 'survival')
+    for cpus in (4, None):  # a higher limit, or none at all
+        response = change(member, cpus=cpus)
+        assert response.status_code == 403 and response.get_json() == {'error': "Only admins change a server's CPU"}
+    assert docker.live('mcpanel-survival')['HostConfig']['NanoCpus'] == 2 * 10 ** 9
+    response = change(member, cpus=2, name='Mine')  # as the Settings tab sends it, the limit unchanged
+    assert response.status_code == 200 and response.get_json()['cpus'] == 2
+    assert docker.live('mcpanel-survival')['HostConfig']['NanoCpus'] == 2 * 10 ** 9  # kept on the new container
+    assert change(admin, cpus=1.5).get_json()['cpus'] == 1.5
+    assert change(admin, cpus=None).get_json()['cpus'] is None
+    assert 'NanoCpus' not in docker.live('mcpanel-survival')['HostConfig']
+
+
 @pytest.mark.parametrize('fields, error', [
     ({'name': ''}, 'Give the server a name'),
     ({'type': 'SPIGOT'}, 'Unknown server type'),
     ({'version': 'x'}, 'Version must be LATEST or a Minecraft release like 26.1'),
     ({'heap_gb': 99}, 'Memory must be a whole number of GB from 1 to 32'),
+    ({'cpus': 9}, 'CPU must be a number of cores from 0.5 to 8, or empty for no limit'),
 ])
 def test_bad_changes_are_400(admin, docker, fields, error):
     create(admin)

@@ -215,7 +215,7 @@ arbitrary container owns the machine, so:
   `mcpanel-<id>`; the `mcpanel` network; restart `unless-stopped`; `EULA=TRUE` only after the user
   ticked the EULA box; `TYPE`, `VERSION` and `MEMORY` from the form; `UID`/`GID` matching the panel's,
   so the panel can read and edit the server's files; a random `RCON_PASSWORD`; a memory limit of the
-  heap plus headroom; json-file logging capped at 3 × 10 MB, because Docker's default never rotates;
+  heap plus headroom; a CPU limit (`nano_cpus`) when an admin set one, else none; json-file logging capped at 3 × 10 MB, because Docker's default never rotates;
   `init`, so a stop while the image's setup scripts run isn't ignored by bash as PID 1; the image's own
   health check with a start period of `FIRST_START_SECONDS` (10 min), for a first download or a modded
   install; a stop timeout of `STOP_SECONDS` (75 s: the image's 60 s `STOP_DURATION` for the world to
@@ -253,10 +253,10 @@ the whole perimeter:
   A new route is behind the check by default, not opted in. Admin-only API routes use
   `require_admin()`; anything a member does to a server checks `accounts.may_use(user, server_id)`.
 - **Only admins change a server's resource allocation**: its memory (the heap and the container's
-  limit), and any CPU or other limit added later. Members manage everything else on the servers they
+  limit), its CPU limit, and any other limit added later. Members manage everything else on the servers they
   were given, as each part lands: settings such as `view-distance`, files, mods, plugins, type,
   version and Java. The route checks the role for the allocation (`PUT /api/servers/<id>` refuses a member a
-  different `heap_gb`); hiding the control is not enough. Files can't get round it: the image rewrites its JVM flags from the container's env on every
+  different `heap_gb` or `cpus`); hiding the control is not enough. Files can't get round it: the image rewrites its JVM flags from the container's env on every
   start, and the container's memory limit caps the server whatever it asks for.
 - Passwords are argon2id hashes (at least 8 characters). TOTP is required on every account: a
   sign-in is password, then a 6-digit code (a code already used is refused) or a single-use recovery

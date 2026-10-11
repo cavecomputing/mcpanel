@@ -22,14 +22,15 @@ def refused(call, *args, **kwargs):
     return error.value.code, error.value.description
 
 
-def create(name='Survival', type='PAPER', version='1.21.4', java='java21', heap_gb=4, eula=True):
-    return servers.create_server(name, type, version, java, heap_gb, eula)
+def create(name='Survival', type='PAPER', version='1.21.4', java='java21', heap_gb=4, cpus=None, eula=True):
+    return servers.create_server(name, type, version, java, heap_gb, cpus, eula)
 
 
 def test_container_spec_is_the_image_one_mount_and_nothing_privileged(docker, data_dir):
-    spec = servers.container_spec('survival', 'Survival', 'PAPER', '1.21.4', 'java21', 4, 25565)
+    spec = servers.container_spec('survival', 'Survival', 'PAPER', '1.21.4', 'java21', 4, None, 25565)
     assert set(spec) == {'image', 'name', 'labels', 'environment', 'ports', 'volumes', 'network',
-                         'restart_policy', 'init', 'healthcheck', 'stop_timeout', 'mem_limit', 'log_config'}
+                         'restart_policy', 'init', 'healthcheck', 'stop_timeout', 'mem_limit', 'nano_cpus',
+                         'log_config'}
     assert spec['image'] == 'itzg/minecraft-server:java21'
     assert spec['name'] == 'mcpanel-survival'
     assert spec['labels'] == {'mcpanel.server': 'survival', 'mcpanel.name': 'Survival'}
@@ -41,6 +42,7 @@ def test_container_spec_is_the_image_one_mount_and_nothing_privileged(docker, da
     assert spec['healthcheck'] == {'start_period': 600 * 10 ** 9}  # the image's own check, with longer to start
     assert spec['stop_timeout'] == 75
     assert spec['mem_limit'] == 5 * GIB
+    assert spec['nano_cpus'] == 0  # no CPU limit
     assert spec['log_config'] == {'type': 'json-file', 'config': {'max-size': '10m', 'max-file': '3'}}
     env = spec['environment']
     assert set(env) == {'EULA', 'TYPE', 'VERSION', 'MEMORY', 'UID', 'GID', 'RCON_PASSWORD'}
@@ -58,9 +60,16 @@ def test_container_spec_is_the_image_one_mount_and_nothing_privileged(docker, da
     assert {key: value for key, value in attrs['Config']['Healthcheck'].items() if value} == {'StartPeriod': 600 * 10 ** 9}
 
 
+@pytest.mark.parametrize('cpus', [0.5, 1.5, 2, 8])
+def test_a_cpu_limit_is_the_cores_given(docker, cpus):
+    server = create(cpus=cpus)
+    assert server['cpus'] == cpus
+    assert docker.live('mcpanel-survival')['HostConfig']['NanoCpus'] == cpus * 10 ** 9
+
+
 @pytest.mark.parametrize('heap_gb, limit', [(1, 2 * GIB), (4, 5 * GIB), (6, 7.5 * GIB), (32, 40 * GIB)])
 def test_memory_limit_is_the_heap_plus_headroom(heap_gb, limit):
-    assert servers.container_spec('x', 'X', 'VANILLA', 'LATEST', 'java21', heap_gb, 25565)['mem_limit'] == limit
+    assert servers.container_spec('x', 'X', 'VANILLA', 'LATEST', 'java21', heap_gb, None, 25565)['mem_limit'] == limit
 
 
 def test_rcon_password_is_random_and_never_shown(docker, caplog):
@@ -86,6 +95,7 @@ def test_check_id_accepts(server_id):
 NAME = 'Give the server a name'
 VERSION = 'Version must be LATEST or a Minecraft release like 26.1'
 MEMORY = 'Memory must be a whole number of GB from 1 to 32'
+CPUS = 'CPU must be a number of cores from 0.5 to 8, or empty for no limit'
 EULA = 'Accept the Minecraft EULA to create a server'
 
 
@@ -99,6 +109,8 @@ EULA = 'Accept the Minecraft EULA to create a server'
     ('java', 'java11', 'Unknown Java version'), ('java', 'JAVA21', 'Unknown Java version'),
     ('heap_gb', 0, MEMORY), ('heap_gb', 33, MEMORY), ('heap_gb', 4.0, MEMORY), ('heap_gb', '4', MEMORY),
     ('heap_gb', True, MEMORY),
+    ('cpus', 0, CPUS), ('cpus', 0.4, CPUS), ('cpus', 8.5, CPUS), ('cpus', -1, CPUS), ('cpus', '2', CPUS),
+    ('cpus', True, CPUS), ('cpus', float('nan'), CPUS), ('cpus', float('inf'), CPUS),
     ('eula', False, EULA), ('eula', 'true', EULA), ('eula', 1, EULA), ('eula', None, EULA),
 ])
 def test_create_refuses_bad_fields(docker, data_dir, field, value, message):
@@ -110,7 +122,7 @@ def test_create_leaves_the_server_stopped_and_returns_its_dict(docker, data_dir)
     server = create('  Survival  ', version='latest')
     assert abs(server.pop('created') - time.time()) < 5
     assert server == {'id': 'survival', 'name': 'Survival', 'status': 'stopped', 'type': 'PAPER',
-                      'version': 'LATEST', 'java': 'java21', 'heap_gb': 4, 'port': 25565,
+                      'version': 'LATEST', 'java': 'java21', 'heap_gb': 4, 'cpus': None, 'port': 25565,
                       'address': 'mc.example.com'}
     # Never started, so mods and files can go in before the world is generated. Docker leaves a
     # container it never started alone when it starts up, so a reboot doesn't start it either.

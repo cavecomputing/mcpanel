@@ -26,7 +26,7 @@ page: you get a new one-time password and set up two-factor sign-in again.
 There are two kinds of account:
 
 - **Admins** see and manage every server and every account. Only admins create and delete servers,
-  and only admins change how much memory a server gets.
+  and only admins change how much memory and CPU a server gets.
 - **Members** see only the servers an admin gave them. On those, they do everything else: start and
   stop it, its console, players, files, mods, backups, game settings, type, version and Java.
 
@@ -52,6 +52,8 @@ Admins press New server and choose:
 - **Version**: `LATEST`, or a Minecraft release such as `1.21.4`
 - **Memory**: the server's heap, 1 to 32 GB. Its container may use a little more than that for Java
   itself (a quarter on top, at least 1 GB).
+- **CPU**: how many of the machine's cores it may use, in steps of half a core, for example `2` or
+  `1.5`. Leave it empty and it may use them all.
 - **Java**: leave it on "Match the version" and the panel picks the Java that version needs, or pick
   one yourself
 - **The EULA box**: Minecraft's EULA has to be accepted before a server will run
@@ -84,6 +86,6 @@ Start, Stop and Restart sit in the server's header. Below it:
   in the world: it changes right away, only while the server is running, and is greyed out while
   it's stopped. A server moved from an older version to 1.21.9 or later starts with PvP on whatever
   the file said, so check it after the first start. Below them, the server's own settings: its name,
-  type, version and Java, and for admins its memory. Those change only while it is stopped, because
+  type, version and Java, and for admins its memory and CPU. Those change only while it is stopped, because
   the panel makes its container again with them (its world, files and port stay). Admins also delete
   the server here, once it is stopped, which removes its folder and its backups.

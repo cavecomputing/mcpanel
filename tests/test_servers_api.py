@@ -6,7 +6,7 @@ from mcpanel import config
 from mcpanel.db import get_db
 
 SURVIVAL = {'name': 'Survival', 'type': 'PAPER', 'version': '1.21.4', 'java': 'java21', 'heap_gb': 4, 'eula': True}
-SERVER_KEYS = {'id', 'name', 'status', 'type', 'version', 'java', 'heap_gb', 'port', 'address', 'created'}
+SERVER_KEYS = {'id', 'name', 'status', 'type', 'version', 'java', 'heap_gb', 'cpus', 'port', 'address', 'created'}
 
 
 def create(client, **fields):
@@ -58,6 +58,7 @@ def test_options(admin):
         'types': ['VANILLA', 'PAPER', 'PURPUR', 'FABRIC', 'FORGE', 'NEOFORGE', 'QUILT'],
         'java': ['java25', 'java21', 'java17', 'java8'],
         'heap': {'min': 1, 'max': 32, 'default': 4},
+        'cpus': {'min': 0.5},
     }
 
 
