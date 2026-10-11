@@ -33,6 +33,13 @@ def options():
             'cpus': {'min': servers.MIN_CPUS}}
 
 
+@bp.get('/servers/host')
+def host():
+    """The host's memory and cores, which the forms that allocate them show. Admins only, as those are."""
+    auth.require_admin()
+    return servers.host()
+
+
 @bp.post('/servers')
 def create():
     """Create a server, stopped: {name, type, version, java, heap_gb, cpus, eula}. create_server() checks them."""

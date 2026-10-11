@@ -154,11 +154,19 @@ def server_dict(container):
         'java': attrs['Config']['Image'].partition(':')[2],
         'heap_gb': int(heap) if heap.isdigit() else None,
         'cpus': attrs['HostConfig'].get('NanoCpus', 0) / 10 ** 9 or None,  # cores it may use, None for all
+        'memory_limit': attrs['HostConfig'].get('Memory') or None,  # bytes: the heap plus Java's headroom
         'port': game_port,
         'address': config.PUBLIC_HOST if game_port == 25565 else f'{config.PUBLIC_HOST}:{game_port}',
         # Docker writes UTC with nanoseconds, more digits than Python parses.
         'created': int(datetime.fromisoformat(attrs['Created'][:19] + '+00:00').timestamp()),
     }
+
+
+def host():
+    """{memory, cpus} of the machine Docker runs on: its memory in bytes and its cores."""
+    with docker_errors():
+        info = docker_client().info()
+    return {'memory': info['MemTotal'], 'cpus': info['NCPU']}
 
 
 def env_of(container):
@@ -282,8 +290,7 @@ def checked_settings(name, type, version, java, heap_gb, cpus):
     if not isinstance(heap_gb, int) or isinstance(heap_gb, bool) or not 1 <= heap_gb <= MAX_HEAP_GB:
         abort(400, f'Memory must be a whole number of GB from 1 to {MAX_HEAP_GB}')
     if cpus is not None:
-        with docker_errors():
-            cores = docker_client().info()['NCPU']
+        cores = host()['cpus']
         if not isinstance(cpus, (int, float)) or isinstance(cpus, bool) or not MIN_CPUS <= cpus <= cores:
             abort(400, f'CPU must be a number of cores from {MIN_CPUS:g} to {cores}, or empty for no limit')
     return name, type, version, java, heap_gb, cpus

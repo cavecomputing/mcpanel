@@ -122,7 +122,8 @@ def test_create_leaves_the_server_stopped_and_returns_its_dict(docker, data_dir)
     server = create('  Survival  ', version='latest')
     assert abs(server.pop('created') - time.time()) < 5
     assert server == {'id': 'survival', 'name': 'Survival', 'status': 'stopped', 'type': 'PAPER',
-                      'version': 'LATEST', 'java': 'java21', 'heap_gb': 4, 'cpus': None, 'port': 25565,
+                      'version': 'LATEST', 'java': 'java21', 'heap_gb': 4, 'cpus': None,
+                      'memory_limit': 5 * GIB, 'port': 25565,
                       'address': 'mc.example.com'}
     # Never started, so mods and files can go in before the world is generated. Docker leaves a
     # container it never started alone when it starts up, so a reboot doesn't start it either.

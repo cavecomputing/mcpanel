@@ -209,6 +209,34 @@ export async function fillOptions(typeSelect, javaSelect, heapInput, cpusInput) 
     cpusInput.min = options.cpus.min;
 }
 
+/** For an admin's form: the host's memory and cores in note, and how much of them the servers other
+ * than exceptId are given (their containers' limits, running or not). cpusInput can't go past the cores. */
+export async function drawHost(note, cpusInput, exceptId = null) {
+    let host;
+    try {
+        host = await api.get('/api/servers/host', { quiet: true });
+    } catch {
+        note.hidden = true;
+        return;
+    }
+    const others = state.servers.filter((server) => server.id !== exceptId);
+    const servers = (count) => `${count} ${exceptId ? 'other ' : ''}server${count === 1 ? '' : 's'}`;
+    const gb = (bytes) => `${+(bytes / 1024 ** 3).toFixed(1)} GB`;
+    const given = others.reduce((sum, server) => sum + (server.memory_limit ?? 0), 0);
+    const left = host.memory - given;
+    const limited = others.filter((server) => server.cpus);
+    const cores = limited.reduce((sum, server) => sum + server.cpus, 0);
+    const unlimited = others.length - limited.length;
+    const memory = !others.length ? 'none given to a server yet'
+        : `${gb(given)} given to ${servers(others.length)}, ${left >= 0 ? `<b>${gb(left)} left</b>` : `<b class="over">${gb(-left)} more than it has</b>`}`;
+    const cpu = [limited.length && `${servers(limited.length)} limited to ${cores} ${cores === 1 ? 'core' : 'cores'}${limited.length > 1 ? ' in all' : ''}`,
+        unlimited && `${servers(unlimited)} with no limit`].filter(Boolean).join(', ');
+    cpusInput.max = host.cpus;
+    note.hidden = false;
+    setHtml(note, `<span><b>Memory</b>: ${gb(host.memory)} on the host, ${memory}. A server takes its heap plus a quarter for Java, 1 GB at least.</span>
+        <span><b>CPU</b>: ${host.cpus} cores on the host${cpu ? `; ${cpu}` : ''}.</span>`);
+}
+
 /** A CPU field's cores, or null for no limit when it's empty. */
 export const cpusOf = (input) => (input.value === '' ? null : Number(input.value));
 
@@ -221,6 +249,7 @@ async function openNewServer() {
     $('newServerForm').reset();
     $('createServer').disabled = true;
     $('newServerDialog').showModal();
+    drawHost($('newHostNote'), $('serverCpus'));
 }
 
 async function createServer(event) {

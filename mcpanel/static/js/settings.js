@@ -3,7 +3,7 @@
  * memory and CPU (only admins change those two), changed while it is stopped; and, for admins, Delete.
  */
 import * as api from './api.js';
-import { cpusOf, fillOptions, poll } from './servers.js';
+import { cpusOf, drawHost, fillOptions, poll } from './servers.js';
 import { state } from './state.js';
 import { $, ask, esc, showError, toast } from './ui.js';
 
@@ -21,6 +21,7 @@ export async function showSettings(fresh) {
         await fillOptions($('editType'), $('editJava'), $('editHeap'), $('editCpus'));
     } catch { /* api.js showed why */ }
     drawServerForm();
+    if (state.admin) drawHost($('editHostNote'), $('editCpus'), fresh.id);
     await loadGame(fresh.id);
 }
 

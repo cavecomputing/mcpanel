@@ -58,6 +58,11 @@ Admins press New server and choose:
   one yourself
 - **The EULA box**: Minecraft's EULA has to be accepted before a server will run
 
+Under the memory and CPU fields, the dialog shows the machine's memory and cores, and how much of
+them the existing servers are given (each one's memory limit, running or not, and its CPU limit), so
+you can see what is left. The Settings tab shows the same for the other servers when an admin changes
+one.
+
 A new server is created stopped and stays stopped until someone presses Start, so mods, plugins and
 other files can go in its folder before the world is made. Each server gets the lowest free port in
 the panel's range; its address, shown in its header, is what players type.

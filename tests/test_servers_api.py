@@ -6,7 +6,7 @@ from mcpanel import config
 from mcpanel.db import get_db
 
 SURVIVAL = {'name': 'Survival', 'type': 'PAPER', 'version': '1.21.4', 'java': 'java21', 'heap_gb': 4, 'eula': True}
-SERVER_KEYS = {'id', 'name', 'status', 'type', 'version', 'java', 'heap_gb', 'cpus', 'port', 'address', 'created'}
+SERVER_KEYS = {'id', 'name', 'status', 'type', 'version', 'java', 'heap_gb', 'cpus', 'memory_limit', 'port', 'address', 'created'}
 
 
 def create(client, **fields):
@@ -39,7 +39,8 @@ def test_admin_creates_and_lists_servers(admin):
     server = response.get_json()
     assert set(server) == SERVER_KEYS
     assert server == {**server, 'id': 'survival', 'name': 'Survival', 'status': 'stopped', 'type': 'PAPER',
-                      'version': '1.21.4', 'java': 'java21', 'heap_gb': 4, 'port': 25565,
+                      'version': '1.21.4', 'java': 'java21', 'heap_gb': 4, 'cpus': None,
+                      'memory_limit': 5 * 1024 ** 3, 'port': 25565,
                       'address': 'mc.example.com'}
     assert server['created'] > 0
     assert 'RCON' not in response.text and 'EULA' not in response.text and 'password' not in response.text.lower()
@@ -60,6 +61,14 @@ def test_options(admin):
         'heap': {'min': 1, 'max': 32, 'default': 4},
         'cpus': {'min': 0.5},
     }
+
+
+def test_admins_see_the_hosts_memory_and_cores(admin, member, anon, docker):
+    assert admin.get('/api/servers/host').get_json() == {'memory': 32 * 1024 ** 3, 'cpus': 8}
+    assert member.get('/api/servers/host').status_code == 403
+    assert anon.get('/api/servers/host').status_code == 401
+    docker.reachable = False
+    assert admin.get('/api/servers/host').status_code == 503
 
 
 def test_members_see_only_their_servers(admin, member):
