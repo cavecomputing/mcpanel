@@ -49,7 +49,7 @@ docker compose -f docker/compose.yml up --build -d
 ```
 
 Point Caddy at `127.0.0.1:5000`, forward the port range on your router, and open the panel: the first
-visit makes the first admin. [Setup](docs/2-setup.md) has the details.
+visit makes the platform admin. [Setup](docs/2-setup.md) has the details.
 
 ## Updating
 
@@ -63,7 +63,7 @@ Servers keep running while the panel restarts.
 ## Documentation
 
 - [Getting started](docs/1-getting-started.md): signing in, accounts, creating a server, its tabs
-- [Setup](docs/2-setup.md): settings, the first admin, Caddy, the router, updating
+- [Setup](docs/2-setup.md): settings, the platform admin, Caddy, the router, updating
 - [Data and backups](docs/3-data-and-backups.md): the data folder, mods, backups, logs
 - [Security](docs/4-security.md): sign-in, who may do what, Docker, files
 - [Development](docs/5-development.md): running it locally and the tests

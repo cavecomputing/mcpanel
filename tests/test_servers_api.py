@@ -2,8 +2,10 @@ import json
 
 import pytest
 
-from mcpanel import config
+from mcpanel import accounts, config
 from mcpanel.db import get_db
+
+from .conftest import make_user, signed_in_client
 
 SURVIVAL = {'name': 'Survival', 'type': 'PAPER', 'version': '1.21.4', 'java': 'java21', 'heap_gb': 4, 'eula': True}
 SERVER_KEYS = {'id', 'name', 'status', 'type', 'version', 'java', 'heap_gb', 'cpus', 'memory_limit', 'port', 'address', 'created'}
@@ -14,8 +16,10 @@ def create(client, **fields):
 
 
 def grant(admin, member, *server_ids):
-    """Let member use server_ids, through the users API as an admin would."""
-    response = admin.put(f'/api/users/{member.user["id"]}', json={'role': 'member', 'servers': list(server_ids)})
+    """Let member use server_ids, through the users API as a platform admin would (admin only says
+    which app)."""
+    owner = accounts.user_named('owner') or make_user('owner', 'platform_admin')
+    response = signed_in_client(admin.application, owner).put(f'/api/users/{member.user["id"]}', json={'role': 'member', 'servers': list(server_ids)})
     assert response.status_code == 200, response.get_json()
 
 

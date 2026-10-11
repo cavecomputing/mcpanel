@@ -24,10 +24,11 @@ environment variables, the cookie and the Docker labels all change together.
   published on the host; players connect to `MCPANEL_PUBLIC_HOST:<port>`. RCON stays on the private
   `mcpanel` Docker network and is never published. No second ports (voice chat, Geyser/Bedrock,
   query): not now, not as an option.
-- **Users:** a few accounts, each `admin` or `member`. Admins manage everything, including users;
-  members see and run only the servers an admin gave them. The very first admin is made in the
-  browser by whoever opens a panel with no accounts. After that an admin makes each account and hands
-  over its one-time password; on that first sign-in the person chooses their own password and sets
+- **Users:** a few accounts, each `platform_admin`, `admin` or `member`. Platform admins manage
+  everything, and are the only ones who manage users; admins manage every server (create, change,
+  delete, memory) but not users; members see and run only the servers a platform admin gave them, and
+  can't delete them. The platform admin is made in the browser by whoever opens a panel with no
+  accounts. After that a platform admin makes each account and hands over its one-time password; on that first sign-in the person chooses their own password and sets
   up TOTP two-factor sign-in, with recovery codes. Every account has both from then on.
 - **It is on the public internet.** Treat every route as reachable by strangers. See Access below.
 - **No logging knobs.** Logging uses fixed defaults (see Logging). Don't add `LOG_*` variables.
@@ -96,10 +97,10 @@ uv sync                                        # install the locked dependencies
 MCPANEL_PUBLIC_HOST=localhost MCPANEL_PORT_RANGE=25565-25575 uv run app.py --debug
 MCPANEL_DATA_DIR=/path/to/data ...             # data directory (default: ./data)
 
-# The first account: with none yet, the first visit makes the first admin. Or this prints a one-time
-# password for one. reset-user <name> starts an account's sign-in over the same way, for when every
-# admin is locked out.
-MCPANEL_PUBLIC_HOST=localhost MCPANEL_PORT_RANGE=25565-25575 uv run flask --app app create-user matt --admin
+# The first account: with none yet, the first visit makes the platform admin. Or this prints a
+# one-time password for one (--admin for an admin, neither for a member). reset-user <name> starts an
+# account's sign-in over the same way, for when every platform admin is locked out.
+MCPANEL_PUBLIC_HOST=localhost MCPANEL_PORT_RANGE=25565-25575 uv run flask --app app create-user matt --platform-admin
 
 uv run pytest                                  # full suite (use `uv run`, not bare pytest)
 uv run pytest tests/test_auth.py::test_sign_out -x
@@ -138,9 +139,9 @@ neighbour.
 | `mcpanel/` | The application package. Everything else in Python goes in here. |
 | `mcpanel/__init__.py` | `create_app()`: logging and the request log, `ProxyFix`, cookie settings, `init_db()`, the cross-site write guard (`reject_cross_site_writes()`), the login guard, blueprints, the `create-user` and `reset-user` CLI commands. |
 | `mcpanel/config.py` | Settings read once from the environment: paths under `MCPANEL_DATA_DIR`, `MCPANEL_PUBLIC_HOST`, `MCPANEL_PORT_RANGE`. |
-| `mcpanel/db.py` | Schema (`init_db()`, idempotent) and `get_db()`, a short-lived connection per use. |
+| `mcpanel/db.py` | Schema (`init_db()`, idempotent: it also remakes an older `users` table whose role CHECK predates `platform_admin`, and makes the earliest admin the platform admin when there is none) and `get_db()`, a short-lived connection per use. |
 | `mcpanel/logs.py` | `setup_logging()`: JSON lines on stdout, the same lines in a rotated file, the audit log, and the filter that strips secrets. `audit()` records who did what; `start_timer()` and `log_request()` write one line per request. |
-| `mcpanel/auth.py` | The sign-in pages: `/login` (password, or with no accounts yet the first admin's username, posted to `/login/first`), `/login/code` (TOTP or a recovery code), `/login/setup` (after a one-time password or `/login/first`: a new password and TOTP, then the recovery codes), `/logout`. The session cookie and `require_login()` in front of everything else, `require_admin()`, lockouts and the sign-in throttle (`throttled()`), the halfway state (`pending()`, `pending_user()`, `setup_secret()`), the `create-user` and `reset-user` commands. |
+| `mcpanel/auth.py` | The sign-in pages: `/login` (password, or with no accounts yet the first admin's username, posted to `/login/first`), `/login/code` (TOTP or a recovery code), `/login/setup` (after a one-time password or `/login/first`: a new password and TOTP, then the recovery codes), `/logout`. The session cookie and `require_login()` in front of everything else, `require_admin()` (admins and platform admins), `require_platform_admin()`, lockouts and the sign-in throttle (`throttled()`), the halfway state (`pending()`, `pending_user()`, `setup_secret()`), the `create-user` and `reset-user` commands. |
 | `mcpanel/accounts.py` | Users, sessions and recovery codes in the database: password hashing (argon2id), one-time passwords (`create_user()`, `finish_setup()`, `reset_sign_in()`), TOTP secrets and checks, who may see which server. |
 | `mcpanel/servers.py` | Everything that talks to Docker: finding the panel's containers by label, `container_spec()` (the one place a container's settings are decided), `free_port()`, create, `update_server()` (a stopped server's container made again with new settings), `delete_server()`, start, stop, restart, `usage()` (memory and CPU from one `docker stats` sample), `host()` (the machine's memory and cores, from `docker info`), `console_lines()` (the Console's output, from Docker's log), and `docker_errors()`, which turns Docker's errors into the messages the UI shows. |
 | `mcpanel/backups.py` | A server's backups: `.tar.gz` of its folder in `backups/<id>/`, made link-safe like `files.py` (a running server is told `save-off` meanwhile), restored only while it is stopped (extracted with tarfile's `data` filter, then swapped in), downloaded, deleted. One at a time per server (`LOCKS`). |
@@ -149,7 +150,7 @@ neighbour.
 | `mcpanel/players.py` | Who is online (`list` over RCON), and the server's own `whitelist.json`, `ops.json` and `banned-players.json`. Changes are console commands, so the server writes its lists. |
 | `mcpanel/rcon.py` | `run()`: one command over RCON to `mcpanel-<id>:25575`, a long answer gathered from its packets. |
 | `mcpanel/views.py` | `index()` serves the page; `healthz()` answers `/healthz`, open to anyone (`auth.OPEN_ENDPOINTS` names it). |
-| `mcpanel/api/` | One Flask blueprint per resource, all under `/api`: `servers` (list, options, the host's memory and cores, create, change, delete, start, stop, restart, the Overview's stats, game settings), `console` (output since a time, a command over RCON), `players` (online and the lists), `backups` (list, make, download, restore, delete), `files` (a server's folder: list, open, save or upload, download, new folder, rename, delete), `users` (admin: list, add, change, reset sign-in, remove), `account` (me, my sessions, password, recovery codes). `__init__.py` mounts them and answers every error as `{"error": message}`. `common.py` has `json_body()`, the request's JSON object or a 400, and `usable_server()`, a server the signed-in user may use or a 404; the fields are checked where they are used (`servers.create_server()`, `users.py`). |
+| `mcpanel/api/` | One Flask blueprint per resource, all under `/api`: `servers` (list, options, the host's memory and cores, create, change, delete, start, stop, restart, the Overview's stats, game settings), `console` (output since a time, a command over RCON), `players` (online and the lists), `backups` (list, make, download, restore, delete), `files` (a server's folder: list, open, save or upload, download, new folder, rename, delete), `users` (platform admins only: list, add, change, reset sign-in, remove), `account` (me, my sessions, password, recovery codes). `__init__.py` mounts them and answers every error as `{"error": message}`. `common.py` has `json_body()`, the request's JSON object or a 400, and `usable_server()`, a server the signed-in user may use or a 404; the fields are checked where they are used (`servers.create_server()`, `users.py`). |
 | `mcpanel/templates/` | `base.html` (head, the theme script, the cube icon), `login.html` (the password and code steps), `setup.html` (the first sign-in's new password and TOTP, then its recovery codes once), `index.html` (the app shell, its dialogs and the icon sprite). |
 | `mcpanel/static/js/` | ES modules, one per concern, entry `main.js` loaded with `<script type="module">`: `api.js`, `ui.js` (escaping, the toast, the question dialog), `state.js`, `theme.js`, `servers.js` (sidebar list polled every 5 s, the phone drawer, server header, actions and tabs, the Overview and its stats, new-server dialog), `console.js` (the Console tab: output polled every 2 s, commands), `players.js` (the Players tab, whose changes are console commands), `files.js` (the Files tab and its editor), `backups.js` (the Backups tab), `settings.js` (the Settings tab: game settings, the server's own, Delete), `users.js` (the Users page, its add/change dialog and the one-time password shown once), `account.js` (the account menu, and the Your account page: password, recovery codes, signed-in devices). |
 | `mcpanel/static/css/` | `cavecomputing.css` (the design system's `bundle.css`, copied unchanged) and `style.css` (the tokens and the panel's own layout). |
@@ -224,8 +225,8 @@ arbitrary container owns the machine, so:
 - **A container's settings never change, so changing a server makes its container again** from
   `container_spec()` (`update_server()`), with the same id, port and folder, and only while it is
   stopped. The old container is renamed `mcpanel-<id>.old` until the new one exists, and put back if
-  Docker refuses; `list_servers()` skips it meanwhile. Deleting a server (admins only, stopped
-  first) removes its container and its folder, and the access rows naming it, so a later server
+  Docker refuses; `list_servers()` skips it meanwhile. Deleting a server (admins and platform admins, never members;
+  stopped first) removes its container and its folder, and the access rows naming it, so a later server
   that gets the same id isn't given to the same members.
 - **A new server is created stopped**, and nothing starts it but Start, so mods and files go in
   before the world is generated. Docker never starts a container that has never run, `unless-stopped`
@@ -251,8 +252,14 @@ the whole perimeter:
 
 - **Every route except the sign-in pages, `/healthz` and static assets requires a session.**
   A new route is behind the check by default, not opted in. Admin-only API routes use
-  `require_admin()`; anything a member does to a server checks `accounts.may_use(user, server_id)`.
-- **Only admins change a server's resource allocation**: its memory (the heap and the container's
+  `require_admin()`, which a platform admin passes too; the users API uses `require_platform_admin()`;
+  anything a member does to a server checks `accounts.may_use(user, server_id)`. Compare roles as
+  `role == 'member'` / `!= 'member'` for "is an admin", never `== 'admin'`, which leaves the platform
+  admin out.
+- **Only platform admins manage users**: add, change role or servers, reset sign-in, remove. A
+  platform admin may make another account a platform admin, and the panel always keeps one: the last
+  can't be demoted (checked in the `UPDATE` itself) and nobody removes themselves.
+- **Only admins (and platform admins) change a server's resource allocation**: its memory (the heap and the container's
   limit), its CPU limit, and any other limit added later. Members manage everything else on the servers they
   were given, as each part lands: settings such as `view-distance`, files, mods, plugins, type,
   version and Java. The route checks the role for the allocation (`PUT /api/servers/<id>` refuses a member a
@@ -268,14 +275,14 @@ the whole perimeter:
   password take effect at once. The cookie (`mcpanel_session`) holds only a random token, stored
   hashed; it is `HttpOnly`, `SameSite=Lax`, `Secure` behind HTTPS (`X-Forwarded-Proto` via
   `ProxyFix`), and lasts 30 days when "Keep this device signed in" is ticked.
-- **The first admin** is made in the browser while the users table is empty: `/login` asks for a
+- **The platform admin** is the first account, made in the browser while the users table is empty: `/login` asks for a
   username (`/login/first`), then the same `/login/setup` with no one-time password. The account is
   inserted only when the set-up is done, by one `INSERT ... WHERE NOT EXISTS (SELECT 1 FROM users)`
   (`accounts.create_first_admin()`), so two browsers can't both win and an abandoned set-up leaves
   nothing. Once any account exists the page is gone; it is never an invite or sign-up for later
-  accounts. Whoever reaches a fresh panel first is its admin, which the setup docs say.
+  accounts. Whoever reaches a fresh panel first is its platform admin, which the setup docs say.
 - Adding an account, or resetting one's sign-in (which also drops its TOTP secret, recovery codes,
-  sessions and lock), gives the admin a one-time password: 80 random bits, stored as an argon2id
+  sessions and lock), gives the platform admin a one-time password: 80 random bits, stored as an argon2id
   hash, shown once, good for 24 hours, and checked like any password (throttle, lock, dummy hash).
   "Expired" is said only to whoever typed the right one. It leads to `/login/setup` instead of the
   code step, for 15 minutes: a new password (not the one-time one) and a code from the TOTP secret
@@ -342,7 +349,7 @@ at call time; a `from .config import DATA_DIR` binds the value at import, the pa
 it, and the tests quietly start writing into the real `data/`.
 
 Docker is replaced by `FakeDocker` from `tests/fake_docker.py` (conftest's `docker` fixture patches
-`servers.docker_client`), so tests never need a daemon. Use the `admin` and `member` fixtures for
+`servers.docker_client`), so tests never need a daemon. Use the `platform_admin`, `admin` and `member` fixtures for
 signed-in clients, `anon` for one that isn't, and conftest's `sign_in()` helper to drive the
 password-then-TOTP flow. `make_user()` makes an account that has had its first sign-in;
 `accounts.create_user()` makes one still waiting for it.

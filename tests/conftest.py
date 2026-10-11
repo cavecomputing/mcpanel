@@ -81,6 +81,12 @@ def signed_in_client(app, user):
 
 
 @pytest.fixture
+def platform_admin(app):
+    """A client signed in as a platform admin, who also manages users; its user is client.user."""
+    return signed_in_client(app, make_user('owner', 'platform_admin'))
+
+
+@pytest.fixture
 def admin(app):
     """A client signed in as an admin; its user is client.user."""
     return signed_in_client(app, make_user('admin', 'admin'))

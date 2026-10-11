@@ -5,11 +5,11 @@ from contextlib import contextmanager
 
 from . import config
 
-SCHEMA = '''
+USERS_TABLE = '''
     CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY,
         username TEXT NOT NULL UNIQUE,
-        role TEXT NOT NULL CHECK (role IN ('admin', 'member')),
+        role TEXT NOT NULL CHECK (role IN ('platform_admin', 'admin', 'member')),
         password_hash TEXT NOT NULL,              -- argon2id
         -- base32. NULL until the first sign-in sets it up: the password is then a one-time one an admin
         -- handed out, which works for 24 hours from password_changed.
@@ -20,6 +20,8 @@ SCHEMA = '''
         password_changed REAL NOT NULL,
         created REAL NOT NULL
     );
+'''
+SCHEMA = USERS_TABLE + '''
     -- A signed-in device. The cookie holds a random token; only its SHA-256 is stored.
     CREATE TABLE IF NOT EXISTS sessions (
         token_hash TEXT PRIMARY KEY,
@@ -37,7 +39,7 @@ SCHEMA = '''
         code_hash TEXT NOT NULL,
         PRIMARY KEY (user_id, code_hash)
     );
-    -- Which servers a member may see and run. Admins may use every server and have no rows here.
+    -- Which servers a member may see and run. Admins and platform admins may use every server and have no rows here.
     CREATE TABLE IF NOT EXISTS server_access (
         user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         server TEXT NOT NULL,
@@ -61,7 +63,25 @@ def get_db():
 
 
 def init_db():
-    """Create the schema if needed. Safe to run on every start."""
+    """Create the schema if needed, and bring a database from before the platform admin role up to
+    it. Safe to run on every start."""
     with get_db() as conn:
         conn.executescript(SCHEMA)
+        users_table = conn.execute("SELECT sql FROM sqlite_master WHERE name = 'users'").fetchone()['sql']
+        if 'platform_admin' not in users_table:
+            # SQLite can't change a CHECK, so the table is made again with the new one, rows kept.
+            # Foreign keys are off meanwhile, so dropping the old table doesn't cascade to sessions.
+            conn.executescript(f'''PRAGMA foreign_keys=OFF;
+                                   BEGIN;
+                                   {USERS_TABLE.replace(' users (', ' users_new (')}
+                                   INSERT INTO users_new SELECT * FROM users;
+                                   DROP TABLE users;
+                                   ALTER TABLE users_new RENAME TO users;
+                                   COMMIT;
+                                   PRAGMA foreign_keys=ON;''')
+        # There is always a platform admin: the earliest admin becomes one when none is, which
+        # upgrades an older panel, and one whose first account create-user made a plain admin.
+        conn.execute('''UPDATE users SET role = 'platform_admin'
+                        WHERE id = (SELECT id FROM users WHERE role = 'admin' ORDER BY created, id LIMIT 1)
+                          AND NOT EXISTS (SELECT 1 FROM users WHERE role = 'platform_admin')''')
         conn.commit()

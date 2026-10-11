@@ -57,9 +57,9 @@ def update(server_id):
     admins change its memory and CPU, which are the container's resource allocation."""
     server = usable_server(server_id)
     data = json_body()
-    if data.get('heap_gb') != server['heap_gb'] and g.user['role'] != 'admin':
+    if data.get('heap_gb') != server['heap_gb'] and g.user['role'] == 'member':
         abort(403, "Only admins change a server's memory")
-    if data.get('cpus') != server['cpus'] and g.user['role'] != 'admin':
+    if data.get('cpus') != server['cpus'] and g.user['role'] == 'member':
         abort(403, "Only admins change a server's CPU")
     server = servers.update_server(server_id, data.get('name'), data.get('type'), data.get('version'),
                                    data.get('java'), data.get('heap_gb'), data.get('cpus'))

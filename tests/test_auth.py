@@ -399,7 +399,7 @@ def test_a_one_time_password_works_for_24_hours(app, sam, clock):
     clock['now'] += 2
     client = app.test_client()
     right = first_sign_in(client, sam)
-    assert right.status_code == 401 and b'This one-time password has expired. Ask an admin for a new one.' in right.data
+    assert right.status_code == 401 and b'This one-time password has expired. Ask a platform admin for a new one.' in right.data
     assert client.get_cookie('mcpanel_signin') is None
     wrong = sign_in(client, 'sam', 'wrong password!')
     assert b'Wrong username or password.' in wrong.data and b'expired' not in wrong.data  # only to whoever knows it
@@ -474,6 +474,15 @@ def test_create_user_command(app):
     assert client.get('/api/me').get_json()['role'] == 'admin'
 
 
+def test_create_user_command_makes_a_platform_admin(app):
+    result = app.test_cli_runner().invoke(args=['create-user', 'matt', '--platform-admin'])
+    assert result.exit_code == 0, result.output
+    assert accounts.user_named('matt')['role'] == 'platform_admin'
+    app.test_cli_runner().invoke(args=['create-user', 'kim', '--admin'])
+    app.test_cli_runner().invoke(args=['create-user', 'sam'])
+    assert (accounts.user_named('kim')['role'], accounts.user_named('sam')['role']) == ('admin', 'member')
+
+
 def test_create_user_command_refuses_an_existing_or_bad_username(app):
     make_user('matt')
     result = app.test_cli_runner().invoke(args=['create-user', 'matt'])
@@ -499,9 +508,9 @@ def test_reset_user_command(app, matt):
     assert result.exit_code != 0 and 'There is no user called nobody' in result.output
 
 
-def test_no_secret_reaches_the_logs_on_a_first_sign_in(app, admin, caplog):
+def test_no_secret_reaches_the_logs_on_a_first_sign_in(app, platform_admin, caplog):
     caplog.set_level(logging.INFO)
-    created = admin.post('/api/users', json={'username': 'sam', 'role': 'member'}).get_json()['one_time_password']
+    created = platform_admin.post('/api/users', json={'username': 'sam', 'role': 'member'}).get_json()['one_time_password']
     client = app.test_client()
     sign_in(client, 'sam', created)
     secret = shown_secret(client.get('/login/setup'))
@@ -510,7 +519,7 @@ def test_no_secret_reaches_the_logs_on_a_first_sign_in(app, admin, caplog):
     response = set_up(client, code=code)
     codes = re.findall(r'<li>([0-9a-f-]{14})</li>', response.get_data(as_text=True))
     token = client.get_cookie('mcpanel_session').value
-    reset = admin.post(f'/api/users/{user_row("sam")["id"]}/reset').get_json()['one_time_password']
+    reset = platform_admin.post(f'/api/users/{user_row("sam")["id"]}/reset').get_json()['one_time_password']
     sign_in(client, 'sam', reset)
     printed = app.test_cli_runner().invoke(args=['reset-user', 'sam']).output
     logged = '\n'.join(str(vars(record)) for record in caplog.records)
@@ -522,18 +531,18 @@ def test_no_secret_reaches_the_logs_on_a_first_sign_in(app, admin, caplog):
 
 def test_the_first_visit_makes_the_first_admin(app, anon, clock):
     page = anon.get('/login').get_data(as_text=True)
-    assert 'making the first admin' in page and 'action="/login/first"' in page and 'current-password' not in page
+    assert 'making the platform admin' in page and 'action="/login/first"' in page and 'current-password' not in page
     response = anon.post('/login/first', data={'username': 'Matt', 'remember': 'on'})
     assert response.status_code == 302 and response.headers['Location'] == '/login/setup'
     page = anon.get('/login/setup')
-    assert b'<b>matt</b>' in page.data and b'Your admin account is made when you finish' in page.data
+    assert b'<b>matt</b>' in page.data and b'Your platform admin account is made when you finish' in page.data
     assert user_row('matt') is None  # nothing is made until the set-up is done
     secret = shown_secret(page)
     code = pyotp.TOTP(secret).at(clock['now'])
     response = anon.post('/login/setup', data={'password': NEW_PASSWORD, 'again': NEW_PASSWORD, 'code': code})
     assert response.status_code == 200 and len(re.findall(r'<li>[0-9a-f-]{14}</li>', response.get_data(as_text=True))) == 10
     assert f'Max-Age={30 * 24 * 3600}' in session_cookie(response)
-    assert anon.get('/api/me').get_json() == {'username': 'matt', 'role': 'admin', 'recovery_codes_left': 10}
+    assert anon.get('/api/me').get_json() == {'username': 'matt', 'role': 'platform_admin', 'recovery_codes_left': 10}
     row = user_row('matt')
     assert (row['totp_secret'], row['totp_last_step']) == (secret, int(clock['now']) // 30)
     assert accounts.password_matches(row, NEW_PASSWORD)

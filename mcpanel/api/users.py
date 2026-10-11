@@ -1,4 +1,4 @@
-"""Users, for admins: list, add, change role and servers, reset sign-in, remove."""
+"""Users, for platform admins: list, add, change role and servers, reset sign-in, remove."""
 import json
 
 from flask import Blueprint, abort, g
@@ -8,15 +8,15 @@ from ..db import get_db
 from .common import json_body
 
 bp = Blueprint('users', __name__)
-bp.before_request(auth.require_admin)  # every route here is for admins
+bp.before_request(auth.require_platform_admin)  # every route here is for platform admins
 
-# Holds unless the user is the only admin left: mcpanel always keeps one.
-NOT_LAST_ADMIN = "(role != 'admin' OR (SELECT COUNT(*) FROM users WHERE role = 'admin') > 1)"
+# Holds unless the user is the only platform admin left: mcpanel always keeps one.
+NOT_LAST_PLATFORM_ADMIN = "(role != 'platform_admin' OR (SELECT COUNT(*) FROM users WHERE role = 'platform_admin') > 1)"
 
 
 def role_arg(role):
     if role not in accounts.ROLES:
-        abort(400, 'The role is admin or member')
+        abort(400, 'The role is platform_admin, admin or member')
     return role
 
 
@@ -78,9 +78,9 @@ def change_user(user_id):
     with get_db() as conn:
         if conn.execute('SELECT 1 FROM users WHERE id = ?', (user_id,)).fetchone() is None:
             abort(404, 'No such user')
-        if not conn.execute(f"UPDATE users SET role = :role WHERE id = :id AND (:role = 'admin' OR {NOT_LAST_ADMIN})",
+        if not conn.execute(f"UPDATE users SET role = :role WHERE id = :id AND (:role = 'platform_admin' OR {NOT_LAST_PLATFORM_ADMIN})",
                             {'role': role, 'id': user_id}).rowcount:
-            abort(409, "That's the only admin; make someone else an admin first")
+            abort(409, "That's the only platform admin; make someone else one first")
         conn.execute('DELETE FROM server_access WHERE user_id = ?', (user_id,))
         conn.executemany('INSERT INTO server_access (user_id, server) VALUES (?, ?)',
                          [(user_id, server_id) for server_id in server_ids])
@@ -107,15 +107,15 @@ def reset_user(user_id):
 
 @bp.delete('/users/<int:user_id>')
 def remove_user(user_id):
-    """Remove a user, which signs them out everywhere at once. Not yourself, and never the last admin."""
+    """Remove a user, which signs them out everywhere at once. Not yourself, and never the last platform admin."""
     if user_id == g.user['id']:
         abort(400, "You can't remove yourself")
     with get_db() as conn:
         user = conn.execute('SELECT username FROM users WHERE id = ?', (user_id,)).fetchone()
         if user is None:
             abort(404, 'No such user')
-        if not conn.execute(f'DELETE FROM users WHERE id = ? AND {NOT_LAST_ADMIN}', (user_id,)).rowcount:
-            abort(409, "That's the only admin; make someone else an admin first")
+        if not conn.execute(f'DELETE FROM users WHERE id = ? AND {NOT_LAST_PLATFORM_ADMIN}', (user_id,)).rowcount:
+            abort(409, "That's the only platform admin; make someone else one first")
         conn.commit()
     logs.audit('user_removed', user_id=user_id, username=user['username'])
     return {}

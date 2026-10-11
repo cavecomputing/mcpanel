@@ -6,7 +6,7 @@ import pytest
 from argon2 import PasswordHasher
 from werkzeug.exceptions import HTTPException
 
-from mcpanel import accounts, create_app
+from mcpanel import accounts, create_app, db
 from mcpanel.db import get_db
 
 from .conftest import PASSWORD, make_user
@@ -225,7 +225,42 @@ def test_only_the_first_admin_is_made_by_create_first_admin(app):
     secret = pyotp.random_base32()
     user_id = accounts.create_first_admin('matt', PASSWORD, secret, 7)
     row = user_row(user_id)
-    assert (row['username'], row['role'], row['totp_secret'], row['totp_last_step']) == ('matt', 'admin', secret, 7)
+    assert (row['username'], row['role'], row['totp_secret'], row['totp_last_step']) == ('matt', 'platform_admin', secret, 7)
     assert accounts.password_matches(row, PASSWORD)
     assert accounts.create_first_admin('eve', PASSWORD, secret, 7) is None
     assert accounts.user_named('eve') is None
+
+
+def test_a_database_from_before_platform_admins_is_brought_up_to_date(data_dir):
+    with get_db() as conn:  # the users table as it was, which refuses the new role
+        conn.executescript(db.SCHEMA.replace("'platform_admin', 'admin', 'member'", "'admin', 'member'"))
+    matt, _ = accounts.create_user('matt', 'admin', [])
+    kim, _ = accounts.create_user('kim', 'admin', [])
+    sam, _ = accounts.create_user('sam', 'member', ['smp'])
+    token = accounts.new_session(matt, remember=True)
+    accounts.new_recovery_codes(matt)
+    with pytest.raises(sqlite3.IntegrityError), get_db() as conn:
+        conn.execute("UPDATE users SET role = 'platform_admin' WHERE id = ?", (kim,))
+
+    create_app()
+    assert [user_row(user_id)['role'] for user_id in (matt, kim, sam)] == ['platform_admin', 'admin', 'member']
+    assert accounts.session_user(token) == {'id': matt, 'username': 'matt', 'role': 'platform_admin'}
+    assert accounts.servers_for(user_row(sam)) == {'smp'}
+    with get_db() as conn:
+        assert conn.execute('SELECT COUNT(*) FROM recovery_codes WHERE user_id = ?', (matt,)).fetchone()[0] == 10
+        conn.execute('DELETE FROM users WHERE id = ?', (matt,))  # foreign keys still lead to the new table
+        conn.commit()
+        assert conn.execute('SELECT COUNT(*) FROM sessions').fetchone()[0] == 0
+        assert conn.execute('SELECT COUNT(*) FROM recovery_codes').fetchone()[0] == 0
+
+    create_app()  # with no platform admin left, the earliest admin becomes one
+    assert user_row(kim)['role'] == 'platform_admin'
+    create_app()
+    assert user_row(kim)['role'] == 'platform_admin' and user_row(sam)['role'] == 'member'
+
+
+def test_a_panel_of_members_gets_no_platform_admin(data_dir):
+    create_app()
+    sam, _ = accounts.create_user('sam', 'member', [])
+    create_app()
+    assert user_row(sam)['role'] == 'member'

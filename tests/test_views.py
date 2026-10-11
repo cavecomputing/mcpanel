@@ -20,13 +20,20 @@ def test_page_sends_strangers_to_sign_in(anon):
     assert response.headers['Location'].startswith('/login?next=')
 
 
-def test_page_renders_for_an_admin(admin):
-    response = admin.get('/')
+def test_page_renders_for_a_platform_admin(platform_admin):
+    response = platform_admin.get('/')
     assert response.status_code == 200
     html = response.text
     assert 'js/main.js' in html
+    assert 'data-username="owner" data-role="platform_admin"' in html and 'Platform admin</div>' in html
+    assert 'id="newServerDialog"' in html and 'href="#/users"' in html and 'id="userDialog"' in html
+
+
+def test_page_leaves_the_users_page_out_for_an_admin(admin):
+    html = admin.get('/').text
     assert 'data-username="admin" data-role="admin"' in html
-    assert 'id="newServerDialog"' in html and 'href="#/users"' in html
+    assert 'id="newServerDialog"' in html and 'id="deleteServer"' in html
+    assert 'href="#/users"' not in html and 'usersView' not in html and 'userDialog' not in html
 
 
 def test_page_leaves_the_admin_parts_out_for_a_member(member):
@@ -35,6 +42,7 @@ def test_page_leaves_the_admin_parts_out_for_a_member(member):
     html = response.text
     assert 'data-username="member" data-role="member"' in html
     assert 'newServerDialog' not in html and 'href="#/users"' not in html and 'usersView' not in html
+    assert 'deleteServer' not in html
 
 
 @pytest.mark.parametrize('path', ['/static/js/main.js', '/static/css/style.css', '/static/css/cavecomputing.css',

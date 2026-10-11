@@ -15,7 +15,7 @@
     <form class="cc-settings-card cc-signin__card" method="post" action="{{ url_for('auth.login_setup') }}">
         <span class="cc-brand"><svg class="logo" aria-hidden="true"><use href="#i-cube"/></svg><span class="cc-wordmark">mcpanel</span></span>
         {% if first %}
-        <p>Welcome, <b>{{ username }}</b>. Choose your password, then add mcpanel to your authenticator app. Your admin account is made when you finish.</p>
+        <p>Welcome, <b>{{ username }}</b>. Choose your password, then add mcpanel to your authenticator app. Your platform admin account is made when you finish.</p>
         {% else %}
         <p>Welcome, <b>{{ username }}</b>. Choose your own password in place of the one-time one, then add mcpanel to your authenticator app.</p>
         {% endif %}

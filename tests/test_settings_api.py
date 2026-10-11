@@ -125,6 +125,17 @@ def test_delete_removes_the_container_folder_and_access(admin, member, docker, d
     assert ('server_deleted', 'survival') in [(line['event'], line.get('server')) for line in lines]
 
 
+def test_platform_admins_make_change_and_delete_servers_as_admins_do(platform_admin, member, docker):
+    assert create(platform_admin).status_code == 201
+    grant(platform_admin, member, 'survival')
+    assert member.delete('/api/servers/survival').status_code == 403  # a member can't delete a server of theirs
+    assert change(platform_admin, heap_gb=8).get_json()['heap_gb'] == 8
+    assert change(platform_admin, cpus=2).get_json()['cpus'] == 2
+    assert platform_admin.get('/api/servers/host').status_code == 200
+    assert platform_admin.delete('/api/servers/survival').status_code == 200
+    assert platform_admin.get('/api/servers').get_json() == {'servers': []}
+
+
 def test_game_settings_have_the_servers_defaults_before_its_first_start(admin):
     create(admin)
     values = admin.get('/api/servers/survival/properties').get_json()

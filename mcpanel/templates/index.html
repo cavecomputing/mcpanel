@@ -1,5 +1,7 @@
 {% extends 'base.html' %}
-{% set admin = g.user.role == 'admin' %}
+{% set admin = g.user.role != 'member' %}
+{% set platform_admin = g.user.role == 'platform_admin' %}
+{% set role_name = {'platform_admin': 'Platform admin', 'admin': 'Admin', 'member': 'Member'}[g.user.role] %}
 {% block head %}
     <script type="module" src="{{ url_for('static', filename='js/main.js') }}"></script>
 {% endblock %}
@@ -47,7 +49,7 @@
                 <span class="avatar" aria-hidden="true">{{ g.user.username[0]|upper }}</span><span class="uname" aria-hidden="true">{{ g.user.username }}</span>
             </button>
             <div class="menu" id="userMenu" hidden>
-                <div class="menu__who">Signed in as <b>{{ g.user.username }}</b><br>{{ 'Admin' if admin else 'Member' }}</div>
+                <div class="menu__who">Signed in as <b>{{ g.user.username }}</b><br>{{ role_name }}</div>
                 <a href="#/account"><svg class="i"><use href="#i-user"/></svg>Your account</a>
                 <form method="post" action="{{ url_for('auth.logout') }}"><button type="submit"><svg class="i"><use href="#i-logout"/></svg>Sign out</button></form>
             </div>
@@ -62,7 +64,7 @@
             {% if admin %}<button class="cc-shell__row new-server" type="button" data-new-server><svg class="i"><use href="#i-plus"/></svg><span>New server</span></button>{% endif %}
             <div class="cc-eyebrow">Panel</div>
             <div class="nav">
-                {% if admin %}<a class="cc-shell__row" href="#/users" data-page="users"><svg class="i"><use href="#i-users"/></svg><span>Users</span></a>{% endif %}
+                {% if platform_admin %}<a class="cc-shell__row" href="#/users" data-page="users"><svg class="i"><use href="#i-users"/></svg><span>Users</span></a>{% endif %}
                 <a class="cc-shell__row" href="#/account" data-page="account"><svg class="i"><use href="#i-user"/></svg><span>Your account</span></a>
             </div>
         </nav>
@@ -231,12 +233,12 @@
                 </div>
             </section>
 
-            {% if admin %}
+            {% if platform_admin %}
             <section class="view" id="usersView" hidden>
                 <header class="head">
                     <div class="head__title"><h1>Users</h1></div>
                     <div class="head__actions"><button class="cc-btn cc-btn--primary" type="button" id="addUserBtn"><svg class="i"><use href="#i-plus"/></svg><span>Add someone</span></button></div>
-                    <p class="head__sub">People who can sign in to this panel. Admins manage every server and every user; members see and run only the servers you give them.</p>
+                    <p class="head__sub">People who can sign in to this panel. Platform admins also manage users; admins make, run and delete every server; members run only the servers you give them, and can't delete them.</p>
                 </header>
                 <div class="page">
                     <section class="cc-settings-card" aria-labelledby="usersTitle">
@@ -250,7 +252,7 @@
             <section class="view" id="accountView" hidden>
                 <header class="head">
                     <div class="head__title"><h1>Your account</h1></div>
-                    <p class="head__sub">Signed in as <b>{{ g.user.username }}</b> · {{ 'Admin' if admin else 'Member' }}</p>
+                    <p class="head__sub">Signed in as <b>{{ g.user.username }}</b> · {{ role_name }}</p>
                 </header>
                 <div class="page">
                     <form class="cc-settings-card" id="passwordForm" aria-labelledby="passwordTitle">
@@ -321,13 +323,15 @@
         </div>
     </form>
 </dialog>
+{% endif %}
 
+{% if platform_admin %}
 <dialog class="cc-settings-card dialog" id="userDialog" aria-labelledby="userTitle">
     <div class="stack">
         <header class="cc-card-header"><svg><use href="#i-users"/></svg><h4 id="userTitle"></h4><p id="userIntro"></p></header>
         <form id="userForm" autocomplete="off">
             <div class="cc-field" id="newUsernameField"><div><label for="newUsername">Username</label><span class="cc-field__hint">What they sign in with</span></div><input class="cc-input" id="newUsername" maxlength="32" autocapitalize="none" spellcheck="false"></div>
-            <div class="cc-field"><label for="userRole">Role</label><select class="cc-input" id="userRole"><option value="member">Member</option><option value="admin">Admin</option></select></div>
+            <div class="cc-field"><label for="userRole">Role</label><select class="cc-input" id="userRole"><option value="member">Member</option><option value="admin">Admin</option><option value="platform_admin">Platform admin</option></select></div>
             <fieldset class="picks" id="serverPicks"><legend>Servers they may use</legend><div id="serverPickList"></div></fieldset>
             <div class="row-btns">
                 <button class="cc-btn cc-btn--ghost" type="button" data-close><span>Cancel</span></button>

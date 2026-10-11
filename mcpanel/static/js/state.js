@@ -3,7 +3,8 @@ const shell = document.getElementById('shell');
 
 export const state = {
     username: shell.dataset.username,
-    admin: shell.dataset.role === 'admin',
+    admin: shell.dataset.role !== 'member',                 // makes, changes and deletes servers
+    platformAdmin: shell.dataset.role === 'platform_admin', // and manages users
     servers: [],       // as /api/servers sends them, sorted by name
     loaded: false,     // whether the list has arrived at least once
     firstLoad: null,   // the first fetch of the list, which the Users page waits for to name servers
@@ -21,7 +22,7 @@ export const TABS = ['overview', 'console', 'players', 'files', 'backups', 'sett
 export function route() {
     const [, page = '', id = '', tab = ''] = location.hash.split('/'); // '#/servers/x/files' -> ['#', 'servers', 'x', 'files']
     if (page === 'servers' && id) return { page: 'server', id, tab: TABS.includes(tab) ? tab : TABS[0] };
-    if (page === 'account' || (page === 'users' && state.admin)) return { page };
+    if (page === 'account' || (page === 'users' && state.platformAdmin)) return { page };
     return { page: 'home' };
 }
 

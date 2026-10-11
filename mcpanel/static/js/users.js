@@ -1,5 +1,5 @@
 /**
- * The Users page, for admins: everyone who can sign in, and one dialog that either adds an account
+ * The Users page, for platform admins: everyone who can sign in, and one dialog that either adds an account
  * or changes a user's role and servers, and shows a new one-time password once.
  */
 import * as api from './api.js';
@@ -9,12 +9,16 @@ import { $, ask, copyText, esc, relativeTime, showView, toast } from './ui.js';
 let users = [];
 let editing = null; // the user the dialog changes, or null while it adds one
 
-const roleBadge = (role) => (role === 'admin' ? '<span class="cc-badge cc-badge--info">Admin</span>' : '<span class="cc-badge">Member</span>');
+const roleBadge = (role) => ({
+    platform_admin: '<span class="cc-badge cc-badge--info">Platform admin</span>',
+    admin: '<span class="cc-badge cc-badge--info">Admin</span>',
+    member: '<span class="cc-badge">Member</span>',
+})[role];
 const serverName = (id) => state.servers.find((server) => server.id === id)?.name ?? id;
 
 /** What a user may use, in words. */
 function serversLine(role, serverIds) {
-    if (role === 'admin') return 'Every server';
+    if (role !== 'member') return 'Every server';
     if (!serverIds.length) return 'No servers yet';
     return serverIds.map((id) => `<span class="cc-tag">${esc(serverName(id))}</span>`).join(' ');
 }
@@ -62,7 +66,7 @@ function drawPicks(given) {
 }
 
 function syncRole() {
-    $('serverPicks').hidden = $('userRole').value === 'admin';
+    $('serverPicks').hidden = $('userRole').value !== 'member';
 }
 
 function openDialog(user = null) {
@@ -145,7 +149,7 @@ async function remove(user) {
 }
 
 export function initUsers() {
-    if (!state.admin) return;
+    if (!state.platformAdmin) return;
     $('addUserBtn').addEventListener('click', () => openDialog());
     $('userRows').addEventListener('click', (event) => {
         const button = event.target.closest('[data-action]');

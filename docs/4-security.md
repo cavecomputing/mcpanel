@@ -12,8 +12,8 @@ account can start containers on the machine.
   password is wrong, so the lock stops guessing instead of confirming a right guess. An unknown
   username takes as long to refuse as a wrong password, so names can't be probed.
 - One-time passwords are 80 random bits, shown once, good for 24 hours, and checked like any password.
-- A panel with no accounts lets whoever opens it first make the first admin. Make yours as soon as
-  Caddy points at it (see [Setup](2-setup.md#the-first-admin)); once one account exists, that page is gone.
+- A panel with no accounts lets whoever opens it first make its platform admin. Make yours as soon as
+  Caddy points at it (see [Setup](2-setup.md#the-platform-admin)); once one account exists, that page is gone.
 - Sessions live in the database, so signing out other devices, removing a user or changing a password
   takes effect at once. The cookie holds only a random token, is `HttpOnly`, `SameSite=Lax` and
   `Secure` behind HTTPS, and lasts 30 days with "Keep this device signed in".
@@ -21,9 +21,12 @@ account can start containers on the machine.
 
 ## Who may do what
 
-- Admins manage every server and every account. Make admins only people you'd trust with the machine.
-- Members see only the servers an admin gave them, and can't create or delete servers or change their
-  memory or CPU. The server checks this on every request; hiding a button isn't relied on. A member can't
+- Platform admins manage every account and every server; only they add, change, reset or remove
+  accounts. The panel always keeps at least one.
+- Admins manage every server, but not accounts. Make admins and platform admins only people you'd
+  trust with the machine.
+- Members see only the servers a platform admin gave them, and can't create or delete servers or
+  change their memory or CPU. The server checks this on every request; hiding a button isn't relied on. A member can't
   raise memory through the files either: the image sets Java's memory from the container on every
   start, and the container's memory limit caps the server whatever it asks for.
 

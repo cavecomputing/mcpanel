@@ -17,7 +17,7 @@ from flask import abort
 
 from .db import get_db
 
-ROLES = ('admin', 'member')
+ROLES = ('platform_admin', 'admin', 'member')  # the platform admin is an admin who also manages users
 USERNAME = re.compile(r'[a-z0-9._-]{1,32}')
 MIN_PASSWORD = 8
 REMEMBER_FOR = 30 * 24 * 3600  # "Keep this device signed in"
@@ -70,13 +70,13 @@ def create_user(username, role, server_ids):
 
 
 def create_first_admin(username, password, totp_secret, totp_step):
-    """Add the panel's first account, an admin with its own password and TOTP secret, the code for
+    """Add the panel's first account, its platform admin, with its own password and TOTP secret, the code for
     totp_step used up: its id, or None when an account exists already (another browser was first)."""
     now = time.time()
     with get_db() as conn:
         cursor = conn.execute('''INSERT INTO users (username, role, password_hash, password_changed, created, totp_secret,
                                                     totp_last_step)
-                                 SELECT ?, 'admin', ?, ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM users)''',
+                                 SELECT ?, 'platform_admin', ?, ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM users)''',
                               (username, hasher.hash(password), now, now, totp_secret, totp_step))
         conn.commit()
     return cursor.lastrowid if cursor.rowcount else None
@@ -234,7 +234,7 @@ def end_session(token):
 
 def servers_for(user):
     """The ids of the servers user may see and run, or None for an admin, who may use them all."""
-    if user['role'] == 'admin':
+    if user['role'] != 'member':
         return None
     with get_db() as conn:
         return {row['server'] for row in conn.execute('SELECT server FROM server_access WHERE user_id = ?', (user['id'],))}
