@@ -3,7 +3,7 @@ import time
 
 import pytest
 
-from mcpanel import accounts
+from mcpanel import accounts, servers
 from mcpanel.db import get_db
 
 from .conftest import PASSWORD, make_user, sign_in, signed_in_client
@@ -57,7 +57,13 @@ def test_list_users(admin, app, clock):
     assert 'hash' not in str(body) and 'secret' not in str(body)
 
 
+def make_servers(*names):
+    for name in names:
+        servers.create_server(name, 'VANILLA', 'LATEST', '', 1, True)
+
+
 def test_add_a_user(admin, anon):
+    make_servers('SMP')
     response = admin.post('/api/users', json={'username': 'Sam', 'role': 'member', 'servers': ['smp', 'smp']})
     assert response.status_code == 201
     body = response.get_json()
@@ -86,6 +92,7 @@ def test_admins_are_added_without_servers(admin):
     ({'username': 'sam', 'role': 'owner'}, 400),
     ({'username': 'sam', 'role': 'member', 'servers': 'smp'}, 400),
     ({'username': 'sam', 'role': 'member', 'servers': ['../etc']}, 404),
+    ({'username': 'sam', 'role': 'member', 'servers': ['later']}, 404),  # not a server yet
 ])
 def test_bad_new_users(admin, body, status):
     response = admin.post('/api/users', json=body)
@@ -94,6 +101,7 @@ def test_bad_new_users(admin, body, status):
 
 
 def test_change_a_member(admin):
+    make_servers('SMP', 'Creative', 'Survival')
     sam = make_user('sam')
     response = admin.put(f'/api/users/{sam["id"]}', json={'role': 'member', 'servers': ['smp', 'creative']})
     assert response.status_code == 200 and response.get_json()['servers'] == ['creative', 'smp']

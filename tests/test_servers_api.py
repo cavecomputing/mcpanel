@@ -3,6 +3,7 @@ import json
 import pytest
 
 from mcpanel import config
+from mcpanel.db import get_db
 
 SURVIVAL = {'name': 'Survival', 'type': 'PAPER', 'version': '1.21.4', 'java': 'java21', 'heap_gb': 4, 'eula': True}
 SERVER_KEYS = {'id', 'name', 'status', 'type', 'version', 'java', 'heap_gb', 'port', 'address', 'created'}
@@ -16,6 +17,13 @@ def grant(admin, member, *server_ids):
     """Let member use server_ids, through the users API as an admin would."""
     response = admin.put(f'/api/users/{member.user["id"]}', json={'role': 'member', 'servers': list(server_ids)})
     assert response.status_code == 200, response.get_json()
+
+
+def stale_grant(member, server_id):
+    """Let member use server_id, a server Docker no longer has, as a server removed outside the panel leaves."""
+    with get_db() as conn:
+        conn.execute('INSERT INTO server_access (user_id, server) VALUES (?, ?)', (member.user['id'], server_id))
+        conn.commit()
 
 
 def server_audit(data_dir):
@@ -57,7 +65,8 @@ def test_members_see_only_their_servers(admin, member):
     create(admin)
     create(admin, name='Creative')
     assert member.get('/api/servers').get_json() == {'servers': []}
-    grant(admin, member, 'creative', 'gone')  # gone: a server Docker no longer has
+    grant(admin, member, 'creative')
+    stale_grant(member, 'gone')
     assert [server['id'] for server in member.get('/api/servers').get_json()['servers']] == ['creative']
     assert len(admin.get('/api/servers').get_json()['servers']) == 2
 
@@ -79,7 +88,8 @@ def test_a_member_runs_a_granted_server(admin, member, docker):
 def test_servers_a_member_may_not_use_look_missing(admin, member, docker, action):
     create(admin)
     create(admin, name='Creative')
-    grant(admin, member, 'creative', 'gone')
+    grant(admin, member, 'creative')
+    stale_grant(member, 'gone')
     actions = list(docker.actions)
     for server_id in ('survival', 'nope', 'gone'):
         response = member.post(f'/api/servers/{server_id}/{action}')

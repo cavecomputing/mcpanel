@@ -21,12 +21,16 @@ def role_arg(role):
 
 
 def servers_arg(server_ids):
-    """The server ids a member may use, each checked. Missing means none."""
+    """The server ids a member may use, each checked and each a server there now, so an id given out
+    ahead of time doesn't hand over a server made later with it. Missing means none."""
     if server_ids is None:
         return []
     if not isinstance(server_ids, list):
         abort(400, 'Expected a list of server ids')
-    return sorted({servers.check_id(server_id) for server_id in server_ids})
+    server_ids = sorted({servers.check_id(server_id) for server_id in server_ids})
+    if server_ids and not set(server_ids) <= {server['id'] for server in servers.list_servers()}:
+        abort(404, 'No such server')
+    return server_ids
 
 
 def user_dicts():
