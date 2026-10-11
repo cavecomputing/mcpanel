@@ -25,12 +25,15 @@ export async function showSettings(fresh) {
 }
 
 /** A poll's fresh dict: the server form follows whether the server is stopped, keeping what's typed.
- * While it runs, the game settings it couldn't say before are asked for again. */
+ * Once it stops, the game settings it can no longer say are greyed out; while it runs, those it
+ * couldn't say before are asked for again. */
 export function updateSettings(fresh) {
     const was = server && stopped();
     server = fresh;
     if (was !== stopped()) drawServerForm(false);
-    if (fresh.status === 'running' && Object.values(saved).includes(null)) loadGame(fresh.id, true);
+    if ((was === false && stopped()) || (fresh.status === 'running' && Object.values(saved).includes(null))) {
+        loadGame(fresh.id, true);
+    }
 }
 
 async function loadGame(id, onlyUnread = false) {
@@ -43,11 +46,12 @@ async function loadGame(id, onlyUnread = false) {
     if (server.id === id) fillGame(values, onlyUnread);
 }
 
-/** Put game settings in the form: all of them, or with onlyUnread those it couldn't say before. One
- * the server can't say now (null: PvP's game rule from 1.21.9, while it's stopped) is greyed out. */
+/** Put game settings in the form: all of them, or with onlyUnread those it couldn't say before or
+ * can't say now. One the server can't say now (null: PvP's game rule from 1.21.9, while it's
+ * stopped) is greyed out. */
 function fillGame(values, onlyUnread = false) {
     for (const input of $('gameForm').elements) {
-        if (!(input.name in values) || (onlyUnread && saved[input.name] !== null)) continue;
+        if (!(input.name in values) || (onlyUnread && saved[input.name] !== null && values[input.name] !== null)) continue;
         if (input.type === 'checkbox') input.checked = values[input.name];
         else input.value = values[input.name];
         input.disabled = values[input.name] === null;
