@@ -191,7 +191,9 @@ data/                    # MCPANEL_DATA_DIR, default ./data
   waiting for its first sign-in is one with no TOTP secret; its one-time password works for 24 hours
   from `password_changed`.
 - Backups are made only when someone presses Back up now, and kept until someone deletes them; a
-  server's are deleted with it.
+  server's are deleted with it. A backup is the whole folder, server jar and `libraries/` included,
+  even though the image could download those again: it has to work on another host or for someone
+  who doesn't run mcpanel. Don't trim it to save space.
 - Every module reads settings as `config.NAME` at call time, never `from .config import NAME`, so
   the tests can point them at a temporary directory.
 
