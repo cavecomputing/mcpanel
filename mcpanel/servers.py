@@ -32,7 +32,8 @@ JAVA_TAGS = ('java25', 'java21', 'java17', 'java8')
 # docs point to): 26.1 on needs 25, 1.20.5 on 21, 1.17 on 17 (16 at least), anything older 8.
 JAVA_FOR = (((26,), 'java25'), ((1, 20, 5), 'java21'), ((1, 17), 'java17'), ((), 'java8'))
 TYPES = ('VANILLA', 'PAPER', 'PURPUR', 'FABRIC', 'FORGE', 'NEOFORGE', 'QUILT')
-MAX_HEAP_GB = 32
+MAX_MEMORY_GB = 32
+HEAP_PERCENT = 75  # of a server's memory, for Java's heap
 MIN_CPUS = 0.5  # the least CPU limit a server may have, in cores; none means it may use them all
 MAX_NAME = 40  # characters in a display name
 NETWORK = 'mcpanel'  # where the panel reaches each server's RCON by container name
@@ -143,7 +144,6 @@ def server_dict(container):
     """What the UI shows of a server. Never the container's env, which holds the RCON password."""
     attrs = container.attrs
     env = env_of(container)
-    heap = env.get('MEMORY', '').removesuffix('G')
     game_port = next(host_ports(container), None)
     return {
         'id': container.labels['mcpanel.server'],
@@ -152,9 +152,9 @@ def server_dict(container):
         'type': env.get('TYPE', ''),
         'version': env.get('VERSION', ''),
         'java': attrs['Config']['Image'].partition(':')[2],
-        'heap_gb': int(heap) if heap.isdigit() else None,
         'cpus': attrs['HostConfig'].get('NanoCpus', 0) / 10 ** 9 or None,  # cores it may use, None for all
-        'memory_limit': attrs['HostConfig'].get('Memory') or None,  # bytes: the heap plus Java's headroom
+        'memory_limit': attrs['HostConfig'].get('Memory') or None,  # bytes: all the server may use
+        'memory_gb': round(attrs['HostConfig'].get('Memory', 0) / GIB) or None,  # the same, as the form sets it
         'port': game_port,
         'address': config.PUBLIC_HOST if game_port == 25565 else f'{config.PUBLIC_HOST}:{game_port}',
         # Docker writes UTC with nanoseconds, more digits than Python parses.
@@ -236,11 +236,10 @@ def free_id(name, container_names):
             return server_id
 
 
-def container_spec(server_id, name, type, version, java, heap_gb, cpus, game_port):
+def container_spec(server_id, name, type, version, java, memory_gb, cpus, game_port):
     """The keyword arguments for containers.create(), plus stop_timeout, from checked fields only.
     Nothing privileged and no mount but the server's own folder: whoever chooses these settings owns
     the host."""
-    heap = heap_gb * GIB
     return {
         'image': f'{IMAGE}:{java}',
         'name': f'mcpanel-{server_id}',
@@ -249,7 +248,9 @@ def container_spec(server_id, name, type, version, java, heap_gb, cpus, game_por
             'EULA': 'TRUE',  # create_server() refuses unless the EULA box was ticked
             'TYPE': type,
             'VERSION': version,
-            'MEMORY': f'{heap_gb}G',
+            # Java's heap (Xms and Xmx) is HEAP_PERCENT of the limit; the rest is Java's own memory
+            # (classes, compiled code, threads, buffers), which a full heap would leave no room for.
+            'MEMORY': f'{memory_gb * 1024 * HEAP_PERCENT // 100}M',
             # The panel's own user, so the panel can read and edit the server's files.
             'UID': str(os.getuid()),
             'GID': str(os.getgid()),
@@ -268,8 +269,8 @@ def container_spec(server_id, name, type, version, java, heap_gb, cpus, game_por
         # However it is stopped (the panel, a reboot, a `docker stop`), the server gets this long to
         # save the world before Docker kills it, not Docker's default 10 seconds.
         'stop_timeout': STOP_SECONDS,
-        # The heap plus room for the JVM's own memory. Past this the kernel kills the server.
-        'mem_limit': heap + max(GIB, heap // 4),
+        # All the server may use, heap included. Past this the kernel kills it.
+        'mem_limit': memory_gb * GIB,
         # The cores it may use, in billionths; 0 leaves it out, so the server may use them all.
         'nano_cpus': round((cpus or 0) * 10 ** 9),
         # Docker's default json-file log never rotates.
@@ -277,8 +278,8 @@ def container_spec(server_id, name, type, version, java, heap_gb, cpus, game_por
     }
 
 
-def checked_settings(name, type, version, java, heap_gb, cpus):
-    """The new-server form's fields checked, as (name, type, version, java, heap_gb, cpus), or a 400
+def checked_settings(name, type, version, java, memory_gb, cpus):
+    """The new-server form's fields checked, as (name, type, version, java, memory_gb, cpus), or a 400
     saying what is wrong. java may be empty, for the tag the version needs; cpus None, for no limit."""
     name, version = checked_name(name), checked_version(version)
     if type not in TYPES:
@@ -287,19 +288,19 @@ def checked_settings(name, type, version, java, heap_gb, cpus):
         java = java_tag(version)
     elif java not in JAVA_TAGS:
         abort(400, 'Unknown Java version')
-    if not isinstance(heap_gb, int) or isinstance(heap_gb, bool) or not 1 <= heap_gb <= MAX_HEAP_GB:
-        abort(400, f'Memory must be a whole number of GB from 1 to {MAX_HEAP_GB}')
+    if not isinstance(memory_gb, int) or isinstance(memory_gb, bool) or not 1 <= memory_gb <= MAX_MEMORY_GB:
+        abort(400, f'Memory must be a whole number of GB from 1 to {MAX_MEMORY_GB}')
     if cpus is not None:
         cores = host()['cpus']
         if not isinstance(cpus, (int, float)) or isinstance(cpus, bool) or not MIN_CPUS <= cpus <= cores:
             abort(400, f'CPU must be a number of cores from {MIN_CPUS:g} to {cores}, or empty for no limit')
-    return name, type, version, java, heap_gb, cpus
+    return name, type, version, java, memory_gb, cpus
 
 
-def create_server(name, type, version, java, heap_gb, cpus, eula):
+def create_server(name, type, version, java, memory_gb, cpus, eula):
     """Create a server from the new-server form's fields, stopped, and return its dict. Nothing
     starts it but Start: mods and files go in first, before the world is generated."""
-    name, type, version, java, heap_gb, cpus = checked_settings(name, type, version, java, heap_gb, cpus)
+    name, type, version, java, memory_gb, cpus = checked_settings(name, type, version, java, memory_gb, cpus)
     if eula is not True:
         abort(400, 'Accept the Minecraft EULA to create a server')
 
@@ -317,7 +318,7 @@ def create_server(name, type, version, java, heap_gb, cpus, eula):
         try:
             with docker_errors():
                 ensure_network(client)
-                make_container(client, container_spec(server_id, name, type, version, java, heap_gb, cpus, game_port))
+                make_container(client, container_spec(server_id, name, type, version, java, memory_gb, cpus, game_port))
         except Exception:
             # Leave nothing behind: no container was made, and nothing has run in the folder.
             with suppress(OSError):
@@ -346,7 +347,7 @@ def stopped_container(client, server_id, doing):
     return container
 
 
-def update_server(server_id, name, type, version, java, heap_gb, cpus):
+def update_server(server_id, name, type, version, java, memory_gb, cpus):
     """Change a stopped server's name, type, version, Java, memory or CPU, and return its fresh dict.
 
     A container's settings can't change, so this makes its container again from container_spec(),
@@ -355,7 +356,7 @@ def update_server(server_id, name, type, version, java, heap_gb, cpus):
     same one isn't, since a server keeps the image it was made with.
     """
     check_id(server_id)
-    name, type, version, java, heap_gb, cpus = checked_settings(name, type, version, java, heap_gb, cpus)
+    name, type, version, java, memory_gb, cpus = checked_settings(name, type, version, java, memory_gb, cpus)
     with docker_errors():
         client = docker_client()
         stopped_container(client, server_id, 'changing these settings')
@@ -367,7 +368,7 @@ def update_server(server_id, name, type, version, java, heap_gb, cpus):
         old.rename(f'mcpanel-{server_id}.old')  # ids have no dots, so this is no other server's name
         try:
             ensure_network(client)
-            make_container(client, container_spec(server_id, name, type, version, java, heap_gb, cpus, game_port))
+            make_container(client, container_spec(server_id, name, type, version, java, memory_gb, cpus, game_port))
         except BaseException:
             old.rename(f'mcpanel-{server_id}')
             raise

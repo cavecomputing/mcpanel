@@ -22,8 +22,8 @@ def refused(call, *args, **kwargs):
     return error.value.code, error.value.description
 
 
-def create(name='Survival', type='PAPER', version='1.21.4', java='java21', heap_gb=4, cpus=None, eula=True):
-    return servers.create_server(name, type, version, java, heap_gb, cpus, eula)
+def create(name='Survival', type='PAPER', version='1.21.4', java='java21', memory_gb=4, cpus=None, eula=True):
+    return servers.create_server(name, type, version, java, memory_gb, cpus, eula)
 
 
 def test_container_spec_is_the_image_one_mount_and_nothing_privileged(docker, data_dir):
@@ -41,13 +41,13 @@ def test_container_spec_is_the_image_one_mount_and_nothing_privileged(docker, da
     assert spec['init'] is True
     assert spec['healthcheck'] == {'start_period': 600 * 10 ** 9}  # the image's own check, with longer to start
     assert spec['stop_timeout'] == 75
-    assert spec['mem_limit'] == 5 * GIB
+    assert spec['mem_limit'] == 4 * GIB  # everything the server may use, heap included
     assert spec['nano_cpus'] == 0  # no CPU limit
     assert spec['log_config'] == {'type': 'json-file', 'config': {'max-size': '10m', 'max-file': '3'}}
     env = spec['environment']
     assert set(env) == {'EULA', 'TYPE', 'VERSION', 'MEMORY', 'UID', 'GID', 'RCON_PASSWORD'}
     assert {key: env[key] for key in ('EULA', 'TYPE', 'VERSION', 'MEMORY', 'UID', 'GID')} == {
-        'EULA': 'TRUE', 'TYPE': 'PAPER', 'VERSION': '1.21.4', 'MEMORY': '4G',
+        'EULA': 'TRUE', 'TYPE': 'PAPER', 'VERSION': '1.21.4', 'MEMORY': '3072M',
         'UID': str(os.getuid()), 'GID': str(os.getgid())}
     # What the daemon is asked for, after the SDK's translation: nothing beyond these.
     create()
@@ -67,9 +67,12 @@ def test_a_cpu_limit_is_the_cores_given(docker, cpus):
     assert docker.live('mcpanel-survival')['HostConfig']['NanoCpus'] == cpus * 10 ** 9
 
 
-@pytest.mark.parametrize('heap_gb, limit', [(1, 2 * GIB), (4, 5 * GIB), (6, 7.5 * GIB), (32, 40 * GIB)])
-def test_memory_limit_is_the_heap_plus_headroom(heap_gb, limit):
-    assert servers.container_spec('x', 'X', 'VANILLA', 'LATEST', 'java21', heap_gb, None, 25565)['mem_limit'] == limit
+@pytest.mark.parametrize('memory_gb, heap', [(1, '768M'), (4, '3072M'), (6, '4608M'), (32, '24576M')])
+def test_memory_is_the_limit_and_the_heap_three_quarters_of_it(docker, memory_gb, heap):
+    server = create(memory_gb=memory_gb)
+    assert server['memory_gb'] == memory_gb and server['memory_limit'] == memory_gb * GIB
+    spec = servers.container_spec('x', 'X', 'VANILLA', 'LATEST', 'java21', memory_gb, None, 25565)
+    assert spec['mem_limit'] == memory_gb * GIB and spec['environment']['MEMORY'] == heap
 
 
 def test_rcon_password_is_random_and_never_shown(docker, caplog):
@@ -107,8 +110,8 @@ EULA = 'Accept the Minecraft EULA to create a server'
     ('version', '', VERSION), ('version', '1', VERSION), ('version', '1.21.4-pre1', VERSION),
     ('version', 'snapshot', VERSION), ('version', '1.٢١', VERSION), ('version', 1.21, VERSION),
     ('java', 'java11', 'Unknown Java version'), ('java', 'JAVA21', 'Unknown Java version'),
-    ('heap_gb', 0, MEMORY), ('heap_gb', 33, MEMORY), ('heap_gb', 4.0, MEMORY), ('heap_gb', '4', MEMORY),
-    ('heap_gb', True, MEMORY),
+    ('memory_gb', 0, MEMORY), ('memory_gb', 33, MEMORY), ('memory_gb', 4.0, MEMORY), ('memory_gb', '4', MEMORY),
+    ('memory_gb', True, MEMORY),
     ('cpus', 0, CPUS), ('cpus', 0.4, CPUS), ('cpus', 8.5, CPUS), ('cpus', -1, CPUS), ('cpus', '2', CPUS),
     ('cpus', True, CPUS), ('cpus', float('nan'), CPUS), ('cpus', float('inf'), CPUS),
     ('eula', False, EULA), ('eula', 'true', EULA), ('eula', 1, EULA), ('eula', None, EULA),
@@ -122,8 +125,8 @@ def test_create_leaves_the_server_stopped_and_returns_its_dict(docker, data_dir)
     server = create('  Survival  ', version='latest')
     assert abs(server.pop('created') - time.time()) < 5
     assert server == {'id': 'survival', 'name': 'Survival', 'status': 'stopped', 'type': 'PAPER',
-                      'version': 'LATEST', 'java': 'java21', 'heap_gb': 4, 'cpus': None,
-                      'memory_limit': 5 * GIB, 'port': 25565,
+                      'version': 'LATEST', 'java': 'java21', 'memory_gb': 4, 'cpus': None,
+                      'memory_limit': 4 * GIB, 'port': 25565,
                       'address': 'mc.example.com'}
     # Never started, so mods and files can go in before the world is generated. Docker leaves a
     # container it never started alone when it starts up, so a reboot doesn't start it either.

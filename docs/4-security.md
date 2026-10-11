@@ -44,7 +44,7 @@ The panel holds the Docker socket, which is root on the machine. So:
 - It only ever runs `itzg/minecraft-server`, with one of its Java tags.
 - Each server's only mount is its own folder under `servers/`. Never privileged, no host network, no
   extra devices or capabilities, and never any option a client sent.
-- Each container's memory is capped at the heap plus headroom, its CPU at the cores an admin gave it
+- Each container's memory is capped at the memory an admin gave it, its CPU at the cores an admin gave it
   (if any), and its log is rotated.
 - Console commands go over RCON on the private `mcpanel` network. Nothing in the panel opens a shell
   in a container.

@@ -7,8 +7,8 @@ from mcpanel.db import get_db
 
 from .conftest import make_user, signed_in_client
 
-SURVIVAL = {'name': 'Survival', 'type': 'PAPER', 'version': '1.21.4', 'java': 'java21', 'heap_gb': 4, 'eula': True}
-SERVER_KEYS = {'id', 'name', 'status', 'type', 'version', 'java', 'heap_gb', 'cpus', 'memory_limit', 'port', 'address', 'created'}
+SURVIVAL = {'name': 'Survival', 'type': 'PAPER', 'version': '1.21.4', 'java': 'java21', 'memory_gb': 4, 'eula': True}
+SERVER_KEYS = {'id', 'name', 'status', 'type', 'version', 'java', 'memory_gb', 'cpus', 'memory_limit', 'port', 'address', 'created'}
 
 
 def create(client, **fields):
@@ -43,8 +43,8 @@ def test_admin_creates_and_lists_servers(admin):
     server = response.get_json()
     assert set(server) == SERVER_KEYS
     assert server == {**server, 'id': 'survival', 'name': 'Survival', 'status': 'stopped', 'type': 'PAPER',
-                      'version': '1.21.4', 'java': 'java21', 'heap_gb': 4, 'cpus': None,
-                      'memory_limit': 5 * 1024 ** 3, 'port': 25565,
+                      'version': '1.21.4', 'java': 'java21', 'memory_gb': 4, 'cpus': None,
+                      'memory_limit': 4 * 1024 ** 3, 'port': 25565,
                       'address': 'mc.example.com'}
     assert server['created'] > 0
     assert 'RCON' not in response.text and 'EULA' not in response.text and 'password' not in response.text.lower()
@@ -62,7 +62,7 @@ def test_options(admin):
     assert admin.get('/api/servers/options').get_json() == {
         'types': ['VANILLA', 'PAPER', 'PURPUR', 'FABRIC', 'FORGE', 'NEOFORGE', 'QUILT'],
         'java': ['java25', 'java21', 'java17', 'java8'],
-        'heap': {'min': 1, 'max': 32, 'default': 4},
+        'memory': {'min': 1, 'max': 32, 'default': 4},
         'cpus': {'min': 0.5},
     }
 
@@ -167,9 +167,9 @@ def test_anonymous_gets_401(anon, docker, method, path):
     ({'type': 'SPIGOT'}, 'Unknown server type'),
     ({'version': 'newest'}, 'Version must be LATEST or a Minecraft release like 26.1'),
     ({'java': 'java99'}, 'Unknown Java version'),
-    ({'heap_gb': 0}, 'Memory must be a whole number of GB from 1 to 32'),
-    ({'heap_gb': '4'}, 'Memory must be a whole number of GB from 1 to 32'),
-    ({'heap_gb': 33}, 'Memory must be a whole number of GB from 1 to 32'),
+    ({'memory_gb': 0}, 'Memory must be a whole number of GB from 1 to 32'),
+    ({'memory_gb': '4'}, 'Memory must be a whole number of GB from 1 to 32'),
+    ({'memory_gb': 33}, 'Memory must be a whole number of GB from 1 to 32'),
     ({'eula': False}, 'Accept the Minecraft EULA to create a server'),
     ({'eula': None}, 'Accept the Minecraft EULA to create a server'),
 ])

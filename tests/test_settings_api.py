@@ -7,7 +7,7 @@ from mcpanel import accounts, config, files, properties
 
 from .test_servers_api import SURVIVAL, create, grant
 
-CHANGE = {key: SURVIVAL[key] for key in ('name', 'type', 'version', 'java', 'heap_gb')}
+CHANGE = {key: SURVIVAL[key] for key in ('name', 'type', 'version', 'java', 'memory_gb')}
 
 
 def change(client, **fields):
@@ -21,12 +21,12 @@ def env(docker, name='mcpanel-survival'):
 def test_a_change_makes_the_container_again_with_the_same_port_and_folder(admin, docker):
     create(admin)
     create(admin, name='Creative')
-    response = change(admin, name='Survival 2', type='FABRIC', version='1.20.1', java='', heap_gb=6)
+    response = change(admin, name='Survival 2', type='FABRIC', version='1.20.1', java='', memory_gb=6)
     assert response.status_code == 200
     server = response.get_json()
     assert server == {**server, 'id': 'survival', 'name': 'Survival 2', 'type': 'FABRIC', 'version': '1.20.1',
-                      'java': 'java17', 'heap_gb': 6, 'port': 25565, 'status': 'stopped'}
-    assert env(docker)['MEMORY'] == '6G' and env(docker)['EULA'] == 'TRUE'
+                      'java': 'java17', 'memory_gb': 6, 'port': 25565, 'status': 'stopped'}
+    assert env(docker)['MEMORY'] == '4608M' and env(docker)['EULA'] == 'TRUE'
     assert docker.live('mcpanel-survival')['HostConfig']['Binds'] == [f'{config.SERVERS_DIR / "survival"}:/data:rw']
     assert [action for action, name, _ in docker.actions if 'survival' in name] == ['rename', 'remove']
     assert [s['id'] for s in admin.get('/api/servers').get_json()['servers']] == ['creative', 'survival']
@@ -67,12 +67,12 @@ def test_a_refused_create_leaves_the_server_as_it_was(admin, docker, monkeypatch
 def test_only_admins_change_memory(admin, member, docker):
     create(admin)
     grant(admin, member, 'survival')
-    response = change(member, heap_gb=8)
+    response = change(member, memory_gb=8)
     assert response.status_code == 403 and response.get_json() == {'error': "Only admins change a server's memory"}
-    assert env(docker)['MEMORY'] == '4G'
+    assert env(docker)['MEMORY'] == '3072M'
     response = change(member, name='Mine', type='PURPUR', version='1.21.5', java='java25')
-    assert response.status_code == 200 and response.get_json()['heap_gb'] == 4
-    assert change(admin, heap_gb=8).get_json()['heap_gb'] == 8
+    assert response.status_code == 200 and response.get_json()['memory_gb'] == 4
+    assert change(admin, memory_gb=8).get_json()['memory_gb'] == 8
 
 
 def test_only_admins_change_the_cpu_limit(admin, member, docker):
@@ -94,7 +94,7 @@ def test_only_admins_change_the_cpu_limit(admin, member, docker):
     ({'name': ''}, 'Give the server a name'),
     ({'type': 'SPIGOT'}, 'Unknown server type'),
     ({'version': 'x'}, 'Version must be LATEST or a Minecraft release like 26.1'),
-    ({'heap_gb': 99}, 'Memory must be a whole number of GB from 1 to 32'),
+    ({'memory_gb': 99}, 'Memory must be a whole number of GB from 1 to 32'),
     ({'cpus': 9}, 'CPU must be a number of cores from 0.5 to 8, or empty for no limit'),
 ])
 def test_bad_changes_are_400(admin, docker, fields, error):
@@ -129,7 +129,7 @@ def test_platform_admins_make_change_and_delete_servers_as_admins_do(platform_ad
     assert create(platform_admin).status_code == 201
     grant(platform_admin, member, 'survival')
     assert member.delete('/api/servers/survival').status_code == 403  # a member can't delete a server of theirs
-    assert change(platform_admin, heap_gb=8).get_json()['heap_gb'] == 8
+    assert change(platform_admin, memory_gb=8).get_json()['memory_gb'] == 8
     assert change(platform_admin, cpus=2).get_json()['cpus'] == 2
     assert platform_admin.get('/api/servers/host').status_code == 200
     assert platform_admin.delete('/api/servers/survival').status_code == 200

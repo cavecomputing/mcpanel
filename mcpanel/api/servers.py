@@ -8,7 +8,7 @@ from .common import json_body, usable_server
 
 bp = Blueprint('servers', __name__)
 
-DEFAULT_HEAP_GB = 4
+DEFAULT_MEMORY_GB = 4
 
 # action in the URL -> what does it, and the audit event it records
 ACTIONS = {
@@ -29,7 +29,7 @@ def list_servers():
 def options():
     """The choices the new-server form and the Settings tab offer."""
     return {'types': list(servers.TYPES), 'java': list(servers.JAVA_TAGS),
-            'heap': {'min': 1, 'max': servers.MAX_HEAP_GB, 'default': DEFAULT_HEAP_GB},
+            'memory': {'min': 1, 'max': servers.MAX_MEMORY_GB, 'default': DEFAULT_MEMORY_GB},
             'cpus': {'min': servers.MIN_CPUS}}
 
 
@@ -42,29 +42,29 @@ def host():
 
 @bp.post('/servers')
 def create():
-    """Create a server, stopped: {name, type, version, java, heap_gb, cpus, eula}. create_server() checks them."""
+    """Create a server, stopped: {name, type, version, java, memory_gb, cpus, eula}. create_server() checks them."""
     auth.require_admin()
     data = json_body()
     server = servers.create_server(data.get('name'), data.get('type'), data.get('version'), data.get('java'),
-                                   data.get('heap_gb'), data.get('cpus'), data.get('eula'))
+                                   data.get('memory_gb'), data.get('cpus'), data.get('eula'))
     logs.audit('server_created', server=server['id'], server_name=server['name'])
     return server, 201
 
 
 @bp.put('/servers/<server_id>')
 def update(server_id):
-    """Change a stopped server: {name, type, version, java, heap_gb, cpus}; its fresh dict. Only
+    """Change a stopped server: {name, type, version, java, memory_gb, cpus}; its fresh dict. Only
     admins change its memory and CPU, which are the container's resource allocation."""
     server = usable_server(server_id)
     data = json_body()
-    if data.get('heap_gb') != server['heap_gb'] and g.user['role'] == 'member':
+    if data.get('memory_gb') != server['memory_gb'] and g.user['role'] == 'member':
         abort(403, "Only admins change a server's memory")
     if data.get('cpus') != server['cpus'] and g.user['role'] == 'member':
         abort(403, "Only admins change a server's CPU")
     server = servers.update_server(server_id, data.get('name'), data.get('type'), data.get('version'),
-                                   data.get('java'), data.get('heap_gb'), data.get('cpus'))
+                                   data.get('java'), data.get('memory_gb'), data.get('cpus'))
     logs.audit('server_changed', server=server['id'], server_name=server['name'], type=server['type'],
-               version=server['version'], java=server['java'], heap_gb=server['heap_gb'], cpus=server['cpus'])
+               version=server['version'], java=server['java'], memory_gb=server['memory_gb'], cpus=server['cpus'])
     return server
 
 

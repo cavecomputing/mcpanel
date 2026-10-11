@@ -74,7 +74,7 @@ the verification the change calls for.
 A name is the cheapest documentation in the file. Make it a concise nameplate for what the thing is
 or does — long enough to be unambiguous where it is *used*, short enough to read at a glance.
 
-- Prefer the specific noun to the category: `game_port`, `heap_gb`, `server_ids` over `value`,
+- Prefer the specific noun to the category: `game_port`, `memory_gb`, `server_ids` over `value`,
   `data`, `items`.
 - Name a function for what it returns or does, not how it works — `free_port()`,
   `container_spec()`, `formatUptime()`.
@@ -219,9 +219,10 @@ arbitrary container owns the machine, so:
   (`servers.check_id()`).
 - Each container gets: labels `mcpanel.server=<id>` and `mcpanel.name=<display name>`; name
   `mcpanel-<id>`; the `mcpanel` network; restart `unless-stopped`; `EULA=TRUE` only after the user
-  ticked the EULA box; `TYPE`, `VERSION` and `MEMORY` from the form; `UID`/`GID` matching the panel's,
+  ticked the EULA box; `TYPE` and `VERSION` from the form; `UID`/`GID` matching the panel's,
   so the panel can read and edit the server's files; a random `RCON_PASSWORD`; a memory limit of the
-  heap plus headroom; a CPU limit (`nano_cpus`) when an admin set one, else none; json-file logging capped at 3 × 10 MB, because Docker's default never rotates;
+  form's memory, all the server may use, with `MEMORY` (Java's heap, Xms and Xmx) `HEAP_PERCENT` (75%)
+  of it, leaving the rest for Java's own memory; a CPU limit (`nano_cpus`) when an admin set one, else none; json-file logging capped at 3 × 10 MB, because Docker's default never rotates;
   `init`, so a stop while the image's setup scripts run isn't ignored by bash as PID 1; the image's own
   health check with a start period of `FIRST_START_SECONDS` (10 min), for a first download or a modded
   install; a stop timeout of `STOP_SECONDS` (75 s: the image's 60 s `STOP_DURATION` for the world to
@@ -266,11 +267,11 @@ the whole perimeter:
   that makes, changes, resets or removes an admin or platform admin, or promotes a member
   (`users.may_manage()`). A platform admin does all of it, and may make another account a platform admin, and the panel always keeps one: the last
   can't be demoted (checked in the `UPDATE` itself) and nobody removes themselves.
-- **Only admins (and platform admins) change a server's resource allocation**: its memory (the heap and the container's
-  limit), its CPU limit, and any other limit added later. Members manage everything else on the servers they
+- **Only admins (and platform admins) change a server's resource allocation**: its memory (the container's limit, and the
+  heap that follows from it), its CPU limit, and any other limit added later. Members manage everything else on the servers they
   were given, as each part lands: settings such as `view-distance`, files, mods, plugins, type,
   version and Java. The route checks the role for the allocation (`PUT /api/servers/<id>` refuses a member a
-  different `heap_gb` or `cpus`); hiding the control is not enough. Files can't get round it: the image rewrites its JVM flags from the container's env on every
+  different `memory_gb` or `cpus`); hiding the control is not enough. Files can't get round it: the image rewrites its JVM flags from the container's env on every
   start, and the container's memory limit caps the server whatever it asks for.
 - Passwords are argon2id hashes (at least 8 characters). TOTP is required on every account: a
   sign-in is password, then a 6-digit code (a code already used is refused) or a single-use recovery

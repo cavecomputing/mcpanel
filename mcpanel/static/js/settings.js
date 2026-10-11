@@ -18,7 +18,7 @@ export async function showSettings(fresh) {
     $('gameForm').reset();
     drawServerForm();
     try {
-        await fillOptions($('editType'), $('editJava'), $('editHeap'), $('editCpus'));
+        await fillOptions($('editType'), $('editJava'), $('editMemory'), $('editCpus'));
     } catch { /* api.js showed why */ }
     drawServerForm();
     if (state.admin) drawHost($('editHostNote'), $('editCpus'), fresh.id);
@@ -66,13 +66,13 @@ function drawServerForm(fill = true) {
         $('editType').value = server.type;
         $('editVersion').value = server.version;
         $('editJava').value = server.java;
-        $('editHeap').value = server.heap_gb;
+        $('editMemory').value = server.memory_gb;
         $('editCpus').value = server.cpus ?? '';
     }
     for (const input of $('serverForm').elements) input.disabled = !stopped();
-    $('editHeap').disabled ||= !state.admin;
+    $('editMemory').disabled ||= !state.admin;
     $('editCpus').disabled ||= !state.admin;
-    $('editHeapHint').textContent = state.admin ? 'GB of Java heap' : 'Only admins change memory';
+    $('editMemoryHint').textContent = state.admin ? 'GB it may use, Java heap included' : 'Only admins change memory';
     $('editCpusHint').textContent = state.admin ? 'Cores it may use; empty for no limit' : 'Only admins change CPU';
     $('serverFormNote').textContent = stopped()
         ? 'Saving makes its container again with these settings; its world and files stay.'
@@ -114,7 +114,7 @@ async function saveServer(event) {
             type: $('editType').value,
             version: $('editVersion').value,
             java: $('editJava').value,
-            heap_gb: Number($('editHeap').value),
+            memory_gb: Number($('editMemory').value),
             cpus: cpusOf($('editCpus')),
         });
         server = fresh;
