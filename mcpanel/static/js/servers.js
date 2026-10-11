@@ -4,7 +4,7 @@
  */
 import * as api from './api.js';
 import { route, serverHash, state } from './state.js';
-import { $, copyText, esc, formatDate, setHtml, showError, showView, toast } from './ui.js';
+import { $, copyText, esc, formatDate, plural, setHtml, showError, showView, toast } from './ui.js';
 
 const POLL_MS = 5000;
 const STATUS = { running: 'Running', starting: 'Starting', restarting: 'Restarting', unresponsive: 'Not responding', stopped: 'Stopped', crashed: 'Crashed' };
@@ -234,7 +234,7 @@ export async function drawHost(note, cpusInput, exceptId = null) {
     cpusInput.max = host.cpus;
     note.hidden = false;
     setHtml(note, `<span><b>Memory</b>: ${gb(host.memory)} on the host, ${memory}. A server takes its heap plus a quarter for Java, 1 GB at least.</span>
-        <span><b>CPU</b>: ${host.cpus} cores on the host${cpu ? `; ${cpu}` : ''}.</span>`);
+        <span><b>CPU</b>: ${plural(host.cpus, 'core')} on the host${cpu ? `; ${cpu}` : ''}.</span>`);
 }
 
 /** A CPU field's cores, or null for no limit when it's empty. */
