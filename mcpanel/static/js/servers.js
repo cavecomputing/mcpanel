@@ -142,7 +142,7 @@ function drawServer(server) {
     $('serverBadge').className = `cc-badge ${BADGE[server.status] ?? ''}`;
     $('serverBadge').textContent = statusName(server.status);
     $('serverAddress').textContent = server.address;
-    const tags = [typeName(server.type), versionName(server.version), javaName(server.java), `${server.heap_gb} GB`];
+    const tags = [typeName(server.type), versionName(server.version), javaName(server.java), `${server.heap_gb} GB heap`];
     setHtml($('serverTags'), tags.map((tag) => `<span class="cc-tag">${esc(tag)}</span>`).join(''));
     const busy = state.busy.get(server.id);
     for (const button of $('serverView').querySelectorAll('[data-action]')) {
@@ -156,7 +156,8 @@ function drawServer(server) {
         ['Type', esc(typeName(server.type))],
         ['Version', esc(versionName(server.version))],
         ['Java', esc(javaName(server.java))],
-        ['Memory', `${esc(server.heap_gb)} GB`],
+        // The heap is what the form sets; the limit (heap plus Java's headroom) is what the server may take.
+        ['Memory', `${esc(server.heap_gb)} GB heap${server.memory_limit ? `, ${+(server.memory_limit / 1024 ** 3).toFixed(1)} GB limit` : ''}`],
         ['CPU', server.cpus ? `${esc(server.cpus)} ${server.cpus === 1 ? 'core' : 'cores'}` : 'No limit'],
         ['Created', esc(formatDate(server.created))],
     ].map(([term, value]) => `<dt>${term}</dt><dd>${value}</dd>`).join(''));
@@ -178,7 +179,7 @@ function drawStats(server, data) {
     const gb = (bytes) => (bytes / 1024 ** 3).toFixed(1);
     const usage = data?.usage;
     setHtml($('statPlayers'), data?.players == null ? '–' : `${esc(data.players)} <small>/ ${esc(data.max_players)}</small>`);
-    setHtml($('statMemory'), usage ? `${gb(usage.memory)} <small>/ ${gb(usage.memory_limit)} GB</small>` : '–');
+    setHtml($('statMemory'), usage ? `${gb(usage.memory)} <small>/ ${+gb(usage.memory_limit)} GB limit</small>` : '–');
     setHtml($('statCpu'), usage ? `${esc(usage.cpu)}<small>% of a core</small>` : '–');
 }
 
@@ -233,7 +234,7 @@ export async function drawHost(note, cpusInput, exceptId = null) {
         unlimited && `${servers(unlimited)} with no limit`].filter(Boolean).join(', ');
     cpusInput.max = host.cpus;
     note.hidden = false;
-    setHtml(note, `<span><b>Memory</b>: ${gb(host.memory)} on the host, ${memory}. A server takes its heap plus a quarter for Java, 1 GB at least.</span>
+    setHtml(note, `<span><b>Memory</b>: ${gb(host.memory)} on the host, ${memory}. A server's limit is its heap plus a quarter for Java, 1 GB at least: 1 GB of heap takes 2 GB.</span>
         <span><b>CPU</b>: ${plural(host.cpus, 'core')} on the host${cpu ? `; ${cpu}` : ''}.</span>`);
 }
 

@@ -59,8 +59,9 @@ Admins press New server and choose:
 - **Name**: what the panel calls it
 - **Type**: Vanilla, Paper, Purpur, Fabric, Forge, NeoForge or Quilt
 - **Version**: `LATEST`, or a Minecraft release such as `1.21.4`
-- **Memory**: the server's heap, 1 to 32 GB. Its container may use a little more than that for Java
-  itself (a quarter on top, at least 1 GB).
+- **Memory**: the server's Java heap, 1 to 32 GB. Its container's memory limit is the heap plus room
+  for Java itself: a quarter on top, at least 1 GB. So a 1 GB server may take up to 2 GB of the
+  machine's memory, and an 8 GB one 10 GB.
 - **CPU**: how many of the machine's cores it may use, in steps of half a core, for example `2` or
   `1.5`. Leave it empty and it may use them all.
 - **Java**: leave it on "Match the version" and the panel picks the Java that version needs, or pick
@@ -83,8 +84,9 @@ minutes. With `LATEST`, Minecraft updates itself on every start.
 
 Start, Stop and Restart sit in the server's header. Below it:
 
-- **Overview**: its state, address, type and version, and while it runs the players online, memory
-  and CPU.
+- **Overview**: its state, address, type, version, heap and memory limit, and while it runs the
+  players online, CPU, and the memory in use out of that limit (Java's own memory included, not
+  just the heap).
 - **Console**: the server's output as it runs, and a box for commands, which go to the server over
   RCON, with or without the leading `/`.
 - **Players**: who is online, and the whitelist, operators and bans, each a click to change. Changes

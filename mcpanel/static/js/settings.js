@@ -72,7 +72,7 @@ function drawServerForm(fill = true) {
     for (const input of $('serverForm').elements) input.disabled = !stopped();
     $('editHeap').disabled ||= !state.admin;
     $('editCpus').disabled ||= !state.admin;
-    $('editHeapHint').textContent = state.admin ? 'GB for the server' : 'Only admins change memory';
+    $('editHeapHint').textContent = state.admin ? 'GB of Java heap' : 'Only admins change memory';
     $('editCpusHint').textContent = state.admin ? 'Cores it may use; empty for no limit' : 'Only admins change CPU';
     $('serverFormNote').textContent = stopped()
         ? 'Saving makes its container again with these settings; its world and files stay.'
