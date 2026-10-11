@@ -75,6 +75,13 @@ function drawServerForm(fill = true) {
         : 'Stop the server to change these.';
 }
 
+/** Whether the server keeps PvP in the pvp game rule, like properties.pvp_is_game_rule(): 1.21.9 on. */
+function pvpIsGameRule() {
+    if (server.version === 'LATEST') return true;
+    const [major, minor = 0, patch = 0] = server.version.split('.').map(Number);
+    return major > 1 || minor > 21 || (minor === 21 && patch >= 9);
+}
+
 async function saveGame(event) {
     event.preventDefault();
     const changes = {};
@@ -86,7 +93,10 @@ async function saveGame(event) {
     $('gameSave').disabled = true;
     try {
         fillGame(await api.put(`/api/servers/${server.id}/properties`, changes));
-        toast(stopped() ? 'Saved. They apply when the server starts.' : 'Saved. Restart the server to apply them.');
+        // PvP as a game rule took effect already; everything else waits for the server's next start.
+        const forNextStart = Object.keys(changes).some((key) => key !== 'pvp' || !pvpIsGameRule());
+        if (!forNextStart) toast('Saved.');
+        else toast(stopped() ? 'Saved. They apply when the server starts.' : 'Saved. Restart the server to apply them.');
     } catch { /* api.js showed why */ }
     $('gameSave').disabled = false;
 }
