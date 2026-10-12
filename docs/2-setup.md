@@ -127,7 +127,7 @@ published: RCON stays on the private `mcpanel` Docker network, and there are no 
 chat, Bedrock or query.
 
 If something outside Docker already holds a port in the range, Docker refuses it and the panel says
-so when you create the server.
+so when you start the server that was given it. Free that port, or leave it out of the range.
 
 ## Updating
 

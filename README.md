@@ -19,7 +19,7 @@ when the panel restarts.
 
 Create a server, start and stop it, use its console, manage its players, files, mods, backups and
 settings, and hand it to the people who should run it. Every account signs in with a password and a
-TOTP code, because the panel is meant to be on the internet.
+TOTP code (unless you switch that off), because the panel is meant to be on the internet.
 
 ## Quick start
 
@@ -35,12 +35,13 @@ Put the settings in `docker/.env`:
 
 ```bash
 MCPANEL_PUBLIC_HOST=mc.example.com
+MCPANEL_PANEL_HOST=panel.example.com
 MCPANEL_PORT_RANGE=25565-25600
 MCPANEL_DATA_DIR=/srv/mcpanel
 ```
 
-That is the name players type, the game ports the panel may give out (one per server), and an
-absolute path on the host for its data.
+That is the name players type, the panel's own name (the one in your Caddy file), the game ports
+the panel may give out (one per server), and an absolute path on the host for its data.
 
 Then start it:
 
