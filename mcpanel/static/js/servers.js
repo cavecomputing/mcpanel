@@ -210,7 +210,8 @@ function drawStats(server, data) {
     const usage = data?.usage;
     setHtml($('statPlayers'), data?.players == null ? '–' : `${esc(data.players)} <small>/ ${esc(data.max_players)}</small>`);
     setHtml($('statMemory'), usage ? `${gb(usage.memory)} <small>/ ${+gb(usage.memory_limit)} GB</small>` : '–');
-    setHtml($('statCpu'), usage ? `${esc(usage.cpu)}<small>% of a core</small>` : '–');
+    // In cores, like the CPU limit an admin sets: "1.5 of 2 cores", or "0.4 cores" with no limit.
+    setHtml($('statCpu'), usage ? `${(usage.cpu / 100).toFixed(1)} <small>${server.cpus ? `of ${plural(server.cpus, 'core')}` : 'cores'}</small>` : '–');
 }
 
 /** Stop and Restart disconnect whoever is on, so they ask first while someone is. */
