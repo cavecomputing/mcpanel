@@ -16,6 +16,15 @@ export function showBackups(fresh) {
 
 export function updateBackups(fresh) {
     server = fresh;
+    drawRestore();
+}
+
+/** Restore works only while the server is stopped: say so on its buttons otherwise. */
+function drawRestore() {
+    for (const button of $('backupRows').querySelectorAll('[data-restore]')) {
+        button.disabled = !stopped();
+        button.title = stopped() ? 'Restore' : 'Stop the server to restore a backup';
+    }
 }
 
 async function load() {
@@ -34,10 +43,11 @@ async function load() {
             <td class="muted hide-phone">${esc(formatDate(backup.created))}</td>
             <td class="act">
                 <a class="cc-icon-btn" href="${esc(url(backup.name))}" download title="Download" aria-label="Download ${esc(backup.name)}"><svg><use href="#i-download"/></svg></a>
-                <button class="cc-icon-btn" type="button" data-restore title="Restore" aria-label="Restore ${esc(backup.name)}"><svg><use href="#i-restart"/></svg></button>
+                <button class="cc-icon-btn" type="button" data-restore title="Restore" aria-label="Restore ${esc(backup.name)}"><svg><use href="#i-restore"/></svg></button>
                 <button class="cc-icon-btn danger" type="button" data-delete title="Delete" aria-label="Delete ${esc(backup.name)}"><svg><use href="#i-trash"/></svg></button>
             </td>
         </tr>`).join('') || '<tr class="empty-row"><td colspan="4">No backups yet.</td></tr>';
+    drawRestore();
 }
 
 async function backUp() {
@@ -58,9 +68,14 @@ async function restore(name) {
         showError('Stop the server before restoring a backup');
         return;
     }
-    const done = await ask({ title: 'Restore this backup?', iconName: 'archive', ok: 'Restore', danger: true,
-        text: `Everything in ${server.name}'s folder is replaced by ${name}. Anything since then is lost, unless you back up first.`,
-        action: () => api.post(`${url(name)}/restore`) });
+    const done = await ask({ title: 'Restore this backup?', iconName: 'restore', ok: 'Restore', danger: true,
+        text: `Everything in ${server.name}'s folder is replaced by ${name}.`,
+        check: 'Back up the folder as it is now first',
+        action: async (yes, backUpFirst) => {
+            if (backUpFirst) await api.post(url());
+            await api.post(`${url(name)}/restore`);
+        } });
+    load(); // with the backup made first, even when the restore then failed
     if (done) toast(`Restored <b>${esc(name)}</b>`);
 }
 

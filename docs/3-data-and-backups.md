@@ -37,7 +37,8 @@ Backups tab. There is no schedule, and backups are kept until someone deletes th
 - **Making one** works whether the server runs or not. A running server is told to save the world and
   stop writing it (`save-off`) until the backup is done, then to carry on.
 - **Restoring** needs the server stopped. The backup is unpacked beside the folder and then swapped
-  in, and the folder it replaces is deleted, so back up first if you might want it.
+  in, and the folder it replaces is deleted. So the question before it has a box, ticked to start
+  with, that backs up the folder as it is first.
 - **Downloading** gives you the file as it is.
 - One backup or restore runs at a time per server.
 - A server's backups are deleted with the server.
