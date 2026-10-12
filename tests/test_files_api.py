@@ -1,5 +1,8 @@
+import io
 import json
 import os
+import stat
+import zipfile
 
 import pytest
 
@@ -170,3 +173,65 @@ def test_changes_are_audited(admin, folder, data_dir):
     lines = [json.loads(line) for line in (data_dir / 'logs' / 'audit.log').read_text().splitlines()]
     assert [(line['event'], line.get('path')) for line in lines if line['event'].startswith(('file', 'folder'))] == [
         ('file_written', 'a.txt'), ('folder_created', 'mods'), ('file_renamed', 'a.txt'), ('file_deleted', 'mods')]
+
+
+def zip_bytes(*members):
+    """A .zip's bytes holding (name, data) members, data None for a folder."""
+    out = io.BytesIO()
+    with zipfile.ZipFile(out, 'w') as archive:
+        for name, data in members:
+            if data is None:
+                archive.mkdir(name)
+            else:
+                archive.writestr(name, data)
+    return out.getvalue()
+
+
+def extract(client, path):
+    return client.post('/api/servers/survival/files/extract', json={'path': path})
+
+
+def test_a_zip_unpacks_into_its_folder(admin, folder, docker):
+    (folder / 'world' / 'pack.zip').write_bytes(zip_bytes(
+        ('mods/', None), ('mods/a.jar', b'a'), ('config/deep/b.toml', b'b=1'), ('level.dat', b'new'), ('empty/', None)))
+    response = extract(admin, 'world/pack.zip')
+    assert response.status_code == 200 and response.get_json() == {'files': 3}
+    world = folder / 'world'
+    assert (world / 'mods' / 'a.jar').read_bytes() == b'a' and (world / 'config' / 'deep' / 'b.toml').read_text() == 'b=1'
+    assert (world / 'level.dat').read_bytes() == b'new' and (world / 'empty').is_dir()  # replaced, and made
+
+    # At the top, the .rcon-cli files are skipped and server.properties keeps the server's password.
+    (folder / 'other.zip').write_bytes(zip_bytes(
+        ('.rcon-cli.env', b'password=theirs'), ('server.properties', b'motd=Moved\nrcon.password=theirs\n')))
+    assert extract(admin, 'other.zip').get_json() == {'files': 1}
+    assert (folder / '.rcon-cli.env').read_text() == 'password=hunter2hunter2'
+    assert (folder / 'server.properties').read_text() == f'motd=Moved\nrcon.password={rcon_password(docker)}\n'
+
+
+def test_a_zip_never_reaches_out_of_the_folder(admin, folder, tmp_path):
+    outside = tmp_path / 'outside'
+    outside.mkdir()
+    os.symlink(outside, folder / 'escape')
+    (folder / 'up.zip').write_bytes(zip_bytes(('../up.txt', b'x')))
+    (folder / 'link.zip').write_bytes(zip_bytes(('escape/f', b'x')))
+    assert extract(admin, 'up.zip').status_code == 400
+    assert extract(admin, 'link.zip').status_code == 400
+    assert not (folder.parent / 'up.txt').exists() and not os.listdir(outside)
+    # A link stored in the zip isn't made, as a link or as a file.
+    archive = io.BytesIO()
+    with zipfile.ZipFile(archive, 'w') as out:
+        info = zipfile.ZipInfo('passwd')
+        info.external_attr = (stat.S_IFLNK | 0o777) << 16
+        out.writestr(info, '/etc/passwd')
+    (folder / 'links.zip').write_bytes(archive.getvalue())
+    assert extract(admin, 'links.zip').get_json() == {'files': 0} and not os.path.lexists(folder / 'passwd')
+
+
+def test_only_a_zip_that_isnt_too_big_unpacks(admin, folder, monkeypatch):
+    (folder / 'notes.zip').write_text('not a zip')
+    assert extract(admin, 'notes.zip').status_code == 400
+    assert extract(admin, 'ops.json').status_code == 400
+    assert extract(admin, 'missing.zip').status_code == 404
+    monkeypatch.setattr(files, 'MAX_EXTRACT', 4)
+    (folder / 'big.zip').write_bytes(zip_bytes(('a', b'123'), ('b', b'45')))
+    assert extract(admin, 'big.zip').status_code == 413 and not (folder / 'a').exists()

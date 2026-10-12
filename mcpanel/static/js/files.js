@@ -1,11 +1,11 @@
 /**
  * The Files tab: a server's folder, one level at a time, with the path as crumbs; new folders and
- * files, uploads (the button, or files dropped on the tab) with their progress, downloads, rename
- * and delete; and an editor for text files.
+ * files, uploads (the button, or files dropped on the tab) with their progress, downloads, a .zip
+ * extracted where it is, rename and delete; and an editor for text files.
  */
 import * as api from './api.js';
 import { serverHash } from './state.js';
-import { $, ask, esc, formatDate, showError, toast } from './ui.js';
+import { $, ask, esc, formatDate, plural, showError, toast } from './ui.js';
 
 const MAX_EDIT = 1024 * 1024; // what the server opens in the editor; bigger files are downloaded
 let serverId = '';
@@ -78,6 +78,7 @@ async function load() {
             <td class="num muted">${entry.size === null ? '' : esc(formatSize(entry.size))}</td>
             <td class="muted hide-phone">${esc(formatDate(entry.modified))}</td>
             <td class="act">
+                ${entry.type === 'file' && /\.zip$/i.test(entry.name) ? `<button class="cc-icon-btn" type="button" data-extract title="Extract here" aria-label="Extract ${esc(entry.name)}"><svg><use href="#i-archive"/></svg></button>` : ''}
                 ${entry.type === 'file' ? `<a class="cc-icon-btn" href="${esc(url('/download', join(path, entry.name)))}" download title="Download" aria-label="Download ${esc(entry.name)}"><svg><use href="#i-download"/></svg></a>` : ''}
                 <button class="cc-icon-btn" type="button" data-rename title="Rename or move" aria-label="Rename ${esc(entry.name)}"><svg><use href="#i-edit"/></svg></button>
                 <button class="cc-icon-btn danger" type="button" data-delete title="Delete" aria-label="Delete ${esc(entry.name)}"><svg><use href="#i-trash"/></svg></button>
@@ -213,9 +214,20 @@ function initDrop() {
         event.preventDefault();
         dropping(false);
         const items = [...event.dataTransfer.items].map((item) => [item.webkitGetAsEntry(), item.getAsFile()]);
-        if (items.some(([entry]) => entry?.isDirectory)) showError("Folders can't be dropped here; upload a .zip of it and extract it");
+        if (items.some(([entry]) => entry?.isDirectory)) showError("Folders can't be dropped here; upload a .zip of it, then extract it");
         uploadFiles(items.filter(([entry, file]) => file && !entry?.isDirectory).map(([, file]) => file));
     });
+}
+
+/** Unpack a .zip into the folder it is in, after saying what it replaces. */
+async function extract(name) {
+    let count;
+    const done = await ask({ title: `Extract ${name}?`, iconName: 'archive', ok: 'Extract',
+        text: `What's in it goes into ${path || 'the server folder'}, replacing any files there with the same names. A big one takes a while.`,
+        action: async () => { ({ files: count } = await api.post(`/api/servers/${serverId}/files/extract`, { path: join(path, name) })); } });
+    if (!done) return;
+    toast(`Extracted ${plural(count, 'file')} from <b>${esc(name)}</b>`);
+    load();
 }
 
 async function rename(name) {
@@ -248,7 +260,8 @@ export function initFiles() {
         if (event.target.closest('[data-open]')) {
             if (type === 'dir') openFolder(join(path, name));
             else openFile(name, entries.find((entry) => entry.name === name)?.size ?? 0);
-        } else if (event.target.closest('[data-rename]')) rename(name);
+        } else if (event.target.closest('[data-extract]')) extract(name);
+        else if (event.target.closest('[data-rename]')) rename(name);
         else if (event.target.closest('[data-delete]')) remove(name, type);
     });
     $('newFolderBtn').addEventListener('click', newFolder);

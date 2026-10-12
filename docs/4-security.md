@@ -64,6 +64,8 @@ A server's own code is treated as untrusted: a plugin can write anything into it
   so nothing in the folder leads out of it.
 - Downloads are always attachments, so an HTML file in a server's folder can't run as the panel.
 - Uploads and saves are capped at 1 GB, the editor at 1 MB.
+- Extracting a `.zip` writes each file the same way, so a name with `..` or a folder that is a link
+  is refused, links stored in the zip are skipped, and it can unpack to at most 10 GB.
 - The RCON password is kept out of downloads and backups, as
   [Data and backups](3-data-and-backups.md#backups) describes.
 

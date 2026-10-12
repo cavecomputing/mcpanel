@@ -16,6 +16,7 @@ import re
 import secrets
 import shutil
 import stat
+import zipfile
 from contextlib import contextmanager, suppress
 
 from flask import abort
@@ -29,6 +30,7 @@ RCON_PASSWORD = re.compile(r'^(rcon\.password\s*[=:]).*$', re.MULTILINE)
 MASK = '(hidden by mcpanel)'
 MAX_EDIT = 1024 ** 2         # bytes the editor opens; bigger files are downloaded instead
 MAX_UPLOAD = 1024 ** 3       # bytes in one upload or save
+MAX_EXTRACT = 10 * 1024 ** 3  # bytes a .zip may unpack to, so a small zip can't fill the disk
 CHUNK = 1024 ** 2
 
 
@@ -205,6 +207,66 @@ def restore_password(dir_fd, temp, password):
         file.seek(0)
         file.truncate()
         file.write(text.encode())
+
+
+def extract(server_id, path, rcon_password=''):
+    """Unpack a .zip into the folder it is in, replacing files of the same names, and say how many
+    files it held. Each file goes through write(), so through no link and in full or not at all,
+    and a folder in the way is made as make_folders() makes it. Its own links and the .rcon-cli
+    files are skipped, and a server.properties in it keeps the server's RCON password."""
+    parts, name = split(path)
+    if not name.lower().endswith('.zip'):
+        abort(400, 'Only .zip files can be extracted')
+    with file_errors(), opened_dir(server_id, parts) as fd, open_file(fd, name) as file:
+        try:
+            archive = zipfile.ZipFile(file)
+        except zipfile.BadZipFile:
+            abort(400, "That isn't a zip file the panel can read")
+        with archive:
+            members = archive.infolist()
+            if sum(member.file_size for member in members) > MAX_EXTRACT:
+                abort(413, f'That zip unpacks to more than {MAX_EXTRACT // 1024 ** 3} GB')
+            count = 0
+            for member in members:
+                inner = [part for part in member.filename.replace('\\', '/').split('/') if part]
+                if any(part in ('.', '..') or '\0' in part for part in inner):
+                    abort(400, f'The zip has a path that leads out of its folder: {member.filename}')
+                target = parts + inner
+                if not inner or target[0] in HIDDEN or stat.S_ISLNK(member.external_attr >> 16):
+                    continue
+                if member.is_dir():
+                    make_folders(server_id, target)
+                    continue
+                make_folders(server_id, target[:-1])
+                try:
+                    with archive.open(member) as data:
+                        chunks = iter(lambda: data.read(CHUNK), b'')
+                        if is_properties(target[:-1], target[-1]):  # its own password masked, then the real one put back
+                            chunks = [masked_properties(b''.join(chunks))]
+                        write(server_id, '/'.join(target), chunks, rcon_password)
+                except NotImplementedError:
+                    abort(400, f"The zip packs {member.filename} in a way the panel can't unpack")
+                except RuntimeError:  # encrypted
+                    abort(400, "That zip has a password; unpack it elsewhere and upload what's in it")
+                except zipfile.BadZipFile:
+                    abort(400, f'The zip is damaged at {member.filename}')
+                count += 1
+    return count
+
+
+def make_folders(server_id, parts):
+    """Make the folders parts names, each step only where nothing is yet, never through a link."""
+    with file_errors():
+        fd = os.open(config.SERVERS_DIR / server_id, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        try:
+            for part in parts:
+                with suppress(FileExistsError):
+                    os.mkdir(part, 0o755, dir_fd=fd)
+                inner = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
+                os.close(fd)
+                fd = inner
+        finally:
+            os.close(fd)
 
 
 def make_folder(server_id, path):

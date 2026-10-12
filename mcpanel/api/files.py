@@ -1,5 +1,5 @@
-"""A server's files, for anyone who may use the server: list, open, save, upload, download, new
-folder, rename, delete. files.py keeps every path inside the server's folder."""
+"""A server's files, for anyone who may use the server: list, open, save, upload, download, extract
+a .zip, new folder, rename, delete. files.py keeps every path inside the server's folder."""
 from flask import Blueprint, abort, request, send_file
 
 from .. import files, logs, servers
@@ -50,6 +50,16 @@ def download(server_id):
     response = send_file(file, mimetype='application/octet-stream', as_attachment=True, download_name=name)
     response.headers['X-Content-Type-Options'] = 'nosniff'
     return response
+
+
+@bp.post('/extract')
+def extract(server_id):
+    """{path} of a .zip, unpacked into the folder it is in -> {files: how many it held}."""
+    server = usable_server(server_id)
+    path = json_body().get('path')
+    count = files.extract(server_id, path, servers.rcon_password(server_id))
+    audit('zip_extracted', server, path=path, files=count)
+    return {'files': count}
 
 
 @bp.post('/folder')

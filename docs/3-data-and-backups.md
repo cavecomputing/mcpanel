@@ -23,9 +23,11 @@ have every world and every account.
 
 ## Mods and plugins
 
-Upload them on a server's Files tab, into `mods/` or `plugins/`. Or put them in
-`servers/<server id>/mods/` or `plugins/` yourself, owned by `PUID`:`PGID`. A new server is created
-stopped, so they can go in before its first start.
+Upload them on a server's Files tab, into `mods/` or `plugins/`. A modpack or a world from elsewhere
+can go up as one `.zip`: upload it, then press its Extract button, and what's in it lands in the
+folder the zip is in, replacing files of the same names. Or put them in `servers/<server id>/mods/`
+or `plugins/` yourself, owned by `PUID`:`PGID`. A new server is created stopped, so they can go in
+before its first start.
 
 ## Backups
 
