@@ -92,7 +92,9 @@ since they disconnect them. Below it:
 - **Console**: the server's output as it runs, and a box for commands, which go to the server over
   RCON, with or without the leading `/`.
 - **Players**: who is online, and the whitelist, operators and bans, each a click to change (Kick
-  and Ban ask first). Changes are console commands, so the server has to be running.
+  and Ban ask first). While it runs, changes are console commands. While it's stopped, the panel
+  writes them into the server's own list files, so the whitelist can be set before the first start;
+  it looks each player's account up with Mojang, unless online mode is off.
 - **Files**: the server's folder. Browse it, open and edit text files up to 1 MB (such as
   `server.properties`), upload files up to 1 GB (mods, plugins, a world) with the button or by
   dropping them on the list, extract a `.zip` where it is, download, make folders, rename and

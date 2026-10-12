@@ -73,3 +73,7 @@ A server's own code is treated as untrusted: a plugin can write anything into it
 
 The game ports are open to the internet. Keep the machine on its own VLAN, away from the rest of your
 network, and publish the panel's own port only where Caddy can reach it.
+
+The panel itself calls out to one place: Mojang's API (`api.mojang.com`), to look up a player's
+account when someone changes a stopped server's whitelist, operators or bans. It sends only the
+player name typed.

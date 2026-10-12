@@ -1,6 +1,7 @@
 /**
- * The Players tab: who is online, the whitelist, operators and bans. Every change is a console
- * command (whitelist add, op, ban, pardon...), so the server makes it and keeps its own lists.
+ * The Players tab: who is online, the whitelist, operators and bans. While the server runs, every
+ * change is a console command (whitelist add, op, ban, pardon...), so the server makes it and keeps
+ * its own lists; while it's stopped, the panel writes the change into the list's file.
  */
 import * as api from './api.js';
 import { $, ask, esc, showError, toast } from './ui.js';
@@ -59,10 +60,9 @@ function draw() {
     const { add, extra, actions } = LISTS[list];
     $('addPlayerForm').hidden = !add;
     if (add) $('addPlayerBtn').lastElementChild.textContent = add[0];
-    for (const control of $('addPlayerForm').elements) control.disabled = !running();
     $('playersExtra').textContent = extra;
     $('playersNote').hidden = running();
-    $('playersNote').textContent = 'The server is stopped: these are its saved lists. Start it to change them.';
+    $('playersNote').textContent = 'The server is stopped: changes go into its saved lists, which it reads when it starts.';
 
     const rows = players?.[list];
     let html;
@@ -73,7 +73,7 @@ function draw() {
         html = rows.map((row) => {
             const name = row.name ?? row;
             const buttons = actions.filter(([, command]) => !(command === 'op' && players.ops.includes(name)))
-                .map(([label, command, look]) => `<button class="cc-btn cc-btn--${look} cc-btn--sm" type="button" data-command="${esc(command)}"${running() ? '' : ' disabled'}><span>${label}</span></button>`).join('');
+                .map(([label, command, look]) => `<button class="cc-btn cc-btn--${look} cc-btn--sm" type="button" data-command="${esc(command)}"><span>${label}</span></button>`).join('');
             return `<tr data-name="${esc(name)}"><td class="mono">${esc(name)}${list === 'online' && players.ops.includes(name) ? ' <span class="cc-tag">op</span>' : ''}</td>
                 <td class="muted">${esc(row.reason ?? '')}</td><td class="act">${buttons}</td></tr>`;
         }).join('');
@@ -83,7 +83,9 @@ function draw() {
 
 async function run(command, name) {
     try {
-        const { response } = await api.post(`/api/servers/${server.id}/console`, { command: `${command} ${name}` });
+        const { response } = running()
+            ? await api.post(`/api/servers/${server.id}/console`, { command: `${command} ${name}` })
+            : await api.post(`/api/servers/${server.id}/players`, { command, name });
         toast(esc(response || `Done: ${command} ${name}`));
     } catch {
         return;
