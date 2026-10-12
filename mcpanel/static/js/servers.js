@@ -132,7 +132,15 @@ function showTab(server) {
         return;
     }
     shownTab = `${server.id}/${tab}`;
+    $('serverTabs').querySelector('[aria-current]').scrollIntoView({ block: 'nearest', inline: 'center' });
     view.show?.(server);
+}
+
+/** On a narrow screen the tabs scroll sideways: fade the side that has more of them. */
+function markMoreTabs() {
+    const tabs = $('serverTabs');
+    tabs.toggleAttribute('data-more-before', tabs.scrollLeft > 1);
+    tabs.toggleAttribute('data-more-after', tabs.scrollLeft + tabs.clientWidth < tabs.scrollWidth - 1);
 }
 
 /** The server view's header and Overview, changing only what changed, so a poll keeps focus and selection. */
@@ -322,6 +330,8 @@ export function initServers() {
         const action = event.target.closest('[data-action]')?.dataset.action;
         if (action) runAction(action);
     });
+    $('serverTabs').addEventListener('scroll', markMoreTabs, { passive: true });
+    new ResizeObserver(markMoreTabs).observe($('serverTabs')); // also when the server view first shows
     $('copyAddress').addEventListener('click', () => copyText(serverWithId(route().id)?.address ?? '', 'the address'));
 
     if (state.admin) {

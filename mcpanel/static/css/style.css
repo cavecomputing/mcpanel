@@ -223,6 +223,10 @@ svg.i { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-widt
 /* ---------- a server's tabs: Overview, Files... under its header, each its own scrolling page ---------- */
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .tabs { flex: none; display: flex; gap: 2px; padding: 0 var(--app-space-6); border-bottom: 1px solid var(--border); overflow-x: auto; }
+/* A mask, so only its opacity counts: the tabs fade out on a side that scrolls to more of them. */
+.tabs[data-more-after] { mask-image: linear-gradient(to right, black calc(100% - 48px), transparent); }
+.tabs[data-more-before] { mask-image: linear-gradient(to left, black calc(100% - 48px), transparent); }
+.tabs[data-more-before][data-more-after] { mask-image: linear-gradient(to right, transparent, black 48px, black calc(100% - 48px), transparent); }
 .tab { position: relative; display: flex; align-items: center; gap: var(--app-space-3); padding: 10px 12px; color: var(--fg-muted); font-family: var(--font-mono); font-size: 13px; text-decoration: none; white-space: nowrap; }
 .tab:hover { color: var(--fg); }
 .tab[aria-current] { color: var(--accent-text); }
