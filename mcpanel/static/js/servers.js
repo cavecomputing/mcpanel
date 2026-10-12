@@ -157,7 +157,7 @@ function drawServer(server) {
         ['Version', esc(versionName(server.version))],
         ['Java', esc(javaName(server.java))],
         ['Memory', `${esc(server.memory_gb)} GB`],
-        ['CPU', server.cpus ? `${esc(server.cpus)} ${server.cpus === 1 ? 'core' : 'cores'}` : 'No limit'],
+        ['CPU', server.cpus ? plural(server.cpus, 'core') : 'No limit'],
         ['Created', esc(formatDate(server.created))],
     ].map(([term, value]) => `<dt>${term}</dt><dd>${value}</dd>`).join(''));
 }
@@ -229,7 +229,7 @@ export async function drawHost(note, cpusInput, exceptId = null) {
     const unlimited = others.length - limited.length;
     const memory = !others.length ? 'none given to a server yet'
         : `${gb(given)} given to ${servers(others.length)}, ${left >= 0 ? `<b>${gb(left)} left</b>` : `<b class="over">${gb(-left)} more than it has</b>`}`;
-    const cpu = [limited.length && `${servers(limited.length)} limited to ${cores} ${cores === 1 ? 'core' : 'cores'}${limited.length > 1 ? ' in all' : ''}`,
+    const cpu = [limited.length && `${servers(limited.length)} limited to ${plural(cores, 'core')}${limited.length > 1 ? ' in all' : ''}`,
         unlimited && `${servers(unlimited)} with no limit`].filter(Boolean).join(', ');
     cpusInput.max = host.cpus;
     note.hidden = false;
