@@ -412,8 +412,8 @@ def test_docker_unreachable_is_a_503_everywhere(docker, data_dir):
     assert servers.docker_reachable()
 
 
-def test_the_real_client_without_a_socket_is_a_503(monkeypatch, tmp_path):
-    monkeypatch.setenv('DOCKER_HOST', f'unix://{tmp_path}/docker.sock')
+def test_the_real_client_without_a_socket_is_a_503(monkeypatch):
+    monkeypatch.setenv('DOCKER_HOST', 'unix:///nonexistent/docker.sock')  # tmp_path is too long for a socket on macOS
     monkeypatch.setattr(servers, 'docker_client', REAL_DOCKER_CLIENT)
     assert refused(servers.list_servers) == UNREACHABLE
     assert not servers.docker_reachable()
