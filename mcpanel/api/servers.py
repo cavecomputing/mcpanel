@@ -1,5 +1,5 @@
-"""Servers: list, create, change, delete, start, stop, restart. Members see and run only the servers
-an admin gave them, and change everything on them but their memory and CPU."""
+"""Servers: list, create, change, delete, start, stop, restart, stats and game settings. Members see
+and run only the servers an admin gave them, and change their game settings but not the servers."""
 from flask import Blueprint, abort, g
 
 from .. import accounts, auth, logs, players, properties, servers

@@ -17,7 +17,7 @@ from flask import abort
 
 from .db import get_db
 
-ROLES = ('platform_admin', 'admin', 'member')  # the platform admin is an admin who also manages users
+ROLES = ('platform_admin', 'admin', 'member')  # the platform admin is an admin who also manages admins
 USERNAME = re.compile(r'[a-z0-9._-]{1,32}')
 MIN_PASSWORD = 8
 REMEMBER_FOR = 30 * 24 * 3600  # "Keep this device signed in"
