@@ -24,14 +24,17 @@ PASSWORD = 'correct horse battery staple'
 
 @pytest.fixture
 def data_dir(tmp_path, monkeypatch):
-    """Point every path in mcpanel.config at a fresh temporary data directory."""
+    """Point every path in mcpanel.config at a fresh temporary data directory, and every setting at
+    the defaults the tests expect, whatever the shell running them has set."""
     monkeypatch.setattr(config, 'DATA_DIR', tmp_path)
     monkeypatch.setattr(config, 'DATABASE', tmp_path / 'mcpanel.db')
     monkeypatch.setattr(config, 'LOGS_DIR', tmp_path / 'logs')
     monkeypatch.setattr(config, 'SERVERS_DIR', tmp_path / 'servers')
     monkeypatch.setattr(config, 'BACKUPS_DIR', tmp_path / 'backups')
     monkeypatch.setattr(config, 'PUBLIC_HOST', 'mc.example.com')
+    monkeypatch.setattr(config, 'PANEL_HOST', '')
     monkeypatch.setattr(config, 'PORT_RANGE', '25565-25570')
+    monkeypatch.setattr(config, 'MFA_ENFORCEMENT', 'on')
     return tmp_path
 
 
