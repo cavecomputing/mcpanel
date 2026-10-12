@@ -6,6 +6,10 @@ account can start containers on the machine.
 ## Signing in
 
 - Every page and API route needs a session, except the sign-in pages, `/healthz` and static files.
+- With `MCPANEL_PANEL_HOST` set, the panel answers only to that name: a request for the machine's IP
+  address or any other name pointed at it gets a 400 instead of a sign-in page, so scanners that find
+  the address don't find the panel. Only `/healthz` answers on any name. Leave it unset and the panel
+  answers to every name and logs a warning on every start (see [Setup](2-setup.md#settings)).
 - Every account has a password (at least 8 characters, stored as an argon2id hash) and TOTP
   two-factor sign-in. A code already used is refused. Each account gets 10 single-use recovery codes.
 - `MCPANEL_MFA_ENFORCEMENT=off` switches two-factor sign-in off: a password alone signs in, so the

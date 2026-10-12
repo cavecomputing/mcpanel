@@ -17,6 +17,10 @@ BACKUPS_DIR = DATA_DIR / 'backups'
 # The name players type to reach a server, e.g. mc.example.com. create_app() refuses to start without it.
 PUBLIC_HOST = os.getenv('MCPANEL_PUBLIC_HOST', '').strip()
 
+# The name the panel's own pages answer to, e.g. panel.example.com; requests for any other name (the
+# machine's address, say) are refused. Empty answers to every name, with a warning on start.
+PANEL_HOST = os.getenv('MCPANEL_PANEL_HOST', '').strip().lower()
+
 # The host ports the panel may publish, one per server, e.g. "25565-25600". The router forwards the same range.
 PORT_RANGE = os.getenv('MCPANEL_PORT_RANGE', '').strip()
 
@@ -34,6 +38,13 @@ def port_range():
     if not 1024 <= first <= last <= 65535:
         raise ValueError(f'MCPANEL_PORT_RANGE must be two ports from 1024 to 65535, lowest first, not "{PORT_RANGE}"')
     return first, last
+
+
+def panel_host():
+    """PANEL_HOST, or a ValueError when it is a URL rather than a name, which would refuse every request."""
+    if '/' in PANEL_HOST:
+        raise ValueError(f'MCPANEL_PANEL_HOST must be a name like panel.example.com, not "{PANEL_HOST}"')
+    return PANEL_HOST
 
 
 def mfa_enforced():
