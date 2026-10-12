@@ -9,8 +9,22 @@
         <ul class="recovery-codes">
             {% for code in codes %}<li>{{ code }}</li>{% endfor %}
         </ul>
+        <button class="cc-btn cc-btn--ghost cc-btn--block" type="button" id="copyCodes"><span>Copy the codes</span></button>
         <a class="cc-btn cc-btn--primary cc-btn--block" href="{{ next }}"><span>Continue to mcpanel</span></a>
     </div>
+    {# The page has no toast, so the button says how copying went. Browsers copy only over HTTPS and on localhost. #}
+    <script type="module">
+        const button = document.getElementById('copyCodes');
+        button.addEventListener('click', async () => {
+            const codes = [...document.querySelectorAll('.recovery-codes li')].map((item) => item.textContent).join('\n');
+            try {
+                await navigator.clipboard.writeText(codes);
+                button.firstElementChild.textContent = 'Copied';
+            } catch {
+                button.firstElementChild.textContent = "Your browser wouldn't copy them; select them instead";
+            }
+        });
+    </script>
     {% else %}
     <form class="cc-settings-card cc-signin__card" method="post" action="{{ url_for('auth.login_setup') }}">
         <span class="cc-brand"><svg class="logo" aria-hidden="true"><use href="#i-cube"/></svg><span class="cc-wordmark">mcpanel</span></span>
