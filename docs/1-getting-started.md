@@ -88,7 +88,7 @@ Start, Stop and Restart sit in the server's header; Stop and Restart ask first w
 since they disconnect them. Below it:
 
 - **Overview**: its state, address, type and version, and while it runs the players online, memory
-  and CPU.
+  and CPU. When it has crashed or isn't answering, the last lines it wrote, to say why.
 - **Console**: the server's output as it runs, and a box for commands, which go to the server over
   RCON, with or without the leading `/`.
 - **Players**: who is online, and the whitelist, operators and bans, each a click to change (Kick

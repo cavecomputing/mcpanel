@@ -110,6 +110,10 @@
                         <div class="cc-settings-card stat"><div class="stat__label">Memory</div><div class="stat__value" id="statMemory">–</div></div>
                         <div class="cc-settings-card stat"><div class="stat__label">CPU</div><div class="stat__value" id="statCpu">–</div></div>
                     </div>
+                    <section class="cc-settings-card danger-card" id="troubleCard" aria-labelledby="troubleTitle" hidden>
+                        <div class="cc-card-header"><svg><use href="#i-alert"/></svg><h4 id="troubleTitle"></h4><p>The last lines it wrote. The <a id="troubleConsole">Console</a> has the rest.</p></div>
+                        <pre class="log trouble-log" id="troubleLog" tabindex="0" aria-label="The server's last lines"></pre>
+                    </section>
                     <section class="cc-settings-card" aria-labelledby="overviewTitle">
                         <div class="cc-card-header"><svg><use href="#i-chip"/></svg><h4 id="overviewTitle">Overview</h4></div>
                         <dl class="kv" id="serverDetails"></dl>

@@ -23,6 +23,8 @@ let shownTab = '';  // '<server id>/<tab>' last opened, so a poll redraws a tab 
 // tab -> what it does when it opens (show) and when a poll brings the server's fresh dict (update).
 const TAB_VIEWS = { overview: { show: loadStats, update: loadStats } };
 let stats = null;   // the Overview's stats call while it runs
+let troubleFor = ''; // '<server id>/<status>' whose last lines the Overview shows, while it is crashed or not responding
+const TROUBLE_LINES = 15;
 
 /** Give a tab its view: main.js does, so the tabs' modules can use this one. */
 export function addTab(tab, view) {
@@ -172,6 +174,7 @@ function drawServer(server) {
 
 /** The Overview's players, memory and CPU, fetched on opening it and on each poll: a dash while it can't say. */
 function loadStats(server) {
+    loadTrouble(server);
     if (['stopped', 'crashed'].includes(server.status)) {
         drawStats(server, null);
         return;
@@ -180,6 +183,26 @@ function loadStats(server) {
         .then((data) => route().id === server.id && drawStats(server, data))
         .catch(() => {})
         .finally(() => { stats = null; });
+}
+
+/** A crashed or unresponsive server's last lines on the Overview, fetched once each time it gets that way. */
+function loadTrouble(server) {
+    const key = `${server.id}/${server.status}`;
+    if (!['crashed', 'unresponsive'].includes(server.status)) {
+        troubleFor = '';
+        $('troubleCard').hidden = true;
+        return;
+    }
+    if (troubleFor === key) return;
+    troubleFor = key;
+    $('troubleCard').hidden = true;
+    $('troubleTitle').textContent = server.status === 'crashed' ? 'It stopped with an error' : "It isn't answering";
+    $('troubleConsole').href = serverHash(server.id, 'console');
+    api.get(`/api/servers/${server.id}/console`, { quiet: true }).then(({ lines }) => {
+        if (troubleFor !== key) return;
+        $('troubleLog').textContent = lines.slice(-TROUBLE_LINES).join('\n') || 'It wrote nothing.';
+        $('troubleCard').hidden = false;
+    }).catch(() => {});
 }
 
 function drawStats(server, data) {

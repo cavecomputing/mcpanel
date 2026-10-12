@@ -259,6 +259,8 @@ button.fname:hover { color: var(--accent-text); }
 .fname--dir .i { color: var(--accent-alt); }
 .console-page { overflow: hidden; gap: var(--app-space-4); }
 .log { flex: 1; min-height: 0; overflow-y: auto; margin: 0; padding: var(--app-space-4) var(--app-space-5); background: var(--bg-page); border: 1px solid var(--border); border-radius: var(--radius); font: 12.5px/1.6 var(--font-mono); white-space: pre-wrap; word-break: break-word; color: var(--fg); }
+.trouble-log { flex: none; }
+.danger-card a { color: var(--accent-cool); }
 .log .warn { color: var(--accent-warm); }
 .log .join { color: var(--accent-text); }
 .log .chat { color: var(--accent-aqua-text); }
