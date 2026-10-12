@@ -226,11 +226,12 @@ def extract(server_id, path, rcon_password=''):
             members = archive.infolist()
             if sum(member.file_size for member in members) > MAX_EXTRACT:
                 abort(413, f'That zip unpacks to more than {MAX_EXTRACT // 1024 ** 3} GB')
-            count = 0
-            for member in members:
-                inner = [part for part in member.filename.replace('\\', '/').split('/') if part]
+            inners = [[part for part in member.filename.replace('\\', '/').split('/') if part] for member in members]
+            for member, inner in zip(members, inners):  # all checked before any is written
                 if any(part in ('.', '..') or '\0' in part for part in inner):
                     abort(400, f'The zip has a path that leads out of its folder: {member.filename}')
+            count = 0
+            for member, inner in zip(members, inners):
                 target = parts + inner
                 if not inner or target[0] in HIDDEN or stat.S_ISLNK(member.external_attr >> 16):
                     continue

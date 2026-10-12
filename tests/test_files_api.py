@@ -212,11 +212,12 @@ def test_a_zip_never_reaches_out_of_the_folder(admin, folder, tmp_path):
     outside = tmp_path / 'outside'
     outside.mkdir()
     os.symlink(outside, folder / 'escape')
-    (folder / 'up.zip').write_bytes(zip_bytes(('../up.txt', b'x')))
+    (folder / 'up.zip').write_bytes(zip_bytes(('first.txt', b'x'), ('../up.txt', b'x')))
     (folder / 'link.zip').write_bytes(zip_bytes(('escape/f', b'x')))
     assert extract(admin, 'up.zip').status_code == 400
     assert extract(admin, 'link.zip').status_code == 400
     assert not (folder.parent / 'up.txt').exists() and not os.listdir(outside)
+    assert not (folder / 'first.txt').exists()  # refused whole, not after what came before it
     # A link stored in the zip isn't made, as a link or as a file.
     archive = io.BytesIO()
     with zipfile.ZipFile(archive, 'w') as out:
