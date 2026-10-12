@@ -3,7 +3,7 @@
  * command (whitelist add, op, ban, pardon...), so the server makes it and keeps its own lists.
  */
 import * as api from './api.js';
-import { $, esc, showError, toast } from './ui.js';
+import { $, ask, esc, showError, toast } from './ui.js';
 
 const NAME = /^[A-Za-z0-9_]{1,16}$/;
 // list -> the add form's button and command, the second column's heading, each row's actions
@@ -12,6 +12,11 @@ const LISTS = {
     whitelist: { add: ['Add to whitelist', 'whitelist add'], extra: '', actions: [['Remove', 'whitelist remove', 'danger']] },
     ops: { add: ['Make operator', 'op'], extra: '', actions: [['Remove operator', 'deop', 'danger']] },
     banned: { add: ['Ban', 'ban'], extra: 'Reason', actions: [['Pardon', 'pardon', 'ghost']] },
+};
+// Online players' actions that ask first: what they do to the player.
+const ASK = {
+    kick: { title: 'Kick', text: 'is disconnected, and can join again.' },
+    ban: { title: 'Ban', text: "is disconnected, and can't join again until pardoned." },
 };
 let server = null;
 let list = 'online';
@@ -95,7 +100,16 @@ export function initPlayers() {
     }
     $('playerRows').addEventListener('click', (event) => {
         const button = event.target.closest('button[data-command]');
-        if (button) run(button.dataset.command, button.closest('tr').dataset.name);
+        if (!button) return;
+        const { command } = button.dataset;
+        const { name } = button.closest('tr').dataset;
+        if (!ASK[command]) {
+            run(command, name);
+            return;
+        }
+        const { title, text } = ASK[command];
+        ask({ title: `${title} ${name}?`, iconName: 'users', text: `${name} ${text}`, ok: title, danger: true })
+            .then((yes) => yes && run(command, name));
     });
     $('addPlayerForm').addEventListener('submit', (event) => {
         event.preventDefault();

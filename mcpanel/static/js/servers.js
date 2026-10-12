@@ -4,7 +4,7 @@
  */
 import * as api from './api.js';
 import { route, serverHash, state } from './state.js';
-import { $, copyText, esc, formatDate, plural, setHtml, showError, showView, toast } from './ui.js';
+import { $, ask, copyText, esc, formatDate, plural, setHtml, showError, showView, toast } from './ui.js';
 
 const POLL_MS = 5000;
 const STATUS = { running: 'Running', starting: 'Starting', restarting: 'Restarting', unresponsive: 'Not responding', stopped: 'Stopped', crashed: 'Crashed' };
@@ -182,10 +182,26 @@ function drawStats(server, data) {
     setHtml($('statCpu'), usage ? `${esc(usage.cpu)}<small>% of a core</small>` : '–');
 }
 
+/** Stop and Restart disconnect whoever is on, so they ask first while someone is. */
+async function mayDisconnect(server, action) {
+    if (action === 'start' || ['stopped', 'crashed'].includes(server.status)) return true;
+    let online;
+    try {
+        ({ online } = await api.get(`/api/servers/${server.id}/players`, { quiet: true }));
+    } catch {
+        return true;
+    }
+    if (!online?.length) return true;
+    const label = ACTIONS[action].label;
+    return Boolean(await ask({ title: `${label} ${server.name}?`, iconName: action, ok: label, danger: true,
+        text: `${online.length === 1 ? `${online[0]} is` : `${plural(online.length, 'player')} are`} on, and will be disconnected.` }));
+}
+
 /** Start, stop or restart the open server. Stopping can take up to a minute while the world saves. */
 async function runAction(action) {
     const { id } = route();
-    if (!serverWithId(id) || state.busy.has(id)) return;
+    if (!serverWithId(id) || state.busy.has(id) || !await mayDisconnect(serverWithId(id), action)) return;
+    if (state.busy.has(id)) return; // pressed again while the question was open
     state.busy.set(id, action);
     showServer(id);
     try {

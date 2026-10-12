@@ -84,14 +84,15 @@ minutes. With `LATEST`, Minecraft updates itself on every start.
 
 ## A server's tabs
 
-Start, Stop and Restart sit in the server's header. Below it:
+Start, Stop and Restart sit in the server's header; Stop and Restart ask first while players are on,
+since they disconnect them. Below it:
 
 - **Overview**: its state, address, type and version, and while it runs the players online, memory
   and CPU.
 - **Console**: the server's output as it runs, and a box for commands, which go to the server over
   RCON, with or without the leading `/`.
-- **Players**: who is online, and the whitelist, operators and bans, each a click to change. Changes
-  are console commands, so the server has to be running.
+- **Players**: who is online, and the whitelist, operators and bans, each a click to change (Kick
+  and Ban ask first). Changes are console commands, so the server has to be running.
 - **Files**: the server's folder. Browse it, open and edit text files up to 1 MB (such as
   `server.properties`), upload files up to 1 GB (mods, plugins, a world), download, make folders,
   rename and delete. The editor asks before it drops changes you haven't saved.
