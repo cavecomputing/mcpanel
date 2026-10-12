@@ -19,8 +19,9 @@ import docker
 from docker.errors import APIError, DockerException, ImageNotFound, NotFound
 from docker.models.containers import _create_container_args
 from flask import abort
+from werkzeug.exceptions import HTTPException
 
-from . import config
+from . import config, rcon
 
 logger = logging.getLogger(__name__)
 
@@ -255,6 +256,11 @@ def container_spec(server_id, name, type, version, java, memory_gb, cpus, game_p
             'UID': str(os.getuid()),
             'GID': str(os.getgid()),
             'RCON_PASSWORD': secrets.token_urlsafe(24),
+            # Stopped before RCON is up (still loading or generating its world), the image sends
+            # "stop" to the server's input instead. Without this its input is the container's empty
+            # stdin and the stop is lost: a reboot or an outside `docker stop` then kills the server
+            # a minute later. The panel's own Stop also sends it over RCON (saving_stop()).
+            'CREATE_CONSOLE_IN_PIPE': 'true',
         },
         'ports': {'25565/tcp': game_port},
         'volumes': {str(config.SERVERS_DIR / server_id): {'bind': '/data', 'mode': 'rw'}},
@@ -522,11 +528,33 @@ def start_server(server_id):
 
 
 def stop_server(server_id):
-    return change(server_id, 'Stopped', lambda container: container.stop(timeout=STOP_SECONDS))
+    return change(server_id, 'Stopped', lambda container: saving_stop(container, container.stop))
 
 
 def restart_server(server_id):
-    return change(server_id, 'Restarted', lambda container: on_network(container).restart(timeout=STOP_SECONDS))
+    return change(server_id, 'Restarted', lambda container: saving_stop(on_network(container), container.restart))
+
+
+def saving_stop(container, stop):
+    """stop(timeout=STOP_SECONDS), Docker's stop or restart. The image stops the server with "stop"
+    over RCON, which isn't up while it still loads (a first start generating its world): its fallback,
+    "stop" on the server's input, Paper fails on until the world is loaded, and Docker kills the
+    server a minute later, which then says Crashed. So while it is starting the panel sends "stop"
+    over RCON too, every 2 seconds until the server takes one."""
+    done = threading.Event()
+    if status_of(container.attrs) in ('starting', 'restarting'):
+        server_id, password = container.labels['mcpanel.server'], env_of(container).get('RCON_PASSWORD', '')
+
+        def send_stop():
+            while not done.wait(2):
+                with suppress(HTTPException):
+                    return rcon.run(server_id, password, 'stop')
+
+        threading.Thread(target=send_stop, daemon=True).start()
+    try:
+        stop(timeout=STOP_SECONDS)
+    finally:
+        done.set()
 
 
 def change(server_id, done, action):

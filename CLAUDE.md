@@ -232,7 +232,10 @@ arbitrary container owns the machine, so:
   check with a start period of `FIRST_START_SECONDS` (10 min), for a first download or a modded
   install; a stop timeout of `STOP_SECONDS` (75 s: the image's 60 s `STOP_DURATION` for the world to
   save, plus room to exit), so a reboot or an outside `docker stop` gives the world as long to save
-  as the panel's Stop does, not Docker's default 10 s.
+  as the panel's Stop does, not Docker's default 10 s; `CREATE_CONSOLE_IN_PIPE`, so the image's
+  fallback "stop" on the server's input (before RCON is up) reaches it instead of the container's
+  empty stdin. The panel's Stop and Restart also send "stop" over RCON while a server is still
+  starting (`saving_stop()`), since Paper fails the input's one until its world is loaded.
 - **A container's settings never change, so changing a server makes its container again** from
   `container_spec()` (`update_server()`), by an admin, with the same id, port and folder, and only
   while it is stopped. The old container is renamed `mcpanel-<id>.old` until the new one exists, and

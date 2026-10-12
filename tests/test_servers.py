@@ -9,6 +9,8 @@ from werkzeug.exceptions import HTTPException
 
 from mcpanel import config, servers
 
+from .conftest import rcon_password
+
 REAL_DOCKER_CLIENT = servers.docker_client  # before the docker fixture swaps in the fake
 GIB = 1024 ** 3
 
@@ -45,7 +47,7 @@ def test_container_spec_is_the_image_one_mount_and_nothing_privileged(docker, da
     assert spec['nano_cpus'] == 0  # no CPU limit
     assert spec['log_config'] == {'type': 'json-file', 'config': {'max-size': '10m', 'max-file': '3'}}
     env = spec['environment']
-    assert set(env) == {'EULA', 'TYPE', 'VERSION', 'MEMORY', 'UID', 'GID', 'RCON_PASSWORD'}
+    assert set(env) == {'EULA', 'TYPE', 'VERSION', 'MEMORY', 'UID', 'GID', 'RCON_PASSWORD', 'CREATE_CONSOLE_IN_PIPE'}
     assert {key: env[key] for key in ('EULA', 'TYPE', 'VERSION', 'MEMORY', 'UID', 'GID')} == {
         'EULA': 'TRUE', 'TYPE': 'PAPER', 'VERSION': '1.21.4', 'MEMORY': '3072M',
         'UID': str(os.getuid()), 'GID': str(os.getgid())}
@@ -360,6 +362,31 @@ def test_stop_start_and_restart_return_the_fresh_dict(docker, caplog):
     assert [(record.getMessage(), record.server) for record in caplog.records] == [
         ('Started server survival', 'survival'), ('Stopped server survival', 'survival'),
         ('Started server survival', 'survival'), ('Restarted server survival', 'survival')]
+
+
+@pytest.mark.parametrize('action', [servers.stop_server, servers.restart_server])
+def test_a_server_still_starting_is_sent_stop_over_rcon(docker, rcon_server, monkeypatch, action):
+    create()
+    servers.start_server('survival')
+    container_type = type(servers.server_container(docker, 'survival'))
+    for name in ('stop', 'restart'):  # Docker's waits for the server to exit, which it does once RCON takes the stop
+        def waiting(container, timeout=None, original=getattr(container_type, name)):
+            deadline = time.monotonic() + 10
+            while not rcon_server.commands and time.monotonic() < deadline:
+                time.sleep(0.1)
+            original(container, timeout)
+        monkeypatch.setattr(container_type, name, waiting)
+    action('survival')
+    assert rcon_server.commands == ['stop'] and rcon_server.passwords == [rcon_password(docker)]
+
+
+def test_a_running_server_is_left_to_the_image_to_stop(docker, rcon_server):
+    create()
+    servers.start_server('survival')
+    docker.set_state('mcpanel-survival', 'running', health='healthy')
+    servers.stop_server('survival')
+    time.sleep(2.5)
+    assert rcon_server.commands == []
 
 
 @pytest.mark.parametrize('action', [servers.start_server, servers.stop_server, servers.restart_server])
