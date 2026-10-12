@@ -157,10 +157,11 @@
                         <span class="toolbar__end">
                             <button class="cc-btn cc-btn--ghost cc-btn--sm" type="button" id="newFolderBtn"><svg class="i"><use href="#i-folder"/></svg><span>New folder</span></button>
                             <button class="cc-btn cc-btn--ghost cc-btn--sm" type="button" id="newFileBtn"><svg class="i"><use href="#i-plus"/></svg><span>New file</span></button>
-                            <button class="cc-btn cc-btn--primary cc-btn--sm" type="button" id="uploadBtn"><svg class="i"><use href="#i-upload"/></svg><span>Upload</span></button>
+                            <button class="cc-btn cc-btn--primary cc-btn--sm" type="button" id="uploadBtn" title="Upload, or drop files on the list"><svg class="i"><use href="#i-upload"/></svg><span>Upload</span></button>
                             <input type="file" id="uploadInput" multiple hidden>
                         </span>
                     </div>
+                    <div class="upload" id="uploadStatus" role="status" hidden><span class="upload__name" id="uploadName"></span><span class="upload__bar"><span id="uploadBar"></span></span><span class="upload__percent" id="uploadPercent"></span></div>
                     <div class="table-wrap" id="fileList">
                         <table class="cc-table">
                             <thead><tr><th>Name</th><th class="num">Size</th><th class="hide-phone">Modified</th><th><span class="sr">Actions</span></th></tr></thead>

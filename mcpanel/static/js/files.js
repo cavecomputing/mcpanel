@@ -1,6 +1,7 @@
 /**
  * The Files tab: a server's folder, one level at a time, with the path as crumbs; new folders and
- * files, uploads, downloads, rename and delete; and an editor for text files.
+ * files, uploads (the button, or files dropped on the tab) with their progress, downloads, rename
+ * and delete; and an editor for text files.
  */
 import * as api from './api.js';
 import { serverHash } from './state.js';
@@ -12,6 +13,7 @@ let path = '';      // the folder shown, '' for the server's own
 let entries = [];
 let editing = null; // the path of the file in the editor
 let original = '';  // its text as opened or last saved, to tell when there are changes to lose
+let uploading = false;
 
 const join = (...parts) => parts.filter(Boolean).join('/');
 const url = (what, filePath) => `/api/servers/${serverId}/files${what}?${new URLSearchParams({ path: filePath })}`;
@@ -81,7 +83,7 @@ async function load() {
                 <button class="cc-icon-btn danger" type="button" data-delete title="Delete" aria-label="Delete ${esc(entry.name)}"><svg><use href="#i-trash"/></svg></button>
             </td>
         </tr>`;
-    }).join('') || '<tr class="empty-row"><td colspan="4">This folder is empty.</td></tr>';
+    }).join('') || '<tr class="empty-row"><td colspan="4">This folder is empty. Drop files here to upload them.</td></tr>';
 }
 
 function drawCrumbs() {
@@ -166,19 +168,54 @@ async function newFile() {
     openFile(name.trim(), 0);
 }
 
+/** Upload files into the folder shown, one at a time, with the progress of each under the toolbar. */
 async function uploadFiles(fileList) {
-    for (const file of fileList) {
-        if (entries.some((entry) => entry.name === file.name)) {
+    if (uploading || !fileList.length) return;
+    uploading = true;
+    $('uploadBtn').disabled = true;
+    const folder = path; // where they go, even if another folder is opened meanwhile
+    for (const [i, file] of fileList.entries()) {
+        if (folder === path && entries.some((entry) => entry.name === file.name)) {
             const replace = await ask({ title: 'Replace it?', iconName: 'upload', text: `${file.name} is already in this folder. Upload this one in its place?`, ok: 'Replace', danger: true });
             if (!replace) continue;
         }
-        toast(`Uploading <b>${esc(file.name)}</b>…`);
+        const name = fileList.length > 1 ? `${file.name} (${i + 1} of ${fileList.length})` : file.name;
+        drawUpload(name, 0);
         try {
-            await api.upload(url('/content', join(path, file.name)), file);
+            await api.uploadWithProgress(url('/content', join(folder, file.name)), file, (sent) => drawUpload(name, sent));
             toast(`Uploaded <b>${esc(file.name)}</b>`);
         } catch { /* api.js showed why */ }
     }
+    $('uploadStatus').hidden = true;
+    $('uploadBtn').disabled = false;
+    uploading = false;
     load();
+}
+
+function drawUpload(name, sent) {
+    $('uploadStatus').hidden = false;
+    $('uploadName').textContent = `Uploading ${name}`;
+    $('uploadBar').style.width = `${sent * 100}%`;
+    $('uploadPercent').textContent = `${Math.floor(sent * 100)}%`;
+}
+
+/** Files dropped on the tab are uploaded; a folder can't be, so it says to zip it instead. */
+function initDrop() {
+    const panel = document.querySelector('[data-tab-panel="files"]');
+    const dropping = (on) => $('fileList').classList.toggle('dropping', on);
+    panel.addEventListener('dragover', (event) => {
+        if (!event.dataTransfer.types.includes('Files') || editing) return;
+        event.preventDefault();
+        dropping(true);
+    });
+    panel.addEventListener('dragleave', (event) => !panel.contains(event.relatedTarget) && dropping(false));
+    panel.addEventListener('drop', (event) => {
+        event.preventDefault();
+        dropping(false);
+        const items = [...event.dataTransfer.items].map((item) => [item.webkitGetAsEntry(), item.getAsFile()]);
+        if (items.some(([entry]) => entry?.isDirectory)) showError("Folders can't be dropped here; upload a .zip of it and extract it");
+        uploadFiles(items.filter(([entry, file]) => file && !entry?.isDirectory).map(([, file]) => file));
+    });
 }
 
 async function rename(name) {
@@ -217,6 +254,7 @@ export function initFiles() {
     $('newFolderBtn').addEventListener('click', newFolder);
     $('newFileBtn').addEventListener('click', newFile);
     $('uploadBtn').addEventListener('click', () => $('uploadInput').click());
+    initDrop();
     $('uploadInput').addEventListener('change', async (event) => {
         await uploadFiles([...event.target.files]);
         event.target.value = '';

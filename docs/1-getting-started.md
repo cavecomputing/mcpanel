@@ -94,8 +94,9 @@ since they disconnect them. Below it:
 - **Players**: who is online, and the whitelist, operators and bans, each a click to change (Kick
   and Ban ask first). Changes are console commands, so the server has to be running.
 - **Files**: the server's folder. Browse it, open and edit text files up to 1 MB (such as
-  `server.properties`), upload files up to 1 GB (mods, plugins, a world), download, make folders,
-  rename and delete. The editor asks before it drops changes you haven't saved.
+  `server.properties`), upload files up to 1 GB (mods, plugins, a world) with the button or by
+  dropping them on the list, download, make folders, rename and delete. The editor asks before it
+  drops changes you haven't saved.
 - **Backups**: back up the whole folder, download a backup, restore one, or delete it. See
   [Data and backups](3-data-and-backups.md#backups).
 - **Settings**: the game settings (MOTD, max players, difficulty, game mode, hardcore, PvP, view and
