@@ -5,8 +5,9 @@ import tarfile
 
 import pytest
 
-from mcpanel import backups, config, files
+from mcpanel import backups, config, files, rcon
 
+from .conftest import rcon_password
 from .test_servers_api import create, grant
 
 
@@ -19,11 +20,6 @@ def folder(admin):
     (folder / '.rcon-cli.env').write_text('password=secretsecret')
     (folder / 'server.properties').write_text('motd=Hi\nrcon.password=secretsecret\n')
     return folder
-
-
-def password(docker):
-    return next(item for item in docker.live('mcpanel-survival')['Config']['Env']
-                if item.startswith('RCON_PASSWORD=')).partition('=')[2]
 
 
 def members_of(data):
@@ -65,7 +61,6 @@ def test_a_running_server_saves_first_and_writes_again_after(admin, folder, rcon
 
 
 def test_a_server_that_cant_be_told_to_save_is_backed_up_anyway(admin, folder, monkeypatch):
-    from mcpanel import rcon
     monkeypatch.setattr(rcon, 'address', lambda server_id: ('127.0.0.1', 1))
     admin.post('/api/servers/survival/start')
     assert admin.post('/api/servers/survival/backups').status_code == 201
@@ -78,7 +73,7 @@ def test_restore_puts_the_backup_in_place_with_the_real_password(admin, folder, 
     assert admin.post(f'/api/servers/survival/backups/{name}/restore').status_code == 200
     assert (folder / 'world' / 'region' / 'r.0.0.mca').read_bytes() == b'\0region'
     assert not (folder / 'new.txt').exists()
-    assert (folder / 'server.properties').read_text() == f'motd=Hi\nrcon.password={password(docker)}\n'
+    assert (folder / 'server.properties').read_text() == f'motd=Hi\nrcon.password={rcon_password(docker)}\n'
     assert sorted(os.listdir(config.SERVERS_DIR)) == ['survival']  # nothing left beside it
 
 

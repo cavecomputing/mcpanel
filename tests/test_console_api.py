@@ -4,12 +4,8 @@ import pytest
 
 from mcpanel import rcon, servers
 
+from .conftest import rcon_password
 from .test_servers_api import create, grant
-
-
-def password(docker):
-    return next(item for item in docker.live('mcpanel-survival')['Config']['Env']
-                if item.startswith('RCON_PASSWORD=')).partition('=')[2]
 
 
 @pytest.fixture
@@ -35,7 +31,7 @@ def test_output_comes_from_dockers_log_then_only_whats_new(admin, docker, runnin
 def test_output_is_capped_and_masks_the_rcon_password(admin, docker, running, monkeypatch):
     monkeypatch.setattr(servers, 'LOG_LINES', 2)
     docker.output['mcpanel-survival'] = [(f'2026-10-10T16:00:0{i}Z', f'line {i}') for i in range(4)]
-    docker.output['mcpanel-survival'].append(('2026-10-10T16:00:09Z', f'rcon password is {password(docker)}'))
+    docker.output['mcpanel-survival'].append(('2026-10-10T16:00:09Z', f'rcon password is {rcon_password(docker)}'))
     assert admin.get('/api/servers/survival/console').get_json()['lines'] == ['line 3', 'rcon password is ********']
 
 
@@ -56,10 +52,10 @@ def test_a_command_goes_over_rcon_with_the_servers_password(admin, docker, runni
     response = admin.post('/api/servers/survival/console', json={'command': '/list'})
     assert response.status_code == 200
     assert response.get_json() == {'response': 'There are 0 of a max of 20 players online: '}
-    assert rcon_server.commands == ['list'] and rcon_server.passwords == [password(docker)]
+    assert rcon_server.commands == ['list'] and rcon_server.passwords == [rcon_password(docker)]
     lines = [json.loads(line) for line in (data_dir / 'logs' / 'audit.log').read_text().splitlines()]
     assert ('server_command', 'list', 'admin') in [(line['event'], line.get('command'), line.get('user')) for line in lines]
-    assert password(docker) not in (data_dir / 'logs' / 'audit.log').read_text()
+    assert rcon_password(docker) not in (data_dir / 'logs' / 'audit.log').read_text()
 
 
 def test_a_long_answer_in_several_packets_comes_whole(admin, running, rcon_server):

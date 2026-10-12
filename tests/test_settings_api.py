@@ -2,6 +2,7 @@
 import json
 
 import pytest
+from docker.errors import APIError
 
 from mcpanel import accounts, config, files, properties
 
@@ -55,7 +56,6 @@ def test_a_refused_create_leaves_the_server_as_it_was(admin, docker, monkeypatch
     before = docker.live('mcpanel-survival')['Id']
 
     def refuse(*args, **kwargs):
-        from docker.errors import APIError
         raise APIError('500 Server Error', explanation='no space left on device')
     monkeypatch.setattr(docker.api, 'create_container', refuse)
     response = change(admin, name='New')

@@ -5,6 +5,7 @@ import pytest
 
 from mcpanel import config, files
 
+from .conftest import rcon_password
 from .test_servers_api import create, grant
 
 
@@ -51,8 +52,7 @@ def test_the_rcon_password_never_leaves(admin, folder):
 
 
 def test_saving_server_properties_puts_the_real_password_back(admin, folder, docker):
-    password = docker.live('mcpanel-survival')['Config']['Env']
-    password = next(item for item in password if item.startswith('RCON_PASSWORD=')).partition('=')[2]
+    password = rcon_password(docker)
     text = f'motd=New\nrcon.password={files.MASK}\n'
     assert admin.put('/api/servers/survival/files/content?path=server.properties', data=text.encode()).status_code == 200
     assert (folder / 'server.properties').read_text() == f'motd=New\nrcon.password={password}\n'

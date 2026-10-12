@@ -75,6 +75,11 @@ def make_user(username, role='member', password=PASSWORD):
     return {'id': user_id, 'username': username, 'role': role, 'totp_secret': secret}
 
 
+def rcon_password(docker, name='mcpanel-survival'):
+    """The RCON password a container was made with, read from its env as Docker keeps it."""
+    return next(item for item in docker.live(name)['Config']['Env'] if item.startswith('RCON_PASSWORD=')).partition('=')[2]
+
+
 def signed_in_client(app, user):
     """A test client carrying a session for user, made directly rather than through the sign-in pages."""
     client = app.test_client()
