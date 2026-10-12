@@ -24,14 +24,14 @@ environment variables, the cookie and the Docker labels all change together.
   published on the host; players connect to `MCPANEL_PUBLIC_HOST:<port>`. RCON stays on the private
   `mcpanel` Docker network and is never published. No second ports (voice chat, Geyser/Bedrock,
   query): not now, not as an option.
-- **Users:** a few accounts, each `platform_admin`, `admin` or `member`. Admins manage every
-  server (create, change, delete, memory and CPU) and members (add them, give them servers, reset,
-  remove); platform admins also manage admins and platform admins, which nobody else may touch;
-  members see and run only the servers they were given, and can't change or delete them. The platform admin is
+- **Users:** a few accounts, each `platform_admin`, `admin` or `member`. Admins manage every server
+  (create, change, delete, memory and CPU) and members (add them, give them servers, reset, remove);
+  platform admins also manage admins and platform admins, which nobody else may touch; members see
+  and run only the servers they were given, and can't change or delete them. The platform admin is
   made in the browser by whoever opens a panel with no accounts. After that an admin makes each
-  account and hands over its one-time password; on that first sign-in the person chooses their own password and sets
-  up TOTP two-factor sign-in, with recovery codes. Every account has both from then on, unless
-  `MCPANEL_MFA_ENFORCEMENT=off` (see Access).
+  account and hands over its one-time password; on that first sign-in the person chooses their own
+  password and sets up TOTP two-factor sign-in, with recovery codes. Every account has both from
+  then on, unless `MCPANEL_MFA_ENFORCEMENT=off` (see Access).
 - **It is on the public internet.** Treat every route as reachable by strangers. See Access below.
 - **No logging knobs.** Logging uses fixed defaults (see Logging). Don't add `LOG_*` variables.
 
@@ -182,13 +182,14 @@ data/                    # MCPANEL_DATA_DIR, default ./data
     └── <server id>/     # its backups, <UTC time>.tar.gz, made from the Backups tab
 ```
 
-- `MCPANEL_PUBLIC_HOST` is the name players type (shown as the server's address); `MCPANEL_PANEL_HOST`
-  is the panel's own names or IP addresses, comma-separated (the Caddy file's name among them), and
-  the only hosts it answers to, whatever the port (unset: any, with a warning on start). The two are separate because the panel and the game servers may well have
-  different names. `MCPANEL_PORT_RANGE`
-  (`25565-25600`) is the host ports the panel may publish, one per server. The router forwards the
-  same range. `MCPANEL_MFA_ENFORCEMENT` (on unless `off`; `MFA_ENFORCEMENT` is read too) turns the
-  TOTP step off, at Matt's request. That is the whole configuration; don't add knobs.
+- `MCPANEL_PUBLIC_HOST` is the name players type (shown as the server's address);
+  `MCPANEL_PANEL_HOST` is the panel's own names or IP addresses, comma-separated (the Caddy file's
+  name among them), and the only hosts it answers to, whatever the port (unset: any, with a warning
+  on start). The two are separate because the panel and the game servers may well have different
+  names. `MCPANEL_PORT_RANGE` (`25565-25600`) is the host ports the panel may publish, one per
+  server. The router forwards the same range. `MCPANEL_MFA_ENFORCEMENT` (on unless `off`;
+  `MFA_ENFORCEMENT` is read too) turns the TOTP step off, at Matt's request. That is the whole
+  configuration; don't add knobs.
 - **`MCPANEL_DATA_DIR` must be the same path inside the panel's container as on the host.** A
   server's data is a bind mount, and Docker reads bind-mount paths on the host, so the panel passes
   `<data dir>/servers/<id>` as the host path and also reads and writes it itself. `compose.yml`
@@ -222,21 +223,22 @@ arbitrary container owns the machine, so:
   (`servers.check_id()`).
 - Each container gets: labels `mcpanel.server=<id>` and `mcpanel.name=<display name>`; name
   `mcpanel-<id>`; the `mcpanel` network; restart `unless-stopped`; `EULA=TRUE` only after the user
-  ticked the EULA box; `TYPE` and `VERSION` from the form; `UID`/`GID` matching the panel's,
-  so the panel can read and edit the server's files; a random `RCON_PASSWORD`; a memory limit of the
-  form's memory, all the server may use, with `MEMORY` (Java's heap, Xms and Xmx) `HEAP_PERCENT` (75%)
-  of it, leaving the rest for Java's own memory; a CPU limit (`nano_cpus`) when an admin set one, else none; json-file logging capped at 3 × 10 MB, because Docker's default never rotates;
-  `init`, so a stop while the image's setup scripts run isn't ignored by bash as PID 1; the image's own
-  health check with a start period of `FIRST_START_SECONDS` (10 min), for a first download or a modded
+  ticked the EULA box; `TYPE` and `VERSION` from the form; `UID`/`GID` matching the panel's, so the
+  panel can read and edit the server's files; a random `RCON_PASSWORD`; a memory limit of the form's
+  memory, all the server may use, with `MEMORY` (Java's heap, Xms and Xmx) `HEAP_PERCENT` (75%) of
+  it, leaving the rest for Java's own memory; a CPU limit (`nano_cpus`) when an admin set one, else
+  none; json-file logging capped at 3 × 10 MB, because Docker's default never rotates; `init`, so a
+  stop while the image's setup scripts run isn't ignored by bash as PID 1; the image's own health
+  check with a start period of `FIRST_START_SECONDS` (10 min), for a first download or a modded
   install; a stop timeout of `STOP_SECONDS` (75 s: the image's 60 s `STOP_DURATION` for the world to
-  save, plus room to exit), so a reboot or an outside `docker stop` gives the world as long to save as
-  the panel's Stop does, not Docker's default 10 s.
+  save, plus room to exit), so a reboot or an outside `docker stop` gives the world as long to save
+  as the panel's Stop does, not Docker's default 10 s.
 - **A container's settings never change, so changing a server makes its container again** from
-  `container_spec()` (`update_server()`), by an admin, with the same id, port and folder, and only while it is
-  stopped. The old container is renamed `mcpanel-<id>.old` until the new one exists, and put back if
-  Docker refuses; `list_servers()` skips it meanwhile. Deleting a server (admins and platform admins, never members;
-  stopped first) removes its container and its folder, and the access rows naming it, so a later server
-  that gets the same id isn't given to the same members.
+  `container_spec()` (`update_server()`), by an admin, with the same id, port and folder, and only
+  while it is stopped. The old container is renamed `mcpanel-<id>.old` until the new one exists, and
+  put back if Docker refuses; `list_servers()` skips it meanwhile. Deleting a server (admins and
+  platform admins, never members; stopped first) removes its container and its folder, and the
+  access rows naming it, so a later server that gets the same id isn't given to the same members.
 - **A new server is created stopped**, and nothing starts it but Start, so mods and files go in
   before the world is generated. Docker never starts a container that has never run, `unless-stopped`
   or not, so a reboot doesn't either.
@@ -247,11 +249,11 @@ arbitrary container owns the machine, so:
 - `free_port()` takes the lowest port in the range that no container (running or stopped) has
   published, under a lock. Docker refuses a port something outside Docker holds; report that, don't
   retry blindly.
-- RCON goes over the `mcpanel` network to `mcpanel-<id>:25575`. Commands from the console go
-  through RCON, never `docker exec`; nothing in the panel opens a shell in a container. The image
-  writes the RCON password into the server's folder (`.rcon-cli.env`, `.rcon-cli.yaml`,
-  `server.properties`), so whatever serves a server's files (Files, Backups) must not hand it out: the `.rcon-cli`
-  files are left out of both, and `server.properties` goes out with the password masked
+- RCON goes over the `mcpanel` network to `mcpanel-<id>:25575`. Commands from the console go through
+  RCON, never `docker exec`; nothing in the panel opens a shell in a container. The image writes the
+  RCON password into the server's folder (`.rcon-cli.env`, `.rcon-cli.yaml`, `server.properties`),
+  so whatever serves a server's files (Files, Backups) must not hand it out: the `.rcon-cli` files
+  are left out of both, and `server.properties` goes out with the password masked
   (`files.masked_properties()`) and gets the real one back when saved or restored.
 
 ### Access
@@ -259,10 +261,10 @@ arbitrary container owns the machine, so:
 The panel is on the public internet behind Caddy, and an account can start containers, so sign-in is
 the whole perimeter:
 
-- **With `MCPANEL_PANEL_HOST` set, a request for any Host not in it gets a 400** (`reject_other_hosts()`,
-  before the login guard), `/healthz` excepted so Docker's health check on localhost works. Caddy
-  passes the browser's Host through, so there is no `X-Forwarded-Host` to trust; `ProxyFix` doesn't
-  read it.
+- **With `MCPANEL_PANEL_HOST` set, a request for any Host not in it gets a 400**
+  (`reject_other_hosts()`, before the login guard), `/healthz` excepted so Docker's health check on
+  localhost works. Caddy passes the browser's Host through, so there is no `X-Forwarded-Host` to
+  trust; `ProxyFix` doesn't read it.
 - **Every route except the sign-in pages, `/healthz` and static assets requires a session.**
   A new route is behind the check by default, not opted in. Admin-only API routes use
   `require_admin()`, which a platform admin passes too;
@@ -270,17 +272,19 @@ the whole perimeter:
   `role == 'member'` / `!= 'member'` for "is an admin", never `== 'admin'`, which leaves the platform
   admin out.
 - **Admins manage members; only platform admins manage admins.** An admin adds members, gives them
-  servers, resets their sign-in and removes them, and sees every account, but gets a 403 for anything
-  that makes, changes, resets or removes an admin or platform admin, or promotes a member
-  (`users.may_manage()`). A platform admin does all of it, and may make another account a platform admin, and the panel always keeps one: the last
-  can't be demoted (checked in the `UPDATE` itself) and nobody removes themselves.
-- **Only admins (and platform admins) change a server's container**: the Settings tab's Server section
-  (name, type, version, Java, memory, CPU, and any limit added later) and Delete. A wrong version or
-  type can break a world, and memory and CPU are the host's to share. Members manage everything else on
-  the servers they were given: game settings such as `view-distance`, files, mods, plugins, console,
-  players, backups; they see the Server section greyed out. The route checks the role
-  (`PUT /api/servers/<id>` is `require_admin()`); hiding the control is not enough. Files can't get round the memory limit: the image rewrites its JVM flags from the container's env on every
-  start, and the container's memory limit caps the server whatever it asks for.
+  servers, resets their sign-in and removes them, and sees every account, but gets a 403 for
+  anything that makes, changes, resets or removes an admin or platform admin, or promotes a member
+  (`users.may_manage()`). A platform admin does all of it, and may make another account a platform
+  admin, and the panel always keeps one: the last can't be demoted (checked in the `UPDATE` itself)
+  and nobody removes themselves.
+- **Only admins (and platform admins) change a server's container**: the Settings tab's Server
+  section (name, type, version, Java, memory, CPU, and any limit added later) and Delete. A wrong
+  version or type can break a world, and memory and CPU are the host's to share. Members manage
+  everything else on the servers they were given: game settings such as `view-distance`, files,
+  mods, plugins, console, players, backups; they see the Server section greyed out. The route checks
+  the role (`PUT /api/servers/<id>` is `require_admin()`); hiding the control is not enough. Files
+  can't get round the memory limit: the image rewrites its JVM flags from the container's env on
+  every start, and the container's memory limit caps the server whatever it asks for.
 - Passwords are argon2id hashes (at least 8 characters). TOTP is required on every account: a
   sign-in is password, then a 6-digit code (a code already used is refused) or a single-use recovery
   code. 5 wrong passwords or codes in a row lock that account for 15 minutes, and while it is locked
@@ -291,12 +295,13 @@ the whole perimeter:
   password take effect at once. The cookie (`mcpanel_session`) holds only a random token, stored
   hashed; it is `HttpOnly`, `SameSite=Lax`, `Secure` behind HTTPS (`X-Forwarded-Proto` via
   `ProxyFix`), and lasts 30 days when "Keep this device signed in" is ticked.
-- **The platform admin** is the first account, made in the browser while the users table is empty: `/login` asks for a
-  username (`/login/first`), then the same `/login/setup` with no one-time password. The account is
-  inserted only when the set-up is done, by one `INSERT ... WHERE NOT EXISTS (SELECT 1 FROM users)`
-  (`accounts.create_first_admin()`), so two browsers can't both win and an abandoned set-up leaves
-  nothing. Once any account exists the page is gone; it is never an invite or sign-up for later
-  accounts. Whoever reaches a fresh panel first is its platform admin, which the setup docs say.
+- **The platform admin** is the first account, made in the browser while the users table is empty:
+  `/login` asks for a username (`/login/first`), then the same `/login/setup` with no one-time
+  password. The account is inserted only when the set-up is done, by one
+  `INSERT ... WHERE NOT EXISTS (SELECT 1 FROM users)` (`accounts.create_first_admin()`), so two
+  browsers can't both win and an abandoned set-up leaves nothing. Once any account exists the page is gone; it is never an
+  invite or sign-up for later accounts. Whoever reaches a fresh panel first is its platform admin,
+  which the setup docs say.
 - Adding an account, or resetting one's sign-in (which also drops its TOTP secret, recovery codes,
   sessions and lock), gives the admin a one-time password: 80 random bits, stored as an argon2id
   hash, shown once, good for 24 hours, and checked like any password (throttle, lock, dummy hash).
@@ -352,7 +357,8 @@ Fixed defaults, no settings:
 - Colors come from its tokens; never hardcode them. Accents keep one meaning: yellow (`accent-text`)
   for focus, selection and active rows; green (`accent-alt`) for section icons; aqua for running and
   done; blue (`accent-cool`) for addresses, paths and links; orange (`accent-warm`) for anything
-  destructive and for crashed or not responding. There is no red. No web fonts: system mono and sans only.
+  destructive and for crashed or not responding. There is no red. No web fonts: system mono and sans
+  only.
 - **Dark is the default theme**, whatever the OS prefers. The choice lives in `localStorage`
   (`mcpanel-theme`), applied by a tiny inline script in `<head>` before the stylesheet paints.
 - **Logo and favicon match the sibling apps** (cozy yellow, imgy green, campfire orange, binny aqua):
@@ -372,7 +378,7 @@ at call time; a `from .config import DATA_DIR` binds the value at import, the pa
 it, and the tests quietly start writing into the real `data/`.
 
 Docker is replaced by `FakeDocker` from `tests/fake_docker.py` (conftest's `docker` fixture patches
-`servers.docker_client`), so tests never need a daemon. Use the `platform_admin`, `admin` and `member` fixtures for
-signed-in clients, `anon` for one that isn't, and conftest's `sign_in()` helper to drive the
-password-then-TOTP flow. `make_user()` makes an account that has had its first sign-in;
-`accounts.create_user()` makes one still waiting for it.
+`servers.docker_client`), so tests never need a daemon. Use the `platform_admin`, `admin` and
+`member` fixtures for signed-in clients, `anon` for one that isn't, and conftest's `sign_in()`
+helper to drive the password-then-TOTP flow. `make_user()` makes an account that has had its first
+sign-in; `accounts.create_user()` makes one still waiting for it.

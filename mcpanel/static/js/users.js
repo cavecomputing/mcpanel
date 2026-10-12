@@ -1,6 +1,7 @@
 /**
- * The Users page, for admins (who manage members) and platform admins (who manage anyone): everyone who can sign in, and one dialog that either adds an account
- * or changes a user's role and servers, and shows a new one-time password once.
+ * The Users page, for admins (who manage members) and platform admins (who manage anyone): everyone
+ * who can sign in, and one dialog that either adds an account or changes a user's role and servers,
+ * and shows a new one-time password once.
  */
 import * as api from './api.js';
 import { state } from './state.js';

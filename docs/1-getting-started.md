@@ -103,6 +103,7 @@ Start, Stop and Restart sit in the server's header. Below it:
   in the world: it changes right away, only while the server is running, and is greyed out while
   it's stopped. A server moved from an older version to 1.21.9 or later starts with PvP on whatever
   the file said, so check it after the first start. Below them, the server's own settings: its name,
-  type, version, Java, memory and CPU, which only admins change (members see them greyed out). Those change only while it is stopped, because
-  the panel makes its container again with them (its world, files and port stay). Admins and platform
-  admins also delete the server here, once it is stopped, which removes its folder and its backups.
+  type, version, Java, memory and CPU, which only admins change (members see them greyed out). Those
+  change only while it is stopped, because the panel makes its container again with them (its world,
+  files and port stay). Admins and platform admins also delete the server here, once it is stopped,
+  which removes its folder and its backups.

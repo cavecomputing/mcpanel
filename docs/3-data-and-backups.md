@@ -17,9 +17,9 @@ Everything mcpanel keeps is in `MCPANEL_DATA_DIR` (`./data` when you run it with
 ```
 
 The database holds only what Docker doesn't know: accounts, sessions, recovery codes, and which
-member may use which server. A server's state, port, type, version, memory and CPU live on its container,
-and the panel reads them from Docker every time. Back up the whole data folder and you have every
-world and every account.
+member may use which server. A server's state, port, type, version, memory and CPU live on its
+container, and the panel reads them from Docker every time. Back up the whole data folder and you
+have every world and every account.
 
 ## Mods and plugins
 

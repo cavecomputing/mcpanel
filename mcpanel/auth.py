@@ -1,6 +1,6 @@
 """Signing in (a password, then a TOTP or recovery code, or on the first sign-in setting both up;
-with MCPANEL_MFA_ENFORCEMENT off, the password alone), signing out, lockouts, the session cookie and the guard in front of every other route, and the
-commands that make an account and reset one."""
+with MCPANEL_MFA_ENFORCEMENT off, the password alone), signing out, lockouts, the session cookie and
+the guard in front of every other route, and the commands that make an account and reset one."""
 import base64
 import hmac
 import math
@@ -71,7 +71,6 @@ def require_admin():
     routes call this first."""
     if g.user['role'] == 'member':
         abort(403, 'Admins only')
-
 
 
 def local_target(target):
