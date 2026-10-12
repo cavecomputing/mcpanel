@@ -3,6 +3,7 @@
  * files, uploads, downloads, rename and delete; and an editor for text files.
  */
 import * as api from './api.js';
+import { serverHash } from './state.js';
 import { $, ask, esc, formatDate, showError, toast } from './ui.js';
 
 const MAX_EDIT = 1024 * 1024; // what the server opens in the editor; bigger files are downloaded
@@ -10,6 +11,7 @@ let serverId = '';
 let path = '';      // the folder shown, '' for the server's own
 let entries = [];
 let editing = null; // the path of the file in the editor
+let original = '';  // its text as opened or last saved, to tell when there are changes to lose
 
 const join = (...parts) => parts.filter(Boolean).join('/');
 const url = (what, filePath) => `/api/servers/${serverId}/files${what}?${new URLSearchParams({ path: filePath })}`;
@@ -25,13 +27,31 @@ export function formatSize(bytes) {
     return `${unit ? bytes.toFixed(bytes < 10 ? 1 : 0) : bytes} ${units[unit]}`;
 }
 
-export function showFiles(server) {
+/** Open the tab. Coming back to the same server's files keeps a file open in the editor. */
+export async function showFiles(server) {
+    if (server.id === serverId && editing) {
+        load();
+        return;
+    }
     if (server.id !== serverId) {
+        if (!await mayCloseEditor()) {
+            location.replace(serverHash(serverId, 'files')); // back to the file with the changes
+            return;
+        }
         serverId = server.id;
         path = '';
     }
     closeEditor();
     load();
+}
+
+const unsaved = () => editing !== null && $('editorText').value !== original;
+
+/** Whether the editor may close: nothing in it is unsaved, or the user says to discard it. */
+async function mayCloseEditor() {
+    if (!unsaved()) return true;
+    return Boolean(await ask({ title: 'Discard your changes?', iconName: 'file', ok: 'Discard', danger: true,
+        text: `Your changes to ${editing} aren't saved, and will be lost.` }));
 }
 
 async function load() {
@@ -70,7 +90,8 @@ function drawCrumbs() {
         + parts.map((part, i) => `<span>/</span><button type="button" data-path="${esc(parts.slice(0, i + 1).join('/'))}">${esc(part)}</button>`).join('');
 }
 
-function openFolder(folder) {
+async function openFolder(folder) {
+    if (!await mayCloseEditor()) return;
     path = folder;
     closeEditor();
     load();
@@ -89,6 +110,7 @@ async function openFile(name, size) {
         return;
     }
     editing = filePath;
+    original = text;
     $('editorName').textContent = filePath;
     $('editorText').value = text;
     $('fileList').hidden = true;
@@ -106,9 +128,11 @@ function closeEditor() {
 async function save() {
     if (!editing) return;
     const button = $('editorSave');
+    const text = $('editorText').value;
     button.disabled = true;
     try {
-        await api.upload(url('/content', editing), $('editorText').value);
+        await api.upload(url('/content', editing), text);
+        original = text;
         toast(`Saved <b>${esc(editing)}</b>`);
     } catch { /* api.js showed why */ }
     button.disabled = false;
@@ -197,7 +221,7 @@ export function initFiles() {
         await uploadFiles([...event.target.files]);
         event.target.value = '';
     });
-    $('editorClose').addEventListener('click', closeEditor);
+    $('editorClose').addEventListener('click', async () => (await mayCloseEditor()) && closeEditor());
     $('editorSave').addEventListener('click', save);
     $('editorText').addEventListener('keydown', (event) => {
         if ((event.ctrlKey || event.metaKey) && event.key === 's') {
@@ -205,4 +229,5 @@ export function initFiles() {
             save();
         }
     });
+    window.addEventListener('beforeunload', (event) => unsaved() && event.preventDefault());
 }

@@ -94,7 +94,7 @@ Start, Stop and Restart sit in the server's header. Below it:
   are console commands, so the server has to be running.
 - **Files**: the server's folder. Browse it, open and edit text files up to 1 MB (such as
   `server.properties`), upload files up to 1 GB (mods, plugins, a world), download, make folders,
-  rename and delete.
+  rename and delete. The editor asks before it drops changes you haven't saved.
 - **Backups**: back up the whole folder, download a backup, restore one, or delete it. See
   [Data and backups](3-data-and-backups.md#backups).
 - **Settings**: the game settings (MOTD, max players, difficulty, game mode, hardcore, PvP, view and
