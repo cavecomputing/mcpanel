@@ -15,6 +15,7 @@ const stopped = () => ['stopped', 'crashed'].includes(server.status);
 export async function showSettings(fresh) {
     server = fresh;
     saved = {};
+    $('gameRestart').hidden = true;
     $('gameForm').reset();
     drawServerForm();
     try {
@@ -31,6 +32,7 @@ export async function showSettings(fresh) {
 export function updateSettings(fresh) {
     const was = server && stopped();
     server = fresh;
+    if (stopped() || ['stop', 'restart'].includes(state.busy.get(fresh.id))) $('gameRestart').hidden = true; // applied at its next start
     if (was !== stopped()) drawServerForm(false);
     if ((was === false && stopped()) || (fresh.status === 'running' && Object.values(saved).includes(null))) {
         loadGame(fresh.id, true);
@@ -96,8 +98,8 @@ async function saveGame(event) {
         fillGame(await api.put(`/api/servers/${server.id}/properties`, changes));
         // PvP as a game rule took effect already; everything else waits for the server's next start.
         const forNextStart = Object.keys(changes).some((key) => key !== 'pvp' || !pvpIsGameRule());
-        if (!forNextStart) toast('Saved.');
-        else toast(stopped() ? 'Saved. They apply when the server starts.' : 'Saved. Restart the server to apply them.');
+        if (!forNextStart || stopped()) toast(forNextStart ? 'Saved. They apply when the server starts.' : 'Saved.');
+        $('gameRestart').hidden = !forNextStart || stopped(); // says so beside Save, with a Restart button
     } catch { /* api.js showed why */ }
     $('gameSave').disabled = false;
 }

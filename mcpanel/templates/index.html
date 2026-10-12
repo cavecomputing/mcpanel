@@ -214,7 +214,10 @@
                             <label class="cc-checkbox"><input type="checkbox" name="white-list"><span>Only players on the whitelist</span></label>
                             <label class="cc-checkbox"><input type="checkbox" name="online-mode"><span>Check accounts with Mojang (online mode)</span></label>
                         </div></div>
-                        <div class="row-btns"><button class="cc-btn cc-btn--primary" type="submit" id="gameSave"><span>Save</span></button></div>
+                        <div class="row-btns">
+                            <span class="apply" id="gameRestart" hidden>Saved. Restart it to apply them<button class="cc-btn cc-btn--ghost" type="button" data-action="restart"><svg class="i"><use href="#i-restart"/></svg><span>Restart</span></button></span>
+                            <button class="cc-btn cc-btn--primary" type="submit" id="gameSave"><span>Save</span></button>
+                        </div>
                     </form>
                     <form class="cc-settings-card" id="serverForm" aria-labelledby="serverFormTitle" autocomplete="off">
                         <div class="cc-card-header"><svg><use href="#i-chip"/></svg><h4 id="serverFormTitle">Server</h4><p id="serverFormNote"></p></div>
