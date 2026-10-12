@@ -24,7 +24,8 @@ services:
     restart: unless-stopped
     environment:
       - MCPANEL_PUBLIC_HOST=${MCPANEL_PUBLIC_HOST:?Set MCPANEL_PUBLIC_HOST in docker/.env to the name players connect to}
-      # The panel's own name, as in the Caddy file; other names are refused. Unset answers to any name.
+      # The panel's own name (as in the Caddy file) or IP address, or several, comma-separated; others
+      # are refused. Unset answers to any.
       - MCPANEL_PANEL_HOST=${MCPANEL_PANEL_HOST:-}
       - MCPANEL_PORT_RANGE=${MCPANEL_PORT_RANGE:?Set MCPANEL_PORT_RANGE in docker/.env to the game ports, e.g. 25565-25600}
       - MCPANEL_DATA_DIR=${MCPANEL_DATA_DIR:?Set MCPANEL_DATA_DIR in docker/.env to an absolute path on the host}

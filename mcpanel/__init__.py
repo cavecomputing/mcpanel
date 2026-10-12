@@ -19,15 +19,15 @@ def create_app():
         raise RuntimeError('Set MCPANEL_PUBLIC_HOST to the name players use to reach your servers.')
     config.port_range()  # raises with what is wrong with MCPANEL_PORT_RANGE
     mfa = config.mfa_enforced()  # raises the same way
-    panel_host = config.panel_host()  # and again
+    panel_hosts = config.panel_hosts()  # and again
 
     for folder in (config.DATA_DIR, config.LOGS_DIR, config.SERVERS_DIR, config.BACKUPS_DIR):
         folder.mkdir(parents=True, exist_ok=True)
     logs.setup_logging()
     if not mfa:
         logging.getLogger(__name__).warning('Two-factor sign-in is off (MCPANEL_MFA_ENFORCEMENT): a password alone signs in')
-    if not panel_host:
-        logging.getLogger(__name__).warning('MCPANEL_PANEL_HOST is not set: the panel answers to any host name, its address included')
+    if not panel_hosts:
+        logging.getLogger(__name__).warning('MCPANEL_PANEL_HOST is not set: the panel answers to any host name or address')
     # Browsers refuse module scripts not served as JavaScript, and some systems map .js to text/plain.
     mimetypes.add_type('text/javascript', '.js')
 
@@ -66,11 +66,12 @@ def create_app():
 
 
 def reject_other_hosts():
-    """Answer only to MCPANEL_PANEL_HOST, so a scanner that finds the machine's address, or another
-    name pointed at it, gets no sign-in page. Caddy passes the browser's Host header on unchanged.
-    /healthz answers on any name, for Docker's health check on localhost."""
-    if config.PANEL_HOST and request.endpoint != 'views.healthz' \
-            and not host_is_trusted(request.host.lower(), [config.PANEL_HOST]):
+    """Answer only to the hosts in MCPANEL_PANEL_HOST, so a scanner that finds the machine's address,
+    or another name pointed at it, gets no sign-in page. Caddy passes the browser's Host header on
+    unchanged. /healthz answers on any host, for Docker's health check on localhost."""
+    panel_hosts = config.panel_hosts()
+    if panel_hosts and request.endpoint != 'views.healthz' \
+            and not host_is_trusted(request.host.lower(), panel_hosts):
         abort(400, 'Unknown host')
 
 

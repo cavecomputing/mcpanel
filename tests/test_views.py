@@ -75,6 +75,13 @@ def test_the_panel_host_is_answered(anon, monkeypatch, host):
     assert anon.get('/login', headers={'Host': host}).status_code == 200
 
 
+@pytest.mark.parametrize('host', ['10.0.0.5', '10.0.0.5:5000', 'panel.example.com'])
+def test_an_address_is_answered_alongside_a_name(anon, monkeypatch, host):
+    monkeypatch.setattr(config, 'PANEL_HOST', 'panel.example.com, 10.0.0.5:5000')
+    assert anon.get('/login', headers={'Host': host}).status_code == 200
+    assert anon.get('/login', headers={'Host': '10.0.0.6'}).status_code == 400
+
+
 @pytest.mark.parametrize('host', ['203.0.113.7', '203.0.113.7:5000', 'mc.example.com', 'evil.panel.example.com',
                                   'panel.example.com.evil.net', 'localhost'])
 def test_other_hosts_are_refused(anon, monkeypatch, host):
@@ -100,7 +107,7 @@ def test_healthz_answers_on_any_host(anon, monkeypatch):
 
 def test_the_panel_refuses_to_start_with_a_url_for_its_host(data_dir, docker, monkeypatch):
     monkeypatch.setattr(config, 'PANEL_HOST', 'https://panel.example.com')
-    with pytest.raises(ValueError, match='MCPANEL_PANEL_HOST must be a name'):
+    with pytest.raises(ValueError, match='MCPANEL_PANEL_HOST must be names or addresses'):
         create_app()
 
 

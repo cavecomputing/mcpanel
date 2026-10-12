@@ -30,7 +30,7 @@ PGID=1000
 | Setting | What it is |
 |---|---|
 | `MCPANEL_PUBLIC_HOST` | The name players type, shown as each server's address. Required. |
-| `MCPANEL_PANEL_HOST` | The name the panel's own pages are at, the one in your Caddy file, such as `panel.example.com`. Requests for any other name, the machine's IP address included, are refused with a 400. Leave it out and the panel answers to every name, and logs a warning on every start. See [Caddy](#caddy). |
+| `MCPANEL_PANEL_HOST` | Where the panel's own pages are: the name in your Caddy file, such as `panel.example.com`, or an IP address, or several separated by commas (`panel.example.com,10.0.0.5`). A port after one is ignored. Requests for any other name or address are refused with a 400. Leave it out and the panel answers to every one, and logs a warning on every start. See [Caddy](#caddy). |
 | `MCPANEL_PORT_RANGE` | The host ports the panel may give to servers, one each, such as `25565-25600`. Required. |
 | `MCPANEL_DATA_DIR` | An absolute path on the host for everything the panel keeps. The container mounts it at the same path, because each server's folder in it is bind-mounted into that server's container. |
 | `MCPANEL_MFA_ENFORCEMENT` | `on` (the default) or `off`. Off, signing in takes only the password, with no code from an authenticator app. See [Two-factor sign-in](#two-factor-sign-in). `MFA_ENFORCEMENT` works too. |
@@ -111,11 +111,11 @@ panel.example.com {
 
 Caddy handles HTTPS and tells the panel the browser used it, so the sign-in cookie is marked Secure.
 It passes on the name the browser asked for, which the panel checks against `MCPANEL_PANEL_HOST`, so
-the two must be the same name. Don't add `header_up Host` to the Caddy file: with the name changed,
+that name must be in it. Don't add `header_up Host` to the Caddy file: with the name changed,
 the panel refuses every page. `/healthz` answers on any name, for the container's own health check.
 
-To use the panel without Caddy while `MCPANEL_PANEL_HOST` is set, from the machine itself say, send
-that name: `curl -H 'Host: panel.example.com' http://127.0.0.1:5000/`. Or remove the line and restart.
+To reach the panel without Caddy as well, by its address on your network say, add that address:
+`MCPANEL_PANEL_HOST=panel.example.com,10.0.0.5`.
 If Caddy runs on another machine, change the `ports` line in `docker/compose.yml` to an address Caddy
 can reach, never one strangers can.
 
