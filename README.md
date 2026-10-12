@@ -34,8 +34,8 @@ cd mcpanel
 Put the settings in `docker/.env`:
 
 ```bash
-MCPANEL_PUBLIC_HOST=mc.example.com
-MCPANEL_PANEL_HOST=panel.example.com
+MCPANEL_GAME_HOST=mc.example.com
+MCPANEL_ALLOWED_HOSTS=panel.example.com
 MCPANEL_PORT_RANGE=25565-25600
 MCPANEL_DATA_DIR=/srv/mcpanel
 ```

@@ -5,7 +5,7 @@ reachable Docker socket the panel still starts and says Docker is unreachable.
 
 ```bash
 uv sync
-MCPANEL_PUBLIC_HOST=localhost MCPANEL_PORT_RANGE=25565-25575 uv run app.py --debug
+MCPANEL_GAME_HOST=localhost MCPANEL_PORT_RANGE=25565-25575 uv run app.py --debug
 uv run pytest
 ```
 

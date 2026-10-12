@@ -157,7 +157,7 @@ def server_dict(container):
         'memory_limit': attrs['HostConfig'].get('Memory') or None,  # bytes: all the server may use
         'memory_gb': round(attrs['HostConfig'].get('Memory', 0) / GIB) or None,  # the same, as the form sets it
         'port': game_port,
-        'address': config.PUBLIC_HOST if game_port == 25565 else f'{config.PUBLIC_HOST}:{game_port}',
+        'address': config.GAME_HOST if game_port == 25565 else f'{config.GAME_HOST}:{game_port}',
         # Docker writes UTC with nanoseconds, more digits than Python parses.
         'created': int(datetime.fromisoformat(attrs['Created'][:19] + '+00:00').timestamp()),
     }

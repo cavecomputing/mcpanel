@@ -21,8 +21,8 @@ services:
       - default
     restart: unless-stopped
     environment:
-      - MCPANEL_PUBLIC_HOST=${MCPANEL_PUBLIC_HOST:?Set MCPANEL_PUBLIC_HOST in docker/.env to the name players connect to}
-      - MCPANEL_PANEL_HOST=${MCPANEL_PANEL_HOST:-}
+      - MCPANEL_GAME_HOST=${MCPANEL_GAME_HOST:?Set MCPANEL_GAME_HOST in docker/.env to the name players connect to}
+      - MCPANEL_ALLOWED_HOSTS=${MCPANEL_ALLOWED_HOSTS:-}
       - MCPANEL_PORT_RANGE=${MCPANEL_PORT_RANGE:?Set MCPANEL_PORT_RANGE in docker/.env to the game ports, e.g. 25565-25600}
       - MCPANEL_DATA_DIR=${MCPANEL_DATA_DIR:?Set MCPANEL_DATA_DIR in docker/.env to an absolute path on the host}
       - MCPANEL_MFA_ENFORCEMENT=${MCPANEL_MFA_ENFORCEMENT:-${MFA_ENFORCEMENT:-on}}

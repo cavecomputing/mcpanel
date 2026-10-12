@@ -21,7 +21,7 @@ environment variables, the cookie and the Docker labels all change together.
   `mcpanel.server` label; the panel finds its servers by that label after a restart and keeps no
   copy of what Docker already knows (state, port, image, settings in the container's env).
 - **One port per server: the Minecraft game port.** It comes from `MCPANEL_PORT_RANGE` and is
-  published on the host; players connect to `MCPANEL_PUBLIC_HOST:<port>`. RCON stays on the private
+  published on the host; players connect to `MCPANEL_GAME_HOST:<port>`. RCON stays on the private
   `mcpanel` Docker network and is never published. No second ports (voice chat, Geyser/Bedrock,
   query): not now, not as an option.
 - **Users:** a few accounts, each `platform_admin`, `admin` or `member`. Admins manage every server
@@ -96,13 +96,13 @@ uv sync                                        # install the locked dependencies
 
 # Dev server on 127.0.0.1:5000 (--host / --port to change). Needs a reachable Docker socket to do
 # anything with servers; without one the panel still starts and says Docker is unreachable.
-MCPANEL_PUBLIC_HOST=localhost MCPANEL_PORT_RANGE=25565-25575 uv run app.py --debug
+MCPANEL_GAME_HOST=localhost MCPANEL_PORT_RANGE=25565-25575 uv run app.py --debug
 MCPANEL_DATA_DIR=/path/to/data ...             # data directory (default: ./data)
 
 # The first account: with none yet, the first visit makes the platform admin. Or this prints a
 # one-time password for one (--admin for an admin, neither for a member). reset-user <name> starts an
 # account's sign-in over the same way, for when every platform admin is locked out.
-MCPANEL_PUBLIC_HOST=localhost MCPANEL_PORT_RANGE=25565-25575 uv run flask --app app create-user matt --platform-admin
+MCPANEL_GAME_HOST=localhost MCPANEL_PORT_RANGE=25565-25575 uv run flask --app app create-user matt --platform-admin
 
 uv run pytest                                  # full suite (use `uv run`, not bare pytest)
 uv run pytest tests/test_auth.py::test_sign_out -x
@@ -111,8 +111,8 @@ node --check mcpanel/static/js/<file>.js       # frontend syntax check; there is
 docker compose -f docker/compose.yml up --build   # settings go in docker/.env
 ```
 
-The app refuses to start without `MCPANEL_PUBLIC_HOST` and a valid `MCPANEL_PORT_RANGE`, with an
-`MCPANEL_MFA_ENFORCEMENT` that is neither on nor off, or with a URL for `MCPANEL_PANEL_HOST`.
+The app refuses to start without `MCPANEL_GAME_HOST` and a valid `MCPANEL_PORT_RANGE`, with an
+`MCPANEL_MFA_ENFORCEMENT` that is neither on nor off, or with a URL for `MCPANEL_ALLOWED_HOSTS`.
 
 Dependencies are declared in `pyproject.toml` and pinned in `uv.lock`; Python is pinned in
 `.python-version`. Change them with `uv add` / `uv remove` (or edit `pyproject.toml` and run
@@ -141,7 +141,7 @@ neighbour.
 | `app.py` | Entry point, and the **only** Python file at the repo root: `app = create_app()`, which `uv run app.py`, `flask --app app` and `gunicorn app:app` all name. No logic lives here. |
 | `mcpanel/` | The application package. Everything else in Python goes in here. |
 | `mcpanel/__init__.py` | `create_app()`: logging and the request log, `ProxyFix`, cookie settings, `init_db()`, the host check (`reject_other_hosts()`), the cross-site write guard (`reject_cross_site_writes()`), the login guard, blueprints, the `create-user` and `reset-user` CLI commands. |
-| `mcpanel/config.py` | Settings read once from the environment: paths under `MCPANEL_DATA_DIR`, `MCPANEL_PUBLIC_HOST`, `MCPANEL_PANEL_HOST` (`panel_hosts()`), `MCPANEL_PORT_RANGE`, `MCPANEL_MFA_ENFORCEMENT` (`mfa_enforced()`). |
+| `mcpanel/config.py` | Settings read once from the environment: paths under `MCPANEL_DATA_DIR`, `MCPANEL_GAME_HOST`, `MCPANEL_ALLOWED_HOSTS` (`allowed_hosts()`), `MCPANEL_PORT_RANGE`, `MCPANEL_MFA_ENFORCEMENT` (`mfa_enforced()`). |
 | `mcpanel/db.py` | Schema (`init_db()`, idempotent: it also remakes an older `users` table whose role CHECK predates `platform_admin`, and makes the earliest admin the platform admin when there is none) and `get_db()`, a short-lived connection per use. |
 | `mcpanel/logs.py` | `setup_logging()`: JSON lines on stdout, the same lines in a rotated file, the audit log, and the filter that strips secrets. `audit()` records who did what; `start_timer()` and `log_request()` write one line per request. |
 | `mcpanel/auth.py` | The sign-in pages: `/login` (password, or with no accounts yet the first admin's username, posted to `/login/first`), `/login/code` (TOTP or a recovery code), `/login/setup` (after a one-time password or `/login/first`: a new password and TOTP, then the recovery codes), `/logout`. The session cookie and `require_login()` in front of everything else, `require_admin()` (admins and platform admins), lockouts and the sign-in throttle (`throttled()`), the halfway state (`pending()`, `pending_user()`, `setup_secret()`), the `create-user` and `reset-user` commands. |
@@ -182,10 +182,10 @@ data/                    # MCPANEL_DATA_DIR, default ./data
     └── <server id>/     # its backups, <UTC time>.tar.gz, made from the Backups tab
 ```
 
-- `MCPANEL_PUBLIC_HOST` is the name players type (shown as the server's address);
-  `MCPANEL_PANEL_HOST` is the panel's own names or IP addresses, comma-separated (the Caddy file's
-  name among them), and the only hosts it answers to, whatever the port (unset: any, with a warning
-  on start). The two are separate because the panel and the game servers may well have different
+- `MCPANEL_GAME_HOST` is the name players type (shown as the server's address);
+  `MCPANEL_ALLOWED_HOSTS` is the panel's own names or IP addresses, comma-separated (the Caddy
+  file's name among them), and the only hosts it answers to, whatever the port (unset: any, with a
+  warning on start). The two are separate because the panel and the game servers may well have different
   names. `MCPANEL_PORT_RANGE` (`25565-25600`) is the host ports the panel may publish, one per
   server. The router forwards the same range. `MCPANEL_MFA_ENFORCEMENT` (on unless `off`;
   `MFA_ENFORCEMENT` is read too) turns the TOTP step off, at Matt's request. That is the whole
@@ -264,7 +264,7 @@ arbitrary container owns the machine, so:
 The panel is on the public internet behind Caddy, and an account can start containers, so sign-in is
 the whole perimeter:
 
-- **With `MCPANEL_PANEL_HOST` set, a request for any Host not in it gets a 400**
+- **With `MCPANEL_ALLOWED_HOSTS` set, a request for any Host not in it gets a 400**
   (`reject_other_hosts()`, before the login guard), `/healthz` excepted so Docker's health check on
   localhost works. Caddy passes the browser's Host through, so there is no `X-Forwarded-Host` to
   trust; `ProxyFix` doesn't read it.

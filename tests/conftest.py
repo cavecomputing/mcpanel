@@ -9,7 +9,7 @@ import time
 # imports mcpanel, and keep that first app's data out of the checkout's data/.
 _IMPORT_DATA_DIR = tempfile.TemporaryDirectory(prefix='mcpanel-test-import-')
 os.environ['MCPANEL_DATA_DIR'] = _IMPORT_DATA_DIR.name
-os.environ['MCPANEL_PUBLIC_HOST'] = 'mc.example.com'
+os.environ['MCPANEL_GAME_HOST'] = 'mc.example.com'
 os.environ['MCPANEL_PORT_RANGE'] = '25565-25570'
 
 import pyotp  # noqa: E402
@@ -31,8 +31,8 @@ def data_dir(tmp_path, monkeypatch):
     monkeypatch.setattr(config, 'LOGS_DIR', tmp_path / 'logs')
     monkeypatch.setattr(config, 'SERVERS_DIR', tmp_path / 'servers')
     monkeypatch.setattr(config, 'BACKUPS_DIR', tmp_path / 'backups')
-    monkeypatch.setattr(config, 'PUBLIC_HOST', 'mc.example.com')
-    monkeypatch.setattr(config, 'PANEL_HOST', '')
+    monkeypatch.setattr(config, 'GAME_HOST', 'mc.example.com')
+    monkeypatch.setattr(config, 'ALLOWED_HOSTS', '')
     monkeypatch.setattr(config, 'PORT_RANGE', '25565-25570')
     monkeypatch.setattr(config, 'MFA_ENFORCEMENT', 'on')
     return tmp_path

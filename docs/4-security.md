@@ -6,7 +6,7 @@ account can start containers on the machine.
 ## Signing in
 
 - Every page and API route needs a session, except the sign-in pages, `/healthz` and static files.
-- With `MCPANEL_PANEL_HOST` set, the panel answers only to the names or addresses in it: a request
+- With `MCPANEL_ALLOWED_HOSTS` set, the panel answers only to the names or addresses in it: a request
   for the machine's IP address (unless it is listed) or any other name pointed at it gets a 400
   instead of a sign-in page, so scanners that find the address don't find the panel. Only `/healthz`
   answers on any name. Leave it unset and the panel
