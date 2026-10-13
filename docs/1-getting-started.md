@@ -102,8 +102,12 @@ after you pressed it. Below it:
   most likely mean when it's a common cause: out of memory, a Java too old for it, or a mod missing
   another mod or made for another version.
 - **Console**: the server's output as it runs, and a box for commands, which go to the server over
-  RCON, with or without the leading `/`. The latest.log button downloads `logs/latest.log`, the
-  server's log since it last started, which is what people ask for when they help with a problem.
+  RCON, with or without the leading `/`. Buttons under the output run common ones: `list`,
+  `save-all`, `say` and `difficulty` (which fill the box for you to finish), day and night, clear
+  weather, `seed`, TPS (with the server type's own command), `plugins` on Paper and Purpur, a
+  cookie for everyone online, and clearing the items dropped on the ground, which asks first. The
+  latest.log button downloads `logs/latest.log`, the server's log since it last started, which is
+  what people ask for when they help with a problem.
 - **Players**: who is online, and the whitelist, operators and bans, each a click to change (Kick
   and Ban ask first). While it runs, changes are console commands. While it's stopped, the panel
   writes them into the server's own list files, so the whitelist can be set before the first start;

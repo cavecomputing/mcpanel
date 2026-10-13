@@ -340,5 +340,7 @@ p.note { max-width: 1100px; margin: 0; color: var(--fg-muted); font-size: 13px; 
     .page { padding: var(--app-space-5); }
     .cc-field { grid-template-columns: minmax(0, 1fr); }
     .tabs { padding: 0 var(--app-space-4); }
+    .chips { flex-wrap: nowrap; overflow-x: auto; } /* one row that scrolls, leaving the output its room */
+    .chips > * { flex: none; }
     .hide-phone { display: none; }
 }

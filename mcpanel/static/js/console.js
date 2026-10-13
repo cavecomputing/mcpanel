@@ -5,7 +5,7 @@
  */
 import * as api from './api.js';
 import { route } from './state.js';
-import { $, esc, showError } from './ui.js';
+import { $, ask, esc, showError } from './ui.js';
 
 const POLL_MS = 2000;
 const MAX_LINES = 2000; // kept on screen
@@ -68,14 +68,17 @@ export function showConsole(fresh) {
     timer = setInterval(poll, POLL_MS);
 }
 
-/** A poll's fresh dict: commands only while the server runs. */
+/** A poll's fresh dict: commands only while the server runs, and only the chips its type has. */
 export function updateConsole(fresh) {
     server = fresh;
     const input = $('commandInput');
     input.disabled = !running();
     $('commandSend').disabled = !running();
     input.placeholder = running() ? 'A command, e.g. whitelist add Steve' : 'Start the server to send it commands';
-    for (const chip of document.querySelectorAll('.chips [data-command]')) chip.disabled = !running();
+    for (const chip of document.querySelectorAll('.chips [data-command]')) {
+        chip.disabled = !running();
+        chip.hidden = Boolean(chip.dataset.types) && !chip.dataset.types.split(' ').includes(server.type);
+    }
 }
 
 /** Run a command and show it and its answer in the output. */
@@ -120,13 +123,16 @@ export function initConsole() {
         back = Math.max(0, Math.min(history.length, back + (event.key === 'ArrowUp' ? 1 : -1)));
         event.target.value = back ? history[history.length - back] : '';
     });
-    document.querySelector('.chips').addEventListener('click', (event) => {
+    document.querySelector('.chips').addEventListener('click', async (event) => {
         const chip = event.target.closest('[data-command]');
         if (!chip) return;
+        const label = chip.textContent[0].toUpperCase() + chip.textContent.slice(1);
         if ('fill' in chip.dataset) {
             $('commandInput').value = chip.dataset.command;
             $('commandInput').focus();
-        } else sendCommand(chip.dataset.command);
+        } else if (!chip.dataset.ask || await ask({ title: `${label}?`, iconName: 'trash', text: chip.dataset.ask, ok: label, danger: true })) {
+            sendCommand(chip.dataset.command);
+        }
     });
     document.addEventListener('visibilitychange', () => {
         if (server && open() && !timer) {
