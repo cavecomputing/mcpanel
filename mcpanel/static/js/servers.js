@@ -198,7 +198,7 @@ function drawServer(server) {
     ].map(([term, value]) => `<dt>${term}</dt><dd>${value}</dd>`).join(''));
 }
 
-/** The Overview's players, memory and CPU, fetched on opening it and on each poll: a dash while it can't say. */
+/** The Overview's players, TPS, memory and CPU, fetched on opening it and on each poll: a dash while it can't say. */
 function loadStats(server) {
     loadTrouble(server);
     if (['stopped', 'crashed'].includes(server.status)) {
@@ -240,6 +240,7 @@ function drawStats(server, data) {
     const gb = (bytes) => (bytes / 1024 ** 3).toFixed(1);
     const usage = data?.usage;
     setHtml($('statPlayers'), data?.players == null ? '–' : `${esc(data.players)} <small>/ ${esc(data.max_players)}</small>`);
+    setHtml($('statTps'), data?.tps == null ? '–' : `${data.tps.toFixed(1)} <small>/ 20</small>`);
     setHtml($('statMemory'), usage ? `${gb(usage.memory)} <small>/ ${+gb(usage.memory_limit)} GB</small>` : '–');
     // In cores, like the CPU limit an admin sets: "1.5 of 2 cores", or "0.4 cores" with no limit.
     setHtml($('statCpu'), usage ? `${(usage.cpu / 100).toFixed(1)} <small>${server.cpus ? `of ${plural(server.cpus, 'core')}` : 'cores'}</small>` : '–');

@@ -90,7 +90,10 @@ since they disconnect them. Below it:
 
 - **Overview**: its state, address, type and version (for `LATEST`, the release it got at its last
   start, which is also in the header), how long it has been up, and while it runs the players
-  online, memory and CPU. When it has crashed, isn't answering or keeps crashing, the last lines it
+  online, memory and CPU, and its TPS: ticks a second, 20 when it keeps up and fewer when it lags.
+  TPS comes from the server's own command (`tps` on Paper and Purpur, `forge tps`, `neoforge tps`,
+  and `tick query` on the rest), which vanilla, Fabric and Quilt have only from 1.20.3, so before
+  that it shows a dash. When it has crashed, isn't answering or keeps crashing, the last lines it
   wrote, and in plain words what they most likely mean when it's a common cause: out of memory, a
   Java too old for it, or a mod missing another mod or made for another version.
 - **Console**: the server's output as it runs, and a box for commands, which go to the server over

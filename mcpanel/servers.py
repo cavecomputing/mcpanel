@@ -19,7 +19,7 @@ import docker
 from docker.errors import APIError, DockerException, ImageNotFound, NotFound
 from docker.models.containers import _create_container_args
 from flask import abort
-from werkzeug.exceptions import HTTPException
+from werkzeug.exceptions import BadGateway, HTTPException
 
 from . import config, rcon
 
@@ -54,6 +54,13 @@ STARTING_VERSION = re.compile(r'Starting minecraft server version (\S+)')
 # a modded one installs its loader, which can take minutes.
 FIRST_START_SECONDS = 10 * 60
 GIB = 1024 ** 3
+# The command that says how fast a server ticks, by type; vanilla's tick query (1.20.3 on) for the rest.
+TPS_COMMANDS = {'PAPER': 'tps', 'PURPUR': 'tps', 'FORGE': 'forge tps', 'NEOFORGE': 'neoforge tps'}
+# Ticks a second in their answers: Paper's over the last minute, then Forge's and NeoForge's overall.
+TPS = re.compile(r'TPS from last 1m, 5m, 15m: \*?([\d.]+)|Overall\s*: Mean tick time: [\d.]+ ms\. Mean TPS: ([\d.]+)'
+                 r'|Overall: ([\d.]+) TPS')
+# Vanilla's: the ticks a second it aims for, and the milliseconds a tick takes on average.
+TICK_QUERY = re.compile(r'Target tick rate: ([\d.]+) per second.*?Average time per tick: ([\d.]+)ms', re.DOTALL)
 
 ID = re.compile(r'[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?')
 VERSION = re.compile(r'[0-9]+\.[0-9]+(?:\.[0-9]+)?')
@@ -527,6 +534,20 @@ def usage(server_id):
         'memory_limit': memory.get('limit'),
         'cpu': round(used / elapsed * (cpu.get('online_cpus') or 1) * 100, 1) if elapsed > 0 and used >= 0 else 0.0,
     }
+
+
+def tps(server_id, type):
+    """The ticks a second a running server manages (20 when it keeps up), from its own command over
+    RCON, or None when it can't say: still starting, or vanilla before 1.20.3, which has none."""
+    try:
+        answer = rcon.run(server_id, rcon_password(server_id), TPS_COMMANDS.get(type, 'tick query'))
+    except BadGateway:
+        return None
+    if match := TICK_QUERY.search(answer):
+        rate, tick_ms = float(match[1]), float(match[2])
+        return rate if tick_ms * rate <= 1000 else 1000 / tick_ms  # a tick longer than its share slows it
+    match = TPS.search(answer)
+    return float(next(filter(None, match.groups()))) if match else None
 
 
 def console_lines(server_id, since=None):

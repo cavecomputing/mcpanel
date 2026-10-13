@@ -240,11 +240,13 @@ def test_every_server_action_is_audited(admin, member, data_dir):
 
 def test_stats_say_nothing_while_stopped_then_usage_and_players(admin, member, docker, rcon_server):
     create(admin)
-    assert admin.get('/api/servers/survival/stats').get_json() == {'usage': None, 'players': None, 'max_players': None}
+    assert admin.get('/api/servers/survival/stats').get_json() == {'usage': None, 'players': None, 'max_players': None,
+                                                                   'tps': None}
     assert rcon_server.commands == []
     admin.post('/api/servers/survival/start')
     rcon_server.answers['list'] = 'There are 1 of a max of 20 players online: Steve'
+    rcon_server.answers['tps'] = 'TPS from last 1m, 5m, 15m: 19.7, 19.9, 20.0'
     assert admin.get('/api/servers/survival/stats').get_json() == {
         'usage': {'memory': int(2.5 * 1024 ** 3), 'memory_limit': 5 * 1024 ** 3, 'cpu': 400.0},
-        'players': 1, 'max_players': 20}
+        'players': 1, 'max_players': 20, 'tps': 19.7}
     assert member.get('/api/servers/survival/stats').status_code == 404

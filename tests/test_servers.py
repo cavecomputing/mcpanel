@@ -402,6 +402,35 @@ def test_a_server_up_without_saying_its_version_is_not_asked_again(docker):
     assert servers.get_server('survival')['game_version'] is None
 
 
+@pytest.mark.parametrize('type, command, answer, tps', [
+    ('PAPER', 'tps', 'TPS from last 1m, 5m, 15m: 19.7, 19.9, 20.0', 19.7),
+    ('PURPUR', 'tps', 'TPS from last 1m, 5m, 15m: *20.0, *20.0, *20.0', 20.0),  # older ones star one over 20
+    ('FORGE', 'forge tps', 'Dim minecraft:overworld (minecraft:overworld): Mean tick time: 1.234 ms. Mean TPS: 20.000'
+                           'Overall: Mean tick time: 61.538 ms. Mean TPS: 16.250', 16.25),
+    ('FORGE', 'forge tps', 'Dim  0 : Mean tick time: 1.234 ms. Mean TPS: 20.000'
+                           'Overall : Mean tick time: 1.234 ms. Mean TPS: 20.000', 20.0),  # 1.12
+    ('NEOFORGE', 'neoforge tps', 'minecraft:overworld: 20.000 TPS (1.523 ms/tick)Overall: 18.500 TPS (54.054 ms/tick)', 18.5),
+    # Vanilla's messages come over RCON run together, with no line between them.
+    ('VANILLA', 'tick query', 'The game is running normallyTarget tick rate: 20.0 per second.\nAverage time per tick: '
+                              '1.5ms (Target: 50.0ms)Percentiles: P50: 1.4ms P95: 2.0ms P99: 3.1ms, sample: 100', 20.0),
+    ('FABRIC', 'tick query', "The game is running, but can't keep up with the target tick rateTarget tick rate: 20.0 per "
+                             'second.\nAverage time per tick: 62.5ms (Target: 50.0ms)', 16.0),
+    ('QUILT', 'tick query', 'Unknown or incomplete command, see below for error<--[HERE]', None),  # before 1.20.3
+])
+def test_tps_comes_from_the_types_own_command(docker, rcon_server, type, command, answer, tps):
+    create(type=type)
+    servers.start_server('survival')
+    rcon_server.answers[command.split(' ')[0]] = answer
+    assert servers.tps('survival', type) == tps
+    assert rcon_server.commands == [command]
+
+
+def test_tps_is_none_while_rcon_isnt_up(docker):
+    create()
+    servers.start_server('survival')
+    assert servers.tps('survival', 'PAPER') is None
+
+
 def test_stop_start_and_restart_return_the_fresh_dict(docker, caplog):
     caplog.set_level(logging.INFO)
     create()
