@@ -1,6 +1,7 @@
 """Backups of a server's folder: .tar.gz files in MCPANEL_DATA_DIR/backups/<server id>/, made, restored,
-downloaded and deleted from the Backups tab, and made at set times by schedules.py. Nothing deletes old
-ones.
+downloaded and deleted from the Backups tab, and made at set times by schedules.py. A scheduled one's
+name says which schedule made it (<time>-schedule-<id>.tar.gz), so that schedule can delete its own
+older ones; nothing deletes the others.
 
 A backup reads the folder the way files.py does, never following a link (links, FIFOs and the like
 are left out), so a running server's code can't get the host's files into one. The .rcon-cli files
@@ -28,7 +29,7 @@ from . import config, files, rcon, servers
 
 logger = logging.getLogger(__name__)
 
-NAME = re.compile(r'\d{4}-\d{2}-\d{2}_\d{6}\.tar\.gz')
+NAME = re.compile(r'\d{4}-\d{2}-\d{2}_\d{6}(?:-schedule-(\d+))?\.tar\.gz')  # group 1: the schedule's id
 LOCKS = defaultdict(threading.Lock)  # server id -> held while a backup or restore of it runs
 
 
@@ -45,7 +46,9 @@ def path_of(server_id, name):
 
 def backup_dict(path):
     info = path.stat()
-    return {'name': path.name, 'size': info.st_size, 'created': int(info.st_mtime)}
+    schedule = NAME.fullmatch(path.name)[1]
+    return {'name': path.name, 'size': info.st_size, 'created': int(info.st_mtime),
+            'schedule': schedule and int(schedule)}
 
 
 def list_backups(server_id):
@@ -75,14 +78,14 @@ def console(server_id, command):
         return False
 
 
-def create(server_id, running):
-    """Back up a server's folder and return the backup's dict."""
+def create(server_id, running, schedule_id=None):
+    """Back up a server's folder and return the backup's dict; schedule_id names the schedule making it."""
     held = lock(server_id)
     paused = running and console(server_id, 'save-off')
     try:
         if running:
             console(server_id, 'save-all flush')
-        name = datetime.now(timezone.utc).strftime('%Y-%m-%d_%H%M%S.tar.gz')
+        name = datetime.now(timezone.utc).strftime('%Y-%m-%d_%H%M%S') + (f'-schedule-{schedule_id}' if schedule_id else '') + '.tar.gz'
         target = folder(server_id) / name
         if target.exists():
             abort(409, 'A backup was made this second already')

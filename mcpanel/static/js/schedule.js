@@ -29,7 +29,7 @@ async function load() {
         form.querySelector('.rows').innerHTML = schedules.filter((schedule) => schedule.action === form.dataset.schedule).map((schedule) => `
             <div class="list-row" data-id="${esc(schedule.id)}">
                 <span class="list-row__main"><b>${esc(schedule.cron)}</b>
-                    <span class="sub">Next: ${esc(formatDate(schedule.next))}${schedule.timezone === ZONE ? '' : ` · read in ${esc(schedule.timezone)} time`}</span></span>
+                    <span class="sub">Next: ${esc(formatDate(schedule.next))}${schedule.keep ? ` · keeps the newest ${esc(schedule.keep)}` : ''}${schedule.timezone === ZONE ? '' : ` · read in ${esc(schedule.timezone)} time`}</span></span>
                 <button class="cc-icon-btn danger" type="button" data-remove title="Remove" aria-label="Remove ${esc(schedule.cron)}"><svg><use href="#i-trash"/></svg></button>
             </div>`).join('') || '<div class="list-row"><span class="list-row__main"><span class="sub">None yet.</span></span></div>';
     }
@@ -41,7 +41,8 @@ async function add(event) {
     const button = form.querySelector('[type=submit]');
     button.disabled = true;
     try {
-        const schedule = await api.post(url(), { action: form.dataset.schedule, cron: form.elements.cron.value, timezone: ZONE });
+        const schedule = await api.post(url(), { action: form.dataset.schedule, cron: form.elements.cron.value, timezone: ZONE,
+            keep: form.elements.keep?.valueAsNumber });
         form.elements.cron.value = '';
         toast(`${NEXT[schedule.action]} ${esc(formatDate(schedule.next))}`);
         load();

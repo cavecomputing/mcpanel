@@ -19,8 +19,8 @@ def survival(admin):
     return 'survival'
 
 
-def schedule(client, line='0 4 * * *', zone=CHICAGO, action='restart'):
-    return client.post('/api/servers/survival/schedules', json={'action': action, 'cron': line, 'timezone': zone})
+def schedule(client, line='0 4 * * *', zone=CHICAGO, action='restart', keep=7):
+    return client.post('/api/servers/survival/schedules', json={'action': action, 'cron': line, 'timezone': zone, 'keep': keep})
 
 
 def test_add_list_and_remove(admin, survival, clock, data_dir):
@@ -29,9 +29,10 @@ def test_add_list_and_remove(admin, survival, clock, data_dir):
     assert response.status_code == 201
     restart = response.get_json()
     next_time = datetime(2026, 10, 13, 4, 0, tzinfo=ZoneInfo(CHICAGO)).timestamp()
-    assert restart == {'id': restart['id'], 'action': 'restart', 'cron': '0 4 * * *', 'timezone': CHICAGO, 'next': next_time}
-    backup = schedule(admin, '0 3 * * *', action='backup').get_json()
-    assert backup['action'] == 'backup'
+    assert restart == {'id': restart['id'], 'action': 'restart', 'cron': '0 4 * * *', 'timezone': CHICAGO, 'keep': None,
+                       'next': next_time}  # a restart keeps no backups, whatever was sent
+    backup = schedule(admin, '0 3 * * *', action='backup', keep=14).get_json()
+    assert (backup['action'], backup['keep']) == ('backup', 14)
     assert admin.get('/api/servers/survival/schedules').get_json() == {'schedules': [restart, backup]}
     assert admin.delete(f'/api/servers/survival/schedules/{restart["id"]}').get_json() == {}
     assert admin.get('/api/servers/survival/schedules').get_json() == {'schedules': [backup]}
@@ -60,6 +61,8 @@ def test_a_restarts_next_is_after_the_warnings_have_had_time(admin, survival, cl
     ({'cron': '0 4 * * *'}, 'Unknown time zone'),
     ({'action': 'delete', 'cron': '0 4 * * *', 'timezone': CHICAGO}, 'restarts the server or backs it up'),
     ({'action': None, 'cron': '0 4 * * *', 'timezone': CHICAGO}, 'restarts the server or backs it up'),
+    *[({'action': 'backup', 'cron': '0 4 * * *', 'timezone': CHICAGO, 'keep': keep}, 'Keep from 1 to 1000 backups')
+      for keep in (None, 0, 1001, '7', 7.5, True)],
 ])
 def test_refused_with_why(admin, survival, body, message):
     response = admin.post('/api/servers/survival/schedules', json={'action': 'restart', **body})
@@ -263,9 +266,10 @@ def test_a_server_gone_by_its_restart_is_logged(admin, survival, docker, no_wait
 
 # A scheduled backup.
 
-def backup_row(admin):
-    backup = schedule(admin, '0 4 * * *', action='backup').get_json()
-    return {'id': backup['id'], 'server': 'survival', 'action': 'backup', 'cron': '0 4 * * *', 'timezone': CHICAGO}
+def backup_row(admin, keep=7):
+    backup = schedule(admin, '0 4 * * *', action='backup', keep=keep).get_json()
+    return {'id': backup['id'], 'server': 'survival', 'action': 'backup', 'cron': '0 4 * * *', 'timezone': CHICAGO,
+            'keep': keep}
 
 
 def test_a_scheduled_backup_is_made_as_back_up_now_makes_it(admin, survival, docker, rcon_server, data_dir):
@@ -273,7 +277,6 @@ def test_a_scheduled_backup_is_made_as_back_up_now_makes_it(admin, survival, doc
     schedules.back_up(backup_row(admin))
     servers.start_server('survival')
     docker.set_state('mcpanel-survival', 'running', health='healthy')
-    time.sleep(1)  # backups are named by the second
     schedules.back_up(backup_row(admin))
     assert len(admin.get('/api/servers/survival/backups').get_json()['backups']) == 2
     assert rcon_server.commands == ['save-off', 'save-all flush', 'save-on']  # only while it ran
@@ -285,3 +288,20 @@ def test_a_scheduled_backup_that_cant_be_made_is_logged(admin, survival, caplog)
     with backups.LOCKS['survival']:  # one under way
         schedules.back_up(backup_row(admin))
     assert "Couldn't back up server survival on schedule: A backup or restore of this server is already under way" in caplog.text
+
+
+def test_a_backup_schedule_deletes_only_its_own_backups_past_the_newest_it_keeps(admin, survival, data_dir):
+    row, other = backup_row(admin, keep=2), backup_row(admin, keep=1)
+    folder = config.BACKUPS_DIR / 'survival'
+    folder.mkdir(parents=True)
+    own = [f'2026-01-0{day}_040000-schedule-{row["id"]}.tar.gz' for day in (1, 2, 3)]
+    untouched = ['2026-01-01_120000.tar.gz', f'2026-01-01_040000-schedule-{other["id"]}.tar.gz']  # Back up now's, another's
+    for name in own + untouched:
+        (folder / name).write_bytes(b'')
+    schedules.back_up(row)
+    listed = admin.get('/api/servers/survival/backups').get_json()['backups']
+    made = listed[0]
+    assert made['name'].endswith(f'-schedule-{row["id"]}.tar.gz') and made['schedule'] == row['id']
+    assert sorted(backup['name'] for backup in listed) == sorted([made['name'], own[2], *untouched])
+    events = [json.loads(line) for line in (data_dir / 'logs' / 'audit.log').read_text().splitlines()]
+    assert [event['backup'] for event in events if event['event'] == 'backup_deleted'] == [own[1], own[0]]

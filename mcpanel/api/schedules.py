@@ -17,13 +17,13 @@ def list_schedules(server_id):
 
 @bp.post('')
 def add(server_id):
-    """{action, cron, timezone} -> the new schedule. action is restart or backup, timezone IANA's,
-    e.g. America/Chicago."""
+    """{action, cron, timezone, keep} -> the new schedule. action is restart or backup, timezone IANA's,
+    e.g. America/Chicago, keep how many of its own backups a backup schedule keeps."""
     server = usable_server(server_id)
     data = json_body()
-    schedule = schedules.add(server_id, data.get('action'), data.get('cron'), data.get('timezone'))
+    schedule = schedules.add(server_id, data.get('action'), data.get('cron'), data.get('timezone'), data.get('keep'))
     logs.audit('schedule_added', server=server['id'], server_name=server['name'], action=schedule['action'],
-               cron=schedule['cron'], timezone=schedule['timezone'])
+               cron=schedule['cron'], timezone=schedule['timezone'], keep=schedule['keep'])
     return schedule, 201
 
 

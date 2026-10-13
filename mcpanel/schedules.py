@@ -1,7 +1,8 @@
 """Scheduled restarts and backups: cron lines kept per server, each read in the time zone of whoever
 set it, and the thread that runs them. Before a restart, players are warned in game 5 minutes,
 1 minute and 10 seconds ahead, then the server is restarted as Restart does, unless it isn't running
-by then. A backup is made as Back up now makes it, running or not.
+by then. A backup is made as Back up now makes it, running or not, and then the schedule's own
+backups past the newest few it keeps are deleted; backups made any other way are never touched.
 
 The clock is each time zone's wall clock, minute by minute, as cron (cronie) keeps it. When it
 jumps forward for daylight saving, a time set in the skipped hour comes right after the jump, and
@@ -26,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 WARNINGS = ((300, '5 minutes'), (60, '1 minute'), (10, '10 seconds'))  # seconds before a restart, said in game
 LEADS = {'restart': WARNINGS[0][0], 'backup': 0}  # what a schedule does -> how long before its time it starts
+MAX_KEEP = 1000  # backups a backup schedule may keep
 MAX_JUMP = 180  # minutes the clock may jump for daylight saving; more is a correction
 MINUTE = timedelta(minutes=1)
 
@@ -50,7 +52,7 @@ def schedule_dict(row):
     zone = zoneinfo.ZoneInfo(row['timezone'])
     upcoming = cron.parse(row['cron']).next_after(wall_clock(time.time() + LEADS[row['action']], row['timezone']))
     return {'id': row['id'], 'action': row['action'], 'cron': row['cron'], 'timezone': row['timezone'],
-            'next': upcoming and int(upcoming.replace(tzinfo=zone).timestamp())}
+            'keep': row['keep'], 'next': upcoming and int(upcoming.replace(tzinfo=zone).timestamp())}
 
 
 def for_server(server_id):
@@ -59,11 +61,15 @@ def for_server(server_id):
     return [schedule_dict(row) for row in rows]
 
 
-def add(server_id, action, line, zone):
-    """Schedule a server's restarts or backups by a cron line in a time zone; its dict. 400 says what
-    is wrong."""
+def add(server_id, action, line, zone, keep):
+    """Schedule a server's restarts or backups by a cron line in a time zone, a backup schedule
+    keeping its newest keep backups; its dict. 400 says what is wrong."""
     if action not in LEADS:
         abort(400, 'A schedule restarts the server or backs it up')
+    if action == 'restart':
+        keep = None
+    elif not (type(keep) is int and 1 <= keep <= MAX_KEEP):
+        abort(400, f'Keep from 1 to {MAX_KEEP} backups')
     try:
         parsed = cron.parse(line)
     except ValueError as e:
@@ -73,8 +79,8 @@ def add(server_id, action, line, zone):
     if parsed.next_after(wall_clock(time.time(), zone)) is None:
         abort(400, "That day never comes round")
     with get_db() as conn:
-        schedule_id = conn.execute('INSERT INTO schedules (server, action, cron, timezone, created) VALUES (?, ?, ?, ?, ?)',
-                                   (server_id, action, ' '.join(line.split()), zone, time.time())).lastrowid
+        schedule_id = conn.execute('INSERT INTO schedules (server, action, cron, timezone, keep, created) VALUES (?, ?, ?, ?, ?, ?)',
+                                   (server_id, action, ' '.join(line.split()), zone, keep, time.time())).lastrowid
         conn.commit()
         return schedule_dict(conn.execute('SELECT * FROM schedules WHERE id = ?', (schedule_id,)).fetchone())
 
@@ -161,13 +167,19 @@ def count_down(row, at):
 
 
 def back_up(row):
-    """Make a scheduled backup of a server, as Back up now does."""
+    """Make a scheduled backup of a server, as Back up now does, then delete the schedule's own
+    backups past the newest it keeps."""
     server_id = row['server']
     try:
         server = servers.get_server(server_id)
-        backup = backups.create(server_id, server['status'] not in ('stopped', 'crashed'))
+        backup = backups.create(server_id, server['status'] not in ('stopped', 'crashed'), row['id'])
         logs.audit('backup_created', server=server_id, server_name=server['name'], backup=backup['name'],
                    schedule=row['cron'])
+        own = [made for made in backups.list_backups(server_id) if made['schedule'] == row['id']]  # newest first
+        for old in own[row['keep']:]:
+            backups.delete(server_id, old['name'])
+            logs.audit('backup_deleted', server=server_id, server_name=server['name'], backup=old['name'],
+                       schedule=row['cron'])
     except HTTPException as e:  # one under way already, a full disk, the server deleted, Docker unreachable
         logger.warning("Couldn't back up server %s on schedule: %s", server_id, e.description, extra={'server': server_id})
 

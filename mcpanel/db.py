@@ -48,12 +48,14 @@ SCHEMA = USERS_TABLE + '''
     );
     -- A server's restarts or backups on a schedule (schedules.py): a cron line, read in the IANA time
     -- zone of whoever set it.
+    -- An id is never used twice, since a backup's name carries the id of the schedule that made it.
     CREATE TABLE IF NOT EXISTS schedules (
-        id INTEGER PRIMARY KEY,
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
         server TEXT NOT NULL,
         action TEXT NOT NULL CHECK (action IN ('restart', 'backup')),
         cron TEXT NOT NULL,
         timezone TEXT NOT NULL,
+        keep INTEGER,  -- how many of its own backups a backup schedule keeps; NULL for a restart
         created REAL NOT NULL
     );
 '''

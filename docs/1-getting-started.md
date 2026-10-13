@@ -146,6 +146,8 @@ is down is skipped, not made up later.
 - **Restarts**: players are told in game 5 minutes, 1 minute and 10 seconds before. A server that
   isn't running by then (stopped, crashed or still starting) is left as it is.
 - **Backups** are made as Back up now makes them, whether the server runs or not, and appear on the
-  Backups tab. Like every backup, they are kept until someone deletes them, so a line that runs
-  often fills the disk over time. One that comes while another backup or a restore of the server is
-  still under way is skipped. See [Data and backups](3-data-and-backups.md#backups).
+  Backups tab with `-schedule-<number>` in their name. Each line keeps its newest backups, as many
+  as its Keep says, and deletes its own older ones after each new one. It never deletes a backup
+  made with Back up now or by another line, and removing a line keeps the backups it made. One that
+  comes while another backup or a restore of the server is still under way is skipped. See
+  [Data and backups](3-data-and-backups.md#backups).

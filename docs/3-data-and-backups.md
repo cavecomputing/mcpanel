@@ -13,7 +13,7 @@ Everything mcpanel keeps is in `MCPANEL_DATA_DIR` (`./data` when you run it with
 ├── servers/
 │   └── <server id>/     # one server's /data, bind-mounted into its container
 └── backups/
-    └── <server id>/     # its backups, <UTC time>.tar.gz
+    └── <server id>/     # its backups, <UTC time>.tar.gz (<UTC time>-schedule-<n>.tar.gz on a schedule)
 ```
 
 The database holds only what Docker doesn't know: accounts, sessions, recovery codes, which member
@@ -33,8 +33,8 @@ before its first start.
 
 A backup is a `.tar.gz` of the server's whole folder, made when someone presses Back up now on its
 Backups tab, or at the times set on its Schedule tab (see
-[Schedules](1-getting-started.md#schedules)). Backups are kept until someone deletes them, scheduled
-ones too.
+[Schedules](1-getting-started.md#schedules)). Backups made with Back up now are kept until someone
+deletes them. Each scheduled line keeps only its newest few and deletes its own older ones.
 
 - **Making one** works whether the server runs or not. A running server is told to save the world and
   stop writing it (`save-off`) until the backup is done, then to carry on.

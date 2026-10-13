@@ -189,7 +189,7 @@
                 </div>
                 <div class="page" data-tab-panel="backups">
                     <div class="toolbar">
-                        <p class="note">The whole server folder: world, mods and settings. Kept in the panel's <code class="cc-code">backups</code> folder until you delete them. The Schedule tab can make them at set times.</p>
+                        <p class="note">The whole server folder: world, mods and settings. Kept in the panel's <code class="cc-code">backups</code> folder until you delete them. The Schedule tab can make them at set times, keeping only its newest few.</p>
                         <span class="toolbar__end"><button class="cc-btn cc-btn--primary cc-btn--sm" type="button" id="backupNow"><svg class="i"><use href="#i-archive"/></svg><span>Back up now</span></button></span>
                     </div>
                     <div class="table-wrap">
@@ -208,9 +208,10 @@
                         <div class="row-btns"><button class="cc-btn cc-btn--primary" type="submit"><svg class="i"><use href="#i-plus"/></svg><span>Add</span></button></div>
                     </form>
                     <form class="cc-settings-card" data-schedule="backup" aria-labelledby="scheduledBackupsTitle" autocomplete="off">
-                        <div class="cc-card-header"><svg><use href="#i-archive"/></svg><h4 id="scheduledBackupsTitle">Backups</h4><p>Made as Back up now makes them, running or not, and kept on the Backups tab until you delete them.</p></div>
+                        <div class="cc-card-header"><svg><use href="#i-archive"/></svg><h4 id="scheduledBackupsTitle">Backups</h4><p>Made as Back up now makes them, running or not. Each line keeps its newest few and deletes its older ones; backups made with Back up now are never deleted.</p></div>
                         <div class="rows"></div>
                         <div class="cc-field"><div><label for="backupCron">When</label><span class="cc-field__hint">A cron line</span></div><input class="cc-input mono" id="backupCron" name="cron" placeholder="0 3 * * *" maxlength="100" required spellcheck="false" autocapitalize="off"></div>
+                        <div class="cc-field"><div><label for="backupKeep">Keep</label><span class="cc-field__hint">How many of this line's backups to keep, newest first</span></div><input class="cc-input small-input" id="backupKeep" name="keep" type="number" min="1" max="1000" value="7" required></div>
                         <div class="row-btns"><button class="cc-btn cc-btn--primary" type="submit"><svg class="i"><use href="#i-plus"/></svg><span>Add</span></button></div>
                     </form>
                 </div>
