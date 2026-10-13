@@ -129,7 +129,7 @@ def test_create_leaves_the_server_stopped_and_returns_its_dict(docker, data_dir)
     assert server == {'id': 'survival', 'name': 'Survival', 'status': 'stopped', 'type': 'PAPER',
                       'version': 'LATEST', 'java': 'java21', 'memory_gb': 4, 'cpus': None,
                       'memory_limit': 4 * GIB, 'port': 25565,
-                      'address': 'mc.example.com'}
+                      'address': 'mc.example.com', 'progress': None}
     # Never started, so mods and files can go in before the world is generated. Docker leaves a
     # container it never started alone when it starts up, so a reboot doesn't start it either.
     assert docker.actions == []
@@ -344,6 +344,25 @@ def test_a_server_docker_keeps_restarting_says_so(docker):
     docker.set_state('mcpanel-survival', 'running', health='starting', restarts=3)
     assert servers.get_server('survival')['status'] == 'restarting'
     assert servers.restart_server('survival')['status'] == 'starting'  # a Restart zeroes the count
+
+
+def test_a_starting_server_shows_its_last_line_as_progress(docker):
+    create()
+    servers.start_server('survival')
+    docker.output['mcpanel-survival'] = [
+        ('2026-10-10T16:00:00Z', '[init] Resolving type given PAPER'),
+        ('2026-10-10T16:00:01Z', '[mc-image-helper] 16:00:01.234 INFO  : Downloading Paper 1.21.4 build 232'),
+        ('2026-10-10T16:00:09Z', '[16:00:09] [Worker-Main-1/INFO]: \x1b[0mPreparing spawn area: 45%'),
+        ('2026-10-10T16:00:10Z', '[16:00:10] [RCON Listener #1/INFO]: Thread RCON Client /172.18.0.2 started'),
+        ('2026-10-10T16:00:10Z', ''),
+    ]
+    assert servers.get_server('survival')['progress'] == 'Preparing spawn area: 45%'
+    docker.output['mcpanel-survival'] = [('2026-10-10T16:00:00Z', '[init] Downloading 1.21.4')]
+    assert servers.get_server('survival')['progress'] == 'Downloading 1.21.4'
+    docker.output['mcpanel-survival'].append(('2026-10-10T16:00:01Z', f'[init] password {rcon_password(docker)}'))
+    assert servers.get_server('survival')['progress'] == 'password ********'
+    docker.set_state('mcpanel-survival', 'running', health='healthy')
+    assert servers.get_server('survival')['progress'] is None  # only while it starts
 
 
 def test_stop_start_and_restart_return_the_fresh_dict(docker, caplog):

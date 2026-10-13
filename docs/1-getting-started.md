@@ -80,7 +80,8 @@ other files can go in its folder before the world is made. Each server gets the 
 the panel's range; its address, shown in its header, is what players type.
 
 The first start downloads the server and, for modded types, installs the loader, so it can take a few
-minutes. With `LATEST`, Minecraft updates itself on every start.
+minutes; while it says Starting, the header shows the last line it wrote, such as "Preparing spawn
+area: 45%". With `LATEST`, Minecraft updates itself on every start.
 
 ## A server's tabs
 

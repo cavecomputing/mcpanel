@@ -154,6 +154,10 @@ function drawServer(server) {
     $('serverAddress').textContent = server.address;
     const tags = [typeName(server.type), versionName(server.version), javaName(server.java), `${server.memory_gb} GB`];
     setHtml($('serverTags'), tags.map((tag) => `<span class="cc-tag">${esc(tag)}</span>`).join(''));
+    // How far a start has got, since a first one downloads and generates for minutes.
+    $('serverProgress').hidden = !server.progress;
+    $('serverProgress').textContent = server.progress ?? '';
+    $('serverProgress').title = server.progress ?? '';
     const busy = state.busy.get(server.id);
     for (const button of $('serverView').querySelectorAll('[data-action]')) {
         const action = ACTIONS[button.dataset.action];

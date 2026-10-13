@@ -184,6 +184,7 @@ svg.i { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-widt
 .head__actions { margin-left: auto; display: flex; flex-wrap: wrap; gap: var(--app-space-3); }
 .head__sub { width: 100%; margin: 0; color: var(--fg-muted); font-size: 13px; }
 .head__sub b { color: var(--fg); font-family: var(--font-mono); }
+.head__sub.progress { overflow: hidden; font-family: var(--font-mono); font-size: 12px; white-space: nowrap; text-overflow: ellipsis; }
 .head__meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--app-space-3) var(--app-space-4); }
 .address { display: inline-flex; align-items: center; gap: var(--app-space-1); min-width: 0; }
 .address code { color: var(--accent-cool); font-family: var(--font-mono); font-size: 13px; overflow-wrap: anywhere; }

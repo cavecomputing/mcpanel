@@ -46,6 +46,9 @@ ANSI = re.compile(r'\x1b\[[0-9;?]*[A-Za-z]')
 # What the server logs for every RCON connection: the panel's own commands, and the Overview's and
 # Players tab's polls of who is online, would otherwise fill the Console.
 RCON_CHATTER = re.compile(r'Thread RCON Client /\S+ (?:started|shutting down)$')
+# What a log line starts with before its words: the image's "[init] " or "[mc-image-helper] 12:00:01.234
+# INFO  : ", Minecraft's "[12:00:01] [Server thread/INFO]: ".
+LOG_PREFIX = re.compile(r'^(?:\[[^\]]*\]:?\s*|\d\d:\d\d:\d\d(?:\.\d+)?\s+[A-Z]+\s*:?\s*)+')
 # How long the health check gives a start before it counts: a first start downloads the server, and
 # a modded one installs its loader, which can take minutes.
 FIRST_START_SECONDS = 10 * 60
@@ -146,10 +149,11 @@ def server_dict(container):
     attrs = container.attrs
     env = env_of(container)
     game_port = next(host_ports(container), None)
+    status = status_of(attrs)
     return {
         'id': container.labels['mcpanel.server'],
         'name': container.labels.get('mcpanel.name', ''),
-        'status': status_of(attrs),
+        'status': status,
         'type': env.get('TYPE', ''),
         'version': env.get('VERSION', ''),
         'java': attrs['Config']['Image'].partition(':')[2],
@@ -160,7 +164,19 @@ def server_dict(container):
         'address': config.GAME_HOST if game_port == 25565 else f'{config.GAME_HOST}:{game_port}',
         # Docker writes UTC with nanoseconds, more digits than Python parses.
         'created': int(datetime.fromisoformat(attrs['Created'][:19] + '+00:00').timestamp()),
+        'progress': progress(container) if status in ('starting', 'restarting') else None,
     }
+
+
+def progress(container):
+    """The last line a starting server wrote, without its time and thread, as a sign of how far it got."""
+    password = env_of(container).get('RCON_PASSWORD')
+    with suppress(NotFound):  # deleted meanwhile
+        for line in reversed(container.logs(tail=10).decode('utf-8', 'replace').splitlines()):
+            text = LOG_PREFIX.sub('', ANSI.sub('', line)).strip()
+            if text and not RCON_CHATTER.search(text):
+                return (text.replace(password, '********') if password else text)[:200]
+    return None
 
 
 def host():
@@ -573,4 +589,5 @@ def change(server_id, done, action):
         action(container)
         container.reload()
     logger.info('%s server %s', done, server_id, extra={'server': server_id})
-    return server_dict(container)
+    with docker_errors():
+        return server_dict(container)
