@@ -275,6 +275,31 @@ def test_a_folder_changed_while_it_is_measured_is_measured_as_it_is(admin, data_
     assert admin.get('/api/servers/survival/disk').get_json()['folder'] == 10
 
 
+@pytest.mark.parametrize('action, verb', [('stop', 'stops'), ('restart', 'restarts')])
+def test_a_countdown_warns_the_players_then_goes_ahead(admin, docker, rcon_server, no_waiting, action, verb):
+    create(admin)
+    admin.post('/api/servers/survival/start')
+    docker.set_state('mcpanel-survival', 'running', health='healthy')
+    docker.actions.clear()
+    began = no_waiting['now']
+    assert admin.post(f'/api/servers/survival/{action}', json={'countdown': True}).status_code == 200
+    assert rcon_server.commands == [f'say This server {verb} in 30 seconds.', f'say This server {verb} in 10 seconds.']
+    assert no_waiting['now'] == began + 30
+    assert [done for done, _, _ in docker.actions] == [action]
+
+
+def test_without_a_countdown_nobody_is_warned(admin, docker, rcon_server, no_waiting):
+    create(admin)
+    began = no_waiting['now']
+    assert admin.post('/api/servers/survival/start', json={'countdown': True}).status_code == 200  # nobody on to warn
+    docker.set_state('mcpanel-survival', 'running', health='healthy')
+    assert admin.post('/api/servers/survival/stop', json={'countdown': False}).status_code == 200
+    assert admin.post('/api/servers/survival/start').status_code == 200
+    docker.set_state('mcpanel-survival', 'running', health='healthy')
+    assert admin.post('/api/servers/survival/restart').status_code == 200
+    assert rcon_server.commands == [] and no_waiting['now'] == began
+
+
 def test_stats_say_nothing_while_stopped_then_usage_and_players(admin, member, docker, rcon_server):
     create(admin)
     assert admin.get('/api/servers/survival/stats').get_json() == {'usage': None, 'players': None, 'max_players': None,

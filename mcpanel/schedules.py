@@ -14,6 +14,7 @@ import logging
 import threading
 import time
 import zoneinfo
+from contextlib import suppress
 from datetime import datetime, timedelta
 from functools import cache
 
@@ -136,22 +137,33 @@ def tick(now, clocks):
             threading.Thread(target=count_down, args=(dict(row), at), daemon=True).start()
 
 
+def warn(server_id, verb, at, warnings, called_off=lambda: False):
+    """Tell a server's players in game that it {verb} at time at, at each of warnings' (seconds
+    before, words) while it runs, then wait for at: True then, False as soon as called_off() says so.
+    A Stop or Restart that warns players first waits here too."""
+    for before, words in warnings:
+        time.sleep(max(0, at - before - time.time()))
+        if called_off():
+            return False
+        if servers.get_server(server_id)['status'] == 'running':
+            with suppress(HTTPException):  # it goes ahead all the same
+                rcon.run(server_id, servers.rcon_password(server_id), f'say This server {verb} in {words}.')
+    time.sleep(max(0, at - time.time()))
+    return True
+
+
 def count_down(row, at):
     """Warn a server's players ahead of a scheduled restart at time at, then restart it, unless the
     schedule is gone or the server isn't running by then."""
     server_id = row['server']
+
+    def unscheduled():
+        with get_db() as conn:
+            return not conn.execute('SELECT 1 FROM schedules WHERE id = ?', (row['id'],)).fetchone()
+
     try:
-        for before, words in WARNINGS:
-            time.sleep(max(0, at - before - time.time()))
-            with get_db() as conn:
-                if not conn.execute('SELECT 1 FROM schedules WHERE id = ?', (row['id'],)).fetchone():
-                    return
-            if servers.get_server(server_id)['status'] == 'running':
-                try:
-                    rcon.run(server_id, servers.rcon_password(server_id), f'say This server restarts in {words}.')
-                except HTTPException:
-                    pass  # it restarts all the same
-        time.sleep(max(0, at - time.time()))
+        if not warn(server_id, 'restarts', at, WARNINGS, unscheduled):
+            return
         server = servers.get_server(server_id)
         if server['status'] not in ('running', 'unresponsive'):
             logger.info('Left server %s alone at its scheduled restart: it is %s', server_id, server['status'],

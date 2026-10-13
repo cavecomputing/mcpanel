@@ -266,30 +266,38 @@ function drawStats(server, data) {
     setHtml($('statCpu'), usage ? `${(usage.cpu / 100).toFixed(1)} <small>${server.cpus ? `of ${plural(server.cpus, 'core')}` : 'cores'}</small>` : '–');
 }
 
-/** Stop and Restart disconnect whoever is on, so they ask first while someone is. */
+/** Stop and Restart disconnect whoever is on, so they ask first while someone is, offering to warn
+ * them in game 30 seconds ahead: the action's request body, or null for no. */
 async function mayDisconnect(server, action) {
-    if (action === 'start' || ['stopped', 'crashed'].includes(server.status)) return true;
+    if (action === 'start' || ['stopped', 'crashed'].includes(server.status)) return {};
     let online;
     try {
         ({ online } = await api.get(`/api/servers/${server.id}/players`, { quiet: true }));
     } catch {
-        return true;
+        return {};
     }
-    if (!online?.length) return true;
+    if (!online?.length) return {};
     const label = ACTIONS[action].label;
-    return Boolean(await ask({ title: `${label} ${server.name}?`, iconName: action, ok: label, danger: true,
-        text: `${online.length === 1 ? `${online[0]} is` : `${plural(online.length, 'player')} are`} on, and will be disconnected.` }));
+    let countdown = true;
+    const yes = await ask({ title: `${label} ${server.name}?`, iconName: action, ok: label, danger: true,
+        text: `${online.length === 1 ? `${online[0]} is` : `${plural(online.length, 'player')} are`} on, and will be disconnected.`,
+        check: 'Warn them in game and wait 30 seconds first',
+        action: (answer, warn) => { countdown = warn; } });
+    return yes ? { countdown } : null;
 }
 
-/** Start, stop or restart the open server. Stopping can take up to a minute while the world saves. */
+/** Start, stop or restart the open server. Stopping can take up to a minute while the world saves,
+ * after the 30 seconds the players get when they are warned. */
 async function runAction(action) {
     const { id } = route();
-    if (!serverWithId(id) || state.busy.has(id) || !await mayDisconnect(serverWithId(id), action)) return;
-    if (state.busy.has(id)) return; // pressed again while the question was open
+    if (!serverWithId(id) || state.busy.has(id)) return;
+    const body = await mayDisconnect(serverWithId(id), action);
+    if (!body || state.busy.has(id)) return; // no, or pressed again while the question was open
     state.busy.set(id, action);
     showServer(id);
+    if (body.countdown) toast(`Warning the players: it ${action}s in 30 seconds`);
     try {
-        const fresh = await api.post(`/api/servers/${id}/${action}`);
+        const fresh = await api.post(`/api/servers/${id}/${action}`, body);
         state.servers = state.servers.map((server) => (server.id === id ? fresh : server));
         toast(`${ACTIONS[action].done} <b>${esc(fresh.name)}</b>`);
     } catch { /* api.js showed why */ }

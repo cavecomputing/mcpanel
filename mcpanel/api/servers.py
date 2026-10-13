@@ -1,10 +1,11 @@
 """Servers: list, create, change, delete, start, stop, restart, stats and game settings. Members see
 and run only the servers an admin gave them, and change their game settings but not the servers."""
 import shutil
+import time
 
 from flask import Blueprint, abort, g
 
-from .. import accounts, auth, backups, config, files, logs, players, properties, servers
+from .. import accounts, auth, backups, config, files, logs, players, properties, schedules, servers
 from ..db import get_db
 from .common import json_body, usable_server
 
@@ -18,6 +19,8 @@ ACTIONS = {
     'stop': (servers.stop_server, 'server_stopped'),
     'restart': (servers.restart_server, 'server_restarted'),
 }
+# A Stop or Restart that warns the players first: (seconds before it, said in game).
+COUNTDOWN = ((30, '30 seconds'), (10, '10 seconds'))
 
 
 @bp.get('/servers')
@@ -122,11 +125,14 @@ def put_properties(server_id):
 
 @bp.post('/servers/<server_id>/<any(start, stop, restart):action>')
 def change(server_id, action):
-    """Start, stop or restart a server; its fresh dict."""
+    """Start, stop or restart a server; its fresh dict. {countdown: true} warns the players of a stop
+    or restart in game and waits 30 seconds first."""
     # A server the user may not use gets the same 404 as a missing one, so ids can't be probed.
     if not accounts.may_use(g.user, server_id):
         abort(404, 'No such server')
     act, event = ACTIONS[action]
+    if action != 'start' and json_body().get('countdown') is True:
+        schedules.warn(server_id, f'{action}s', time.time() + COUNTDOWN[0][0], COUNTDOWN)
     server = act(server_id)
     logs.audit(event, server=server['id'], server_name=server['name'])
     return server

@@ -62,6 +62,13 @@ def clock(monkeypatch):
 
 
 @pytest.fixture
+def no_waiting(monkeypatch, clock):
+    """time.sleep() moves the clock instead of waiting."""
+    monkeypatch.setattr(time, 'sleep', lambda seconds: clock.update(now=clock['now'] + seconds))
+    return clock
+
+
+@pytest.fixture
 def anon(app):
     """A client that has not signed in."""
     return app.test_client()

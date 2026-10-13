@@ -205,13 +205,6 @@ def test_a_big_jump_of_the_clock_catches_nothing_up(admin, survival, started):
 
 # The countdown itself.
 
-@pytest.fixture
-def no_waiting(monkeypatch, clock):
-    """time.sleep() moves the clock instead of waiting."""
-    monkeypatch.setattr(time, 'sleep', lambda seconds: clock.update(now=clock['now'] + seconds))
-    return clock
-
-
 def countdown_row(admin, line='0 4 * * *'):
     restart = schedule(admin, line).get_json()
     return {'id': restart['id'], 'server': 'survival', 'cron': line, 'timezone': CHICAGO}

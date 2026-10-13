@@ -86,7 +86,9 @@ area: 45%". With `LATEST`, Minecraft updates itself on every start.
 ## A server's tabs
 
 Start, Stop and Restart sit in the server's header; Stop and Restart ask first while players are on,
-since they disconnect them. Below it:
+since they disconnect them. The question offers to warn them in game first, ticked to start with:
+the server says it stops (or restarts) in 30 seconds, then in 10 seconds, and goes ahead 30 seconds
+after you pressed it. Below it:
 
 - **Overview**: its state, address, type and version (for `LATEST`, the release it got at its last
   start, which is also in the header), how long it has been up, and while it runs the players
