@@ -33,9 +33,20 @@ export function addTab(tab, view) {
 
 export const typeName = (type) => TYPE_NAMES[type] ?? type;
 const versionName = (version) => (version === 'LATEST' ? 'Latest' : version);
+// LATEST with the release it got at its last start, which players need to know to join.
+const runningVersion = (server) => (server.version === 'LATEST' && server.game_version ? `Latest (${server.game_version})` : versionName(server.version));
 export const javaName = (java) => java.replace(/^java/, 'Java ');
 const statusName = (status) => STATUS[status] ?? status;
 const serverWithId = (id) => state.servers.find((server) => server.id === id);
+
+/** How long since a time (Unix seconds), as "45 min", "3 h 12 min" or "2 days 4 h". */
+function formatUptime(seconds) {
+    const minutes = Math.floor((Date.now() / 1000 - seconds) / 60);
+    if (minutes < 1) return 'under a minute';
+    if (minutes < 60) return `${minutes} min`;
+    if (minutes < 24 * 60) return `${Math.floor(minutes / 60)} h ${minutes % 60} min`;
+    return `${plural(Math.floor(minutes / (24 * 60)), 'day')} ${Math.floor(minutes / 60) % 24} h`;
+}
 
 /** Fetch the list and redraw what shows it. Quiet, since a failed poll tries again in 5 seconds. */
 async function loadServers() {
@@ -152,7 +163,7 @@ function drawServer(server) {
     $('serverBadge').className = `cc-badge ${BADGE[server.status] ?? ''}`;
     $('serverBadge').textContent = statusName(server.status);
     $('serverAddress').textContent = server.address;
-    const tags = [typeName(server.type), versionName(server.version), javaName(server.java), `${server.memory_gb} GB`];
+    const tags = [typeName(server.type), runningVersion(server), javaName(server.java), `${server.memory_gb} GB`];
     setHtml($('serverTags'), tags.map((tag) => `<span class="cc-tag">${esc(tag)}</span>`).join(''));
     // How far a start has got, since a first one downloads and generates for minutes.
     $('serverProgress').hidden = !server.progress;
@@ -168,10 +179,11 @@ function drawServer(server) {
         ['Address', `<code class="cc-code">${esc(server.address)}</code>`],
         ['Port', esc(server.port)],
         ['Type', esc(typeName(server.type))],
-        ['Version', esc(versionName(server.version))],
+        ['Version', esc(runningVersion(server))],
         ['Java', esc(javaName(server.java))],
         ['Memory', `${esc(server.memory_gb)} GB`],
         ['CPU', server.cpus ? plural(server.cpus, 'core') : 'No limit'],
+        ['Up for', server.started ? formatUptime(server.started) : 'Not running'],
         ['Created', esc(formatDate(server.created))],
     ].map(([term, value]) => `<dt>${term}</dt><dd>${value}</dd>`).join(''));
 }

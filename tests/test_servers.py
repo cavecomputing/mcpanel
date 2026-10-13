@@ -129,7 +129,7 @@ def test_create_leaves_the_server_stopped_and_returns_its_dict(docker, data_dir)
     assert server == {'id': 'survival', 'name': 'Survival', 'status': 'stopped', 'type': 'PAPER',
                       'version': 'LATEST', 'java': 'java21', 'memory_gb': 4, 'cpus': None,
                       'memory_limit': 4 * GIB, 'port': 25565,
-                      'address': 'mc.example.com', 'progress': None}
+                      'address': 'mc.example.com', 'started': None, 'game_version': None, 'progress': None}
     # Never started, so mods and files can go in before the world is generated. Docker leaves a
     # container it never started alone when it starts up, so a reboot doesn't start it either.
     assert docker.actions == []
@@ -363,6 +363,34 @@ def test_a_starting_server_shows_its_last_line_as_progress(docker):
     assert servers.get_server('survival')['progress'] == 'password ********'
     docker.set_state('mcpanel-survival', 'running', health='healthy')
     assert servers.get_server('survival')['progress'] is None  # only while it starts
+
+
+def test_a_running_server_says_when_it_started_and_its_version(docker):
+    create(version='latest')
+    servers.start_server('survival')
+    started = docker.live('mcpanel-survival')['State']['StartedAt']
+    assert abs(servers.get_server('survival')['started'] - time.time()) < 5
+    assert servers.get_server('survival')['game_version'] is None  # not said yet
+    docker.output['mcpanel-survival'] = [
+        ('2026-10-10T16:00:00Z', '[16:00:00] [Server thread/INFO]: Starting minecraft server version 1.21.4')]
+    assert servers.get_server('survival')['game_version'] is None  # said before this start
+    docker.output['mcpanel-survival'].append((started, '[Server thread/INFO]: Starting minecraft server version 1.21.10'))
+    assert servers.get_server('survival')['game_version'] == '1.21.10'
+    docker.output['mcpanel-survival'] = []
+    assert servers.get_server('survival')['game_version'] == '1.21.10'  # read once per start
+    servers.stop_server('survival')
+    assert servers.get_server('survival')['started'] is None
+    assert servers.get_server('survival')['game_version'] is None
+
+
+def test_a_server_up_without_saying_its_version_is_not_asked_again(docker):
+    create()
+    servers.start_server('survival')
+    docker.set_state('mcpanel-survival', 'running', health='healthy')
+    assert servers.get_server('survival')['game_version'] is None
+    docker.output['mcpanel-survival'] = [(docker.live('mcpanel-survival')['State']['StartedAt'],
+                                          'Starting minecraft server version 1.21.4')]
+    assert servers.get_server('survival')['game_version'] is None
 
 
 def test_stop_start_and_restart_return_the_fresh_dict(docker, caplog):

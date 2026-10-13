@@ -88,8 +88,9 @@ area: 45%". With `LATEST`, Minecraft updates itself on every start.
 Start, Stop and Restart sit in the server's header; Stop and Restart ask first while players are on,
 since they disconnect them. Below it:
 
-- **Overview**: its state, address, type and version, and while it runs the players online, memory
-  and CPU. When it has crashed or isn't answering, the last lines it wrote, to say why.
+- **Overview**: its state, address, type and version (for `LATEST`, the release it got at its last
+  start, which is also in the header), how long it has been up, and while it runs the players
+  online, memory and CPU. When it has crashed or isn't answering, the last lines it wrote, to say why.
 - **Console**: the server's output as it runs, and a box for commands, which go to the server over
   RCON, with or without the leading `/`.
 - **Players**: who is online, and the whitelist, operators and bans, each a click to change (Kick

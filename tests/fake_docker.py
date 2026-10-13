@@ -13,6 +13,7 @@ from docker.models.containers import _create_container_args
 from docker.types import ContainerConfig
 
 API_VERSION = '1.47'
+NEVER = '0001-01-01T00:00:00Z'  # Docker's StartedAt for a container it never started
 
 
 class FakeDocker:
@@ -72,7 +73,7 @@ class FakeDocker:
             'HostConfig': config['HostConfig'],
             # Docker fills in the network's id only when a container first starts.
             'NetworkSettings': {'Networks': {network: {'NetworkID': ''}} if network else {}},
-            'State': {'Status': 'created', 'Running': False, 'ExitCode': 0},
+            'State': {'Status': 'created', 'Running': False, 'ExitCode': 0, 'StartedAt': NEVER},
             'RestartCount': 0,
         }
         return container_id
@@ -80,7 +81,8 @@ class FakeDocker:
     def set_state(self, name, status, exit_code=0, health=None, restarts=0):
         """Put a container in a state: set_state('mcpanel-x', 'exited', exit_code=1), or 'running'
         with health='starting', and restarts=3 when Docker has restarted it 3 times since its start."""
-        state = {'Status': status, 'Running': status in ('running', 'restarting'), 'ExitCode': exit_code}
+        state = {'Status': status, 'Running': status in ('running', 'restarting'), 'ExitCode': exit_code,
+                 'StartedAt': self.live(name)['State']['StartedAt']}
         if health:
             state['Health'] = {'Status': health}
         self.live(name)['State'] = state
@@ -113,7 +115,8 @@ class FakeDocker:
                 raise APIError('500 Server Error',
                                explanation=f'{endpoint}: Bind for 0.0.0.0:{port} failed: port is already allocated')
         # The image's health check says starting until the server answers. A start or restart zeroes the count.
-        attrs['State'] = {'Status': 'running', 'Running': True, 'ExitCode': 0, 'Health': {'Status': 'starting'}}
+        attrs['State'] = {'Status': 'running', 'Running': True, 'ExitCode': 0, 'Health': {'Status': 'starting'},
+                          'StartedAt': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%f123Z')}
         attrs['RestartCount'] = 0
 
 
@@ -192,7 +195,8 @@ class Container:
         self.fake.actions.append(('start', self.name, None))
 
     def stop(self, timeout=None):
-        self.fake.live(self.id)['State'] = {'Status': 'exited', 'Running': False, 'ExitCode': 0}
+        attrs = self.fake.live(self.id)
+        attrs['State'] = {'Status': 'exited', 'Running': False, 'ExitCode': 0, 'StartedAt': attrs['State']['StartedAt']}
         self.fake.actions.append(('stop', self.name, timeout))
 
     def stats(self, stream=True):
@@ -203,10 +207,10 @@ class Container:
                 'cpu_stats': {'cpu_usage': {'total_usage': 3_000_000_000}, 'system_cpu_usage': 104_000_000_000, 'online_cpus': 8},
                 'precpu_stats': {'cpu_usage': {'total_usage': 1_000_000_000}, 'system_cpu_usage': 100_000_000_000}}
 
-    def logs(self, timestamps=False, since=None, tail='all'):
-        """The log as docker logs --timestamps writes it. since is inclusive, as Docker's is."""
+    def logs(self, timestamps=False, since=None, until=None, tail='all'):
+        """The log as docker logs --timestamps writes it. since and until are inclusive, as Docker's are."""
         lines = [(stamp, text) for stamp, text in self.fake.output.get(self.name, [])
-                 if since is None or log_seconds(stamp) >= since]
+                 if (since is None or log_seconds(stamp) >= since) and (until is None or log_seconds(stamp) <= until)]
         if tail != 'all':
             lines = lines[-tail:]
         return ''.join(f'{stamp} {text}\n' if timestamps else f'{text}\n' for stamp, text in lines).encode()

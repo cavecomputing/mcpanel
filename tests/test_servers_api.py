@@ -8,7 +8,7 @@ from mcpanel.db import get_db
 from .conftest import make_user, signed_in_client
 
 SURVIVAL = {'name': 'Survival', 'type': 'PAPER', 'version': '1.21.4', 'java': 'java21', 'memory_gb': 4, 'eula': True}
-SERVER_KEYS = {'id', 'name', 'status', 'type', 'version', 'java', 'memory_gb', 'cpus', 'memory_limit', 'port', 'address', 'created', 'progress'}
+SERVER_KEYS = {'id', 'name', 'status', 'type', 'version', 'java', 'memory_gb', 'cpus', 'memory_limit', 'port', 'address', 'created', 'started', 'game_version', 'progress'}
 
 
 def create(client, **fields):

@@ -49,6 +49,7 @@ RCON_CHATTER = re.compile(r'Thread RCON Client /\S+ (?:started|shutting down)$')
 # What a log line starts with before its words: the image's "[init] " or "[mc-image-helper] 12:00:01.234
 # INFO  : ", Minecraft's "[12:00:01] [Server thread/INFO]: ".
 LOG_PREFIX = re.compile(r'^(?:\[[^\]]*\]:?\s*|\d\d:\d\d:\d\d(?:\.\d+)?\s+[A-Z]+\s*:?\s*)+')
+STARTING_VERSION = re.compile(r'Starting minecraft server version (\S+)')
 # How long the health check gives a start before it counts: a first start downloads the server, and
 # a modded one installs its loader, which can take minutes.
 FIRST_START_SECONDS = 10 * 60
@@ -150,6 +151,7 @@ def server_dict(container):
     env = env_of(container)
     game_port = next(host_ports(container), None)
     status = status_of(attrs)
+    up = status not in ('stopped', 'crashed')
     return {
         'id': container.labels['mcpanel.server'],
         'name': container.labels.get('mcpanel.name', ''),
@@ -164,6 +166,8 @@ def server_dict(container):
         'address': config.GAME_HOST if game_port == 25565 else f'{config.GAME_HOST}:{game_port}',
         # Docker writes UTC with nanoseconds, more digits than Python parses.
         'created': int(datetime.fromisoformat(attrs['Created'][:19] + '+00:00').timestamp()),
+        'started': int(log_time(attrs['State']['StartedAt'])) if up else None,
+        'game_version': game_version(container, status) if up else None,  # what LATEST is today
         'progress': progress(container) if status in ('starting', 'restarting') else None,
     }
 
@@ -177,6 +181,24 @@ def progress(container):
             if text and not RCON_CHATTER.search(text):
                 return (text.replace(password, '********') if password else text)[:200]
     return None
+
+
+game_versions = {}  # (container id, start time) -> the version its server said it is, or None
+
+
+def game_version(container, status):
+    """The Minecraft version a server said it is as it last started, which for LATEST changes over
+    time. Read from the log's first FIRST_START_SECONDS once per start; None until it says so."""
+    started = container.attrs['State']['StartedAt']
+    key = (container.id, started)
+    if key not in game_versions:
+        since = log_time(started)
+        with suppress(NotFound):  # deleted meanwhile
+            match = STARTING_VERSION.search(container.logs(since=since, until=since + FIRST_START_SECONDS)
+                                            .decode('utf-8', 'replace'))
+            if match or status not in ('starting', 'restarting'):  # up without saying so: it never will
+                game_versions[key] = match and match[1]
+    return game_versions.get(key)
 
 
 def host():
