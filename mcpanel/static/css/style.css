@@ -273,6 +273,7 @@ button.fname:hover { color: var(--accent-text); }
 .chips .cc-tag { cursor: pointer; }
 .chips .cc-tag:hover { color: var(--fg); }
 .chips .cc-tag:disabled { opacity: .5; cursor: not-allowed; }
+.chips__end { margin-left: auto; }
 .composer { display: flex; align-items: center; gap: var(--app-space-3); }
 .composer .prompt { color: var(--accent-text); font-family: var(--font-mono); font-weight: 700; }
 .seg { display: inline-flex; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-inset); }

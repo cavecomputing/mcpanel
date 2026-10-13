@@ -1,10 +1,11 @@
 /**
  * The Console tab: the server's output, polled every 2 seconds while the tab is open and in view,
- * and a command line that runs commands over RCON, with the answers shown in the output.
+ * a command line that runs commands over RCON, with the answers shown in the output, and the
+ * server's latest.log to download.
  */
 import * as api from './api.js';
 import { route } from './state.js';
-import { $, esc } from './ui.js';
+import { $, esc, showError } from './ui.js';
 
 const POLL_MS = 2000;
 const MAX_LINES = 2000; // kept on screen
@@ -92,7 +93,21 @@ async function sendCommand(command) {
     }
 }
 
+/** Download the server's logs/latest.log, the file people ask for when helping, if it has one yet. */
+async function downloadLog() {
+    const files = `/api/servers/${server.id}/files`;
+    try {
+        const { entries } = await api.get(`${files}?path=logs`, { quiet: true });
+        if (entries.some((entry) => entry.name === 'latest.log' && entry.type === 'file')) {
+            location.assign(`${files}/download?path=logs/latest.log`);
+            return;
+        }
+    } catch { /* no logs folder yet */ }
+    showError("There's no latest.log yet: the server writes it once it starts");
+}
+
 export function initConsole() {
+    $('downloadLog').addEventListener('click', downloadLog);
     $('commandForm').addEventListener('submit', (event) => {
         event.preventDefault();
         const input = $('commandInput');

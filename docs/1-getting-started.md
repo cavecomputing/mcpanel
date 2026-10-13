@@ -100,7 +100,8 @@ since they disconnect them. Below it:
   most likely mean when it's a common cause: out of memory, a Java too old for it, or a mod missing
   another mod or made for another version.
 - **Console**: the server's output as it runs, and a box for commands, which go to the server over
-  RCON, with or without the leading `/`.
+  RCON, with or without the leading `/`. The latest.log button downloads `logs/latest.log`, the
+  server's log since it last started, which is what people ask for when they help with a problem.
 - **Players**: who is online, and the whitelist, operators and bans, each a click to change (Kick
   and Ban ask first). While it runs, changes are console commands. While it's stopped, the panel
   writes them into the server's own list files, so the whitelist can be set before the first start;
