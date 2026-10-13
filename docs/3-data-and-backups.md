@@ -54,4 +54,6 @@ The panel logs JSON lines on stdout (plain lines in a terminal), and the same li
 every server action, with who did it and from which address. Both rotate at 10 MB and keep 7 gzipped
 files. There are no logging settings, and no password, code, token or RCON password is ever logged.
 
-Each server's own output is its Console tab, kept by Docker at up to 3 files of 10 MB.
+Each server's own output is its Console tab, kept by Docker at up to 3 files of 10 MB, of which
+the tab shows the last 2000 lines. The server also keeps its own log in its folder, in the Files tab:
+`logs/latest.log` since it last started, and each earlier start's in `logs/` as a `.log.gz`.

@@ -41,7 +41,7 @@ NETWORK = 'mcpanel'  # where the panel reaches each server's RCON by container n
 # How long a server gets to stop before Docker kills it: the image's own STOP_DURATION (60 s) for the
 # world to save, plus room for the image to exit after it.
 STOP_SECONDS = 75
-LOG_LINES = 500  # console lines the Console tab gets at most per call
+LOG_LINES = 2000  # console lines the Console tab gets at most per call, as many as it keeps on screen
 ANSI = re.compile(r'\x1b\[[0-9;?]*[A-Za-z]')
 # What the server logs for every RCON connection: the panel's own commands, and the Overview's and
 # Players tab's polls of who is online, would otherwise fill the Console.
@@ -492,27 +492,34 @@ def usage(server_id):
 
 def console_lines(server_id, since=None):
     """A server's console output from Docker's log: (lines, the time of the last one) after since
-    (Unix seconds, as an earlier call returned it), or the last LOG_LINES lines when since is None.
-    Colour codes go, and the RCON password, should the server ever print it, is masked."""
+    (Unix seconds, as an earlier call returned it), the last LOG_LINES of them. Colour codes and
+    RCON_CHATTER go, and the RCON password, should the server ever print it, is masked."""
     check_id(server_id)
     with docker_errors():
         container = server_container(docker_client(), server_id)
-        raw = container.logs(timestamps=True, since=since, tail=LOG_LINES)
     password = env_of(container).get('RCON_PASSWORD')
-    lines, last = [], since
-    for line in raw.decode('utf-8', 'replace').splitlines():
-        stamp, _, text = line.partition(' ')
-        try:
-            time = log_time(stamp)
-        except ValueError:
-            continue
-        if since is not None and time <= since:
-            continue  # Docker's since includes the line it names
-        last = time
-        text = ANSI.sub('', text).rstrip('\r')
-        if not RCON_CHATTER.search(text):
-            lines.append(text.replace(password, '********') if password else text)
-    return lines, last
+    tail = LOG_LINES
+    while True:
+        with docker_errors():
+            raw = container.logs(timestamps=True, since=since, tail=tail)
+        lines, last = [], since
+        for line in raw.decode('utf-8', 'replace').splitlines():
+            stamp, _, text = line.partition(' ')
+            try:
+                time = log_time(stamp)
+            except ValueError:
+                continue
+            if since is not None and time <= since:
+                continue  # Docker's since includes the line it names
+            last = time
+            text = ANSI.sub('', text).rstrip('\r')
+            if not RCON_CHATTER.search(text):
+                lines.append(text.replace(password, '********') if password else text)
+        # The Overview's poll leaves two lines of chatter every 5 s, which after a while can be all of
+        # Docker's last lines: look further back until there are enough of the server's own.
+        if len(lines) >= LOG_LINES or raw.count(b'\n') < tail:
+            return lines[-LOG_LINES:], last
+        tail *= 4
 
 
 def log_time(stamp):

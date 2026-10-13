@@ -9,8 +9,8 @@ bp = Blueprint('console', __name__, url_prefix='/servers/<server_id>/console')
 
 @bp.get('')
 def output(server_id):
-    """?since=<time> -> {lines, since}: the console's lines after since (the last 500 without it),
-    and the time to ask from next."""
+    """?since=<time> -> {lines, since}: the console's last lines (after since, when given), and the
+    time to ask from next."""
     usable_server(server_id)
     since = request.args.get('since', type=float)
     lines, last = servers.console_lines(server_id, since)

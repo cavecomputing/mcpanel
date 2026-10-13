@@ -47,6 +47,16 @@ def test_output_leaves_out_the_lines_each_rcon_connection_logs(admin, docker, ru
     assert admin.get('/api/servers/survival/console', query_string={'since': first['since']}).get_json()['lines'] == []
 
 
+
+def test_output_looks_past_the_rcon_lines_for_the_servers_own(admin, docker, running, monkeypatch):
+    monkeypatch.setattr(servers, 'LOG_LINES', 3)
+    chatter = '[RCON Listener #1/INFO]: Thread RCON Client /172.18.0.2 started'
+    docker.output['mcpanel-survival'] = [(f'2026-10-10T16:00:0{i}Z', f'line {i}') for i in range(4)]
+    docker.output['mcpanel-survival'] += [(f'2026-10-10T16:01:{i:02}Z', chatter) for i in range(50)]
+    first = admin.get('/api/servers/survival/console').get_json()
+    assert first['lines'] == ['line 1', 'line 2', 'line 3']
+    assert admin.get('/api/servers/survival/console', query_string={'since': first['since']}).get_json()['lines'] == []
+
 def test_a_command_goes_over_rcon_with_the_servers_password(admin, docker, running, rcon_server, data_dir):
     rcon_server.answers['list'] = '§6There are 0 of a max of 20 players online: '
     response = admin.post('/api/servers/survival/console', json={'command': '/list'})
