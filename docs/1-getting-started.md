@@ -105,14 +105,14 @@ since they disconnect them. Below it:
   delete. The editor asks before it drops changes you haven't saved.
 - **Backups**: back up the whole folder, download a backup, restore one, or delete it. See
   [Data and backups](3-data-and-backups.md#backups).
+- **Schedule**: restarts on a schedule. See [Scheduled restarts](#scheduled-restarts).
 - **Settings**: the game settings (MOTD, max players, difficulty, game mode, hardcore, PvP, view and
   simulation distance, flight, whitelist, online mode, seed), saved into `server.properties` and
   used from the next start (saved while it runs, a Restart button appears beside Save). PvP is
   different from Minecraft 1.21.9 on, where it is a game rule kept in the world: it changes right
   away, only while the server is running, and is greyed out while it's stopped. A server moved from
   an older version to 1.21.9 or later starts with PvP on whatever the file said, so check it after
-  the first start. Then its [scheduled restarts](#scheduled-restarts). Below them, the server's own
-  settings: its name, type, version, Java, memory and
+  the first start. Below them, the server's own settings: its name, type, version, Java, memory and
   CPU, which only admins change (members see them greyed out). Those change only while it is
   stopped, because the panel makes its container again with them (its world, files and port stay).
   Admins and platform admins also delete the server here, once it is stopped, which removes its
@@ -120,7 +120,7 @@ since they disconnect them. Below it:
 
 ## Scheduled restarts
 
-The Settings tab restarts a server on a schedule, written as a cron line: minute, hour, day of the
+The Schedule tab restarts a server on a schedule, written as a cron line: minute, hour, day of the
 month, month and day of the week. Anyone who may use the server can add or remove them.
 
 | Line | Restarts |
@@ -137,7 +137,7 @@ Sunday is 0 or 7. As in Linux's cron, when both day fields are set, either one w
 `0 4 1 * mon` is the 1st of the month and every Monday. `@hourly`, `@daily`, `@weekly`, `@monthly`
 and `@yearly` work too.
 
-A line is read in the time zone of the browser that added it, and the Settings tab lists when each
+A line is read in the time zone of the browser that added it, and the Schedule tab lists when each
 one next happens. Players are told in game 5 minutes, 1 minute and 10 seconds before; a server
 that isn't running by then (stopped, crashed or still starting) is left as it is. When the clocks
 change for daylight saving, a restart set in the skipped hour happens just after it, and one in the

@@ -30,6 +30,7 @@
     <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></symbol>
     <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
     <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5v.2a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1h-.2a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h0a1.7 1.7 0 0 0 1-1.5v-.2a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v0a1.7 1.7 0 0 0 1.5 1h.2a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
     <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></symbol>
     <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3.5l9 16H3z"/><path d="M12 10v4M12 17v.5"/></symbol>
     <symbol id="i-term" viewBox="0 0 24 24"><path d="M4 17l6-6-6-6M12 19h8"/></symbol>
@@ -104,6 +105,7 @@
                     <a class="tab" data-tab="players"><svg class="i"><use href="#i-users"/></svg>Players</a>
                     <a class="tab" data-tab="files"><svg class="i"><use href="#i-folder"/></svg>Files</a>
                     <a class="tab" data-tab="backups"><svg class="i"><use href="#i-archive"/></svg>Backups</a>
+                    <a class="tab" data-tab="schedule"><svg class="i"><use href="#i-clock"/></svg>Schedule</a>
                     <a class="tab" data-tab="settings"><svg class="i"><use href="#i-gear"/></svg>Settings</a>
                 </nav>
                 <div class="page" data-tab-panel="overview">
@@ -197,6 +199,15 @@
                         </table>
                     </div>
                 </div>
+                <div class="page" data-tab-panel="schedule">
+                    <form class="cc-settings-card" id="restartForm" aria-labelledby="restartsTitle" autocomplete="off">
+                        <div class="cc-card-header"><svg><use href="#i-restart"/></svg><h4 id="restartsTitle">Restarts</h4><p>Players are warned in game 5 minutes, 1 minute and 10 seconds before. A server that isn't running by then is left alone.</p></div>
+                        <div class="rows" id="restartRows"></div>
+                        <div class="cc-field"><div><label for="restartCron">When</label><span class="cc-field__hint">A cron line, in your time zone (<span id="restartZone"></span>)</span></div><input class="cc-input mono" id="restartCron" placeholder="0 4 * * *" maxlength="100" required spellcheck="false" autocapitalize="off"></div>
+                        <p class="note cron-examples">Minute, hour, day of the month, month, day of the week: <code class="cc-code">0 4 * * *</code> is 4:00 every day, <code class="cc-code">0 */6 * * *</code> every 6 hours, <code class="cc-code">30 5 * * mon</code> 5:30 on Mondays.</p>
+                        <div class="row-btns"><button class="cc-btn cc-btn--primary" type="submit" id="restartAdd"><svg class="i"><use href="#i-plus"/></svg><span>Add</span></button></div>
+                    </form>
+                </div>
                 <div class="page" data-tab-panel="settings">
                     <form class="cc-settings-card" id="gameForm" aria-labelledby="gameTitle" autocomplete="off">
                         <div class="cc-card-header"><svg><use href="#i-sliders"/></svg><h4 id="gameTitle">Game</h4><p>Saved in <code class="cc-code">server.properties</code>. The server reads them when it starts, so restart it to apply them.</p></div>
@@ -220,13 +231,6 @@
                             <span class="apply" id="gameRestart" hidden>Saved. Restart it to apply them<button class="cc-btn cc-btn--ghost" type="button" data-action="restart"><svg class="i"><use href="#i-restart"/></svg><span>Restart</span></button></span>
                             <button class="cc-btn cc-btn--primary" type="submit" id="gameSave"><span>Save</span></button>
                         </div>
-                    </form>
-                    <form class="cc-settings-card" id="restartForm" aria-labelledby="restartsTitle" autocomplete="off">
-                        <div class="cc-card-header"><svg><use href="#i-restart"/></svg><h4 id="restartsTitle">Scheduled restarts</h4><p>Players are warned in game 5 minutes, 1 minute and 10 seconds before. A server that isn't running by then is left alone.</p></div>
-                        <div class="rows" id="restartRows"></div>
-                        <div class="cc-field"><div><label for="restartCron">When</label><span class="cc-field__hint">A cron line, in your time zone (<span id="restartZone"></span>)</span></div><input class="cc-input mono" id="restartCron" placeholder="0 4 * * *" maxlength="100" required spellcheck="false" autocapitalize="off"></div>
-                        <p class="note cron-examples">Minute, hour, day of the month, month, day of the week: <code class="cc-code">0 4 * * *</code> is 4:00 every day, <code class="cc-code">0 */6 * * *</code> every 6 hours, <code class="cc-code">30 5 * * mon</code> 5:30 on Mondays.</p>
-                        <div class="row-btns"><button class="cc-btn cc-btn--primary" type="submit" id="restartAdd"><svg class="i"><use href="#i-plus"/></svg><span>Add</span></button></div>
                     </form>
                     <form class="cc-settings-card" id="serverForm" aria-labelledby="serverFormTitle" autocomplete="off">
                         <div class="cc-card-header"><svg><use href="#i-chip"/></svg><h4 id="serverFormTitle">Server</h4><p id="serverFormNote"></p></div>

@@ -38,13 +38,8 @@ addTab('backups', { show: showBackups, update: updateBackups });
 addTab('players', { show: showPlayers, update: updatePlayers });
 addTab('console', { show: showConsole, update: updateConsole });
 addTab('files', { show: showFiles });
-addTab('settings', {
-    show: (server) => {
-        showSettings(server);
-        showRestarts(server);
-    },
-    update: updateSettings,
-});
+addTab('schedule', { show: showRestarts });
+addTab('settings', { show: showSettings, update: updateSettings });
 initServers();
 window.addEventListener('hashchange', show);
 show();
