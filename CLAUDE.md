@@ -151,11 +151,13 @@ neighbour.
 | `mcpanel/files.py` | A server's folder for the Files tab: `opened_dir()` walks a path one folder at a time with `O_NOFOLLOW`, so nothing the server writes (a link to `/etc`) leads out of it; list, read, `write()` (temporary file, then renamed over), make a folder, rename, delete, `extract()` a `.zip` where it is (each file through `write()`, at most `MAX_EXTRACT`). Keeps the RCON password in (`HIDDEN`, `masked_properties()`). |
 | `mcpanel/properties.py` | The game settings the Settings tab offers (`SETTINGS`: MOTD, difficulty, view distance...), read from and saved into `server.properties` in Java's escaping, every other line kept. From 1.21.9 (`pvp_is_game_rule()`) PvP is the `pvp` game rule in the world instead, read and set over RCON while the server runs (`pvp_rule()`) and null while it can't say. |
 | `mcpanel/players.py` | Who is online (`list` over RCON), and the server's own `whitelist.json`, `ops.json` and `banned-players.json`. While it runs, changes are console commands, so the server writes its lists; while it is stopped, `change_saved()` writes the file as the command would, with the player's UUID from Mojang's API (`profile()`, the panel's one call out) or, with `online-mode=false`, the offline one. |
+| `mcpanel/cron.py` | `parse()`: a cron line read as cronie reads a crontab's times (lists, ranges, steps, names, 0 and 7 for Sunday, the @ macros, day of the month OR day of the week when both are restricted), refusing with a message what cronie would accept and never run; `Cron.matches()` and `next_after()`. |
+| `mcpanel/restarts.py` | Scheduled restarts: the cron lines per server in the database, each in the time zone of whoever set it, and the thread that runs them (started by the first request, `start_scheduler()`), which keeps each time zone's wall clock as cronie does across daylight saving (`due()`), warns players over RCON 5 min, 1 min and 10 s ahead (`count_down()`), then restarts a running server as Restart does. |
 | `mcpanel/rcon.py` | `run()`: one command over RCON to `mcpanel-<id>:25575`, a long answer gathered from its packets. |
 | `mcpanel/views.py` | `index()` serves the page; `healthz()` answers `/healthz`, open to anyone (`auth.OPEN_ENDPOINTS` names it). |
-| `mcpanel/api/` | One Flask blueprint per resource, all under `/api`: `servers` (list, options, the host's memory and cores, create, change, delete, start, stop, restart, the Overview's stats, game settings), `console` (output since a time, a command over RCON), `players` (online and the lists, a list changed while stopped), `backups` (list, make, download, restore, delete), `files` (a server's folder: list, open, save or upload, download, extract a `.zip`, new folder, rename, delete), `users` (admins: list, add, change, reset sign-in, remove; an admin acts only on members, `may_manage()`), `account` (me, my sessions, password, recovery codes). `__init__.py` mounts them and answers every error as `{"error": message}`. `common.py` has `json_body()`, the request's JSON object or a 400, and `usable_server()`, a server the signed-in user may use or a 404; the fields are checked where they are used (`servers.create_server()`, `users.py`). |
+| `mcpanel/api/` | One Flask blueprint per resource, all under `/api`: `servers` (list, options, the host's memory and cores, create, change, delete, start, stop, restart, the Overview's stats, game settings), `console` (output since a time, a command over RCON), `players` (online and the lists, a list changed while stopped), `backups` (list, make, download, restore, delete), `restarts` (a server's scheduled restarts: list, add, remove), `files` (a server's folder: list, open, save or upload, download, extract a `.zip`, new folder, rename, delete), `users` (admins: list, add, change, reset sign-in, remove; an admin acts only on members, `may_manage()`), `account` (me, my sessions, password, recovery codes). `__init__.py` mounts them and answers every error as `{"error": message}`. `common.py` has `json_body()`, the request's JSON object or a 400, and `usable_server()`, a server the signed-in user may use or a 404; the fields are checked where they are used (`servers.create_server()`, `users.py`). |
 | `mcpanel/templates/` | `base.html` (head, the theme script, the cube icon), `login.html` (the password and code steps), `setup.html` (the first sign-in's new password and TOTP, then its recovery codes once), `index.html` (the app shell, its dialogs and the icon sprite). |
-| `mcpanel/static/js/` | ES modules, one per concern, entry `main.js` loaded with `<script type="module">`: `api.js`, `ui.js` (escaping, the toast, the question dialog), `state.js`, `theme.js`, `servers.js` (sidebar list polled every 5 s, the phone drawer, server header, actions and tabs, the Overview and its stats, new-server dialog), `console.js` (the Console tab: output polled every 2 s, commands), `players.js` (the Players tab, whose changes are console commands), `files.js` (the Files tab and its editor), `backups.js` (the Backups tab), `settings.js` (the Settings tab: game settings, the server's own, Delete), `users.js` (the Users page, its add/change dialog and the one-time password shown once), `account.js` (the account menu, and the Your account page: password, recovery codes, signed-in devices). |
+| `mcpanel/static/js/` | ES modules, one per concern, entry `main.js` loaded with `<script type="module">`: `api.js`, `ui.js` (escaping, the toast, the question dialog), `state.js`, `theme.js`, `servers.js` (sidebar list polled every 5 s, the phone drawer, server header, actions and tabs, the Overview and its stats, new-server dialog), `console.js` (the Console tab: output polled every 2 s, commands), `players.js` (the Players tab, whose changes are console commands), `files.js` (the Files tab and its editor), `backups.js` (the Backups tab), `settings.js` (the Settings tab: game settings, the server's own, Delete), `restarts.js` (the Settings tab's scheduled restarts), `users.js` (the Users page, its add/change dialog and the one-time password shown once), `account.js` (the account menu, and the Your account page: password, recovery codes, signed-in devices). |
 | `mcpanel/static/css/` | `cavecomputing.css` (the design system's `bundle.css`, copied unchanged) and `style.css` (the tokens and the panel's own layout). |
 | `mcpanel/static/favicon.svg` | The logo (see Frontend conventions), also the README's picture. |
 | `docs/` | The user documentation, one numbered page per topic, linked from the README, which stays short like cozy's: getting started, setup, data and backups, security, development. A change people would notice updates the page that describes it. |
@@ -166,13 +168,13 @@ Fill in the "Owns" column with real names as modules land, and add the rules the
 on its own under it:
 
 - **Run one worker process** (threads are fine). Port allocation and the sign-in throttle hold
-  locks in memory.
+  locks in memory, and a second process would run every scheduled restart twice.
 
 ### Configuration and data
 
 ```
 data/                    # MCPANEL_DATA_DIR, default ./data
-├── mcpanel.db           # SQLite: users, sessions, recovery codes, server access
+├── mcpanel.db           # SQLite: users, sessions, recovery codes, server access, scheduled restarts
 ├── logs/
 │   ├── mcpanel.log      # everything on stdout, rotated
 │   └── audit.log        # who did what, rotated
@@ -194,8 +196,8 @@ data/                    # MCPANEL_DATA_DIR, default ./data
   server's data is a bind mount, and Docker reads bind-mount paths on the host, so the panel passes
   `<data dir>/servers/<id>` as the host path and also reads and writes it itself. `compose.yml`
   mounts `${MCPANEL_DATA_DIR}:${MCPANEL_DATA_DIR}` for that reason. Never translate paths.
-- **The database holds only what Docker doesn't know:** accounts, sessions, recovery codes and
-  which member may see which server. A server's state, port and settings are read from Docker
+- **The database holds only what Docker doesn't know:** accounts, sessions, recovery codes,
+  which member may see which server, and scheduled restarts (dropped with their server). A server's state, port and settings are read from Docker
   every time. A server id that Docker no longer has is stale, not an error. Nothing in it may sign
   anyone in: the key for Flask's cookie (a sign-in halfway through) is random for each process,
   since kept there, a copy of the database could sign that cookie and skip the password. An account
@@ -284,7 +286,7 @@ the whole perimeter:
   section (name, type, version, Java, memory, CPU, and any limit added later) and Delete. A wrong
   version or type can break a world, and memory and CPU are the host's to share. Members manage
   everything else on the servers they were given: game settings such as `view-distance`, files,
-  mods, plugins, console, players, backups; they see the Server section greyed out. The route checks
+  mods, plugins, console, players, backups, scheduled restarts; they see the Server section greyed out. The route checks
   the role (`PUT /api/servers/<id>` is `require_admin()`); hiding the control is not enough. Files
   can't get round the memory limit: the image rewrites its JVM flags from the container's env on
   every start, and the container's memory limit caps the server whatever it asks for.

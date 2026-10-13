@@ -111,8 +111,34 @@ since they disconnect them. Below it:
   different from Minecraft 1.21.9 on, where it is a game rule kept in the world: it changes right
   away, only while the server is running, and is greyed out while it's stopped. A server moved from
   an older version to 1.21.9 or later starts with PvP on whatever the file said, so check it after
-  the first start. Below them, the server's own settings: its name, type, version, Java, memory and
+  the first start. Then its [scheduled restarts](#scheduled-restarts). Below them, the server's own
+  settings: its name, type, version, Java, memory and
   CPU, which only admins change (members see them greyed out). Those change only while it is
   stopped, because the panel makes its container again with them (its world, files and port stay).
   Admins and platform admins also delete the server here, once it is stopped, which removes its
   folder and its backups.
+
+## Scheduled restarts
+
+The Settings tab restarts a server on a schedule, written as a cron line: minute, hour, day of the
+month, month and day of the week. Anyone who may use the server can add or remove them.
+
+| Line | Restarts |
+|---|---|
+| `0 4 * * *` | every day at 4:00 |
+| `0 */6 * * *` | every 6 hours, on the hour |
+| `30 5 * * mon` | 5:30 on Mondays |
+| `0 4 * * 1-5` | 4:00 on weekdays |
+| `@daily` | midnight |
+
+Each field is `*`, a number, a range (`1-5`), a list (`1,15`), or a step after `*` or a range
+(`*/15`, `0-30/10`). Months and days of the week can be written as `jan`-`dec` and `sun`-`sat`;
+Sunday is 0 or 7. As in Linux's cron, when both day fields are set, either one will do:
+`0 4 1 * mon` is the 1st of the month and every Monday. `@hourly`, `@daily`, `@weekly`, `@monthly`
+and `@yearly` work too.
+
+A line is read in the time zone of the browser that added it, and the Settings tab lists when each
+one next happens. Players are told in game 5 minutes, 1 minute and 10 seconds before; a server
+that isn't running by then (stopped, crashed or still starting) is left as it is. When the clocks
+change for daylight saving, a restart set in the skipped hour happens just after it, and one in the
+repeated hour happens once, as with cron. A restart due while the panel itself is down is skipped.

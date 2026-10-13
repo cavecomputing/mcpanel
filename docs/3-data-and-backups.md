@@ -6,7 +6,7 @@ Everything mcpanel keeps is in `MCPANEL_DATA_DIR` (`./data` when you run it with
 
 ```
 /srv/mcpanel/            # MCPANEL_DATA_DIR
-├── mcpanel.db           # SQLite: users, sessions, recovery codes, server access
+├── mcpanel.db           # SQLite: users, sessions, recovery codes, server access, scheduled restarts
 ├── logs/
 │   ├── mcpanel.log      # everything on stdout, rotated
 │   └── audit.log        # who did what, rotated
@@ -16,8 +16,8 @@ Everything mcpanel keeps is in `MCPANEL_DATA_DIR` (`./data` when you run it with
     └── <server id>/     # its backups, <UTC time>.tar.gz
 ```
 
-The database holds only what Docker doesn't know: accounts, sessions, recovery codes, and which
-member may use which server. A server's state, port, type, version, memory and CPU live on its
+The database holds only what Docker doesn't know: accounts, sessions, recovery codes, which member
+may use which server, and scheduled restarts. A server's state, port, type, version, memory and CPU live on its
 container, and the panel reads them from Docker every time. Back up the whole data folder and you
 have every world and every account.
 

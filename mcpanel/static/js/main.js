@@ -4,6 +4,7 @@ import { initBackups, showBackups, updateBackups } from './backups.js';
 import { initConsole, showConsole, updateConsole } from './console.js';
 import { initFiles, showFiles } from './files.js';
 import { initPlayers, showPlayers, updatePlayers } from './players.js';
+import { initRestarts, showRestarts } from './restarts.js';
 import { addTab, drawSidebar, initServers, showHome, showServer } from './servers.js';
 import { initSettings, showSettings, updateSettings } from './settings.js';
 import { route } from './state.js';
@@ -32,11 +33,18 @@ initPlayers();
 initFiles();
 initBackups();
 initSettings();
+initRestarts();
 addTab('backups', { show: showBackups, update: updateBackups });
 addTab('players', { show: showPlayers, update: updatePlayers });
 addTab('console', { show: showConsole, update: updateConsole });
 addTab('files', { show: showFiles });
-addTab('settings', { show: showSettings, update: updateSettings });
+addTab('settings', {
+    show: (server) => {
+        showSettings(server);
+        showRestarts(server);
+    },
+    update: updateSettings,
+});
 initServers();
 window.addEventListener('hashchange', show);
 show();

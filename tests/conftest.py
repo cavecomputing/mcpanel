@@ -15,7 +15,7 @@ os.environ['MCPANEL_PORT_RANGE'] = '25565-25570'
 import pyotp  # noqa: E402
 import pytest  # noqa: E402
 
-from mcpanel import accounts, auth, config, create_app, rcon, servers  # noqa: E402
+from mcpanel import accounts, auth, config, create_app, rcon, restarts, servers  # noqa: E402
 
 from .fake_docker import FakeDocker  # noqa: E402
 
@@ -104,6 +104,12 @@ def admin(app):
 def member(app):
     """A client signed in as a member with no servers; its user is client.user."""
     return signed_in_client(app, make_user('member', 'member'))
+
+
+@pytest.fixture(autouse=True)
+def no_scheduler(monkeypatch):
+    """The scheduled restarts' thread would outlive the test that starts it: the tests run tick() instead."""
+    monkeypatch.setattr(restarts, 'scheduler', 'not in tests')
 
 
 @pytest.fixture(autouse=True)
