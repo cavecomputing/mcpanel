@@ -25,6 +25,16 @@ const TAB_VIEWS = { overview: { show: loadStats, update: loadStats } };
 let stats = null;   // the Overview's stats call while it runs
 let troubleFor = ''; // '<server id>/<status>' whose last lines the Overview shows, while it is crashed or not responding
 const TROUBLE_LINES = 15;
+const TROUBLE_TITLES = { crashed: 'It stopped with an error', unresponsive: "It isn't answering", restarting: 'It keeps stopping with an error, and Docker keeps starting it again' };
+// What a crash's lines most often mean, in plain words: the first match among its last lines wins.
+const MEMORY_HINT = 'It used all the memory it may use. Give it more memory in Settings, or run fewer mods.';
+const CRASH_HINTS = [
+    [/OutOfMemoryError/, MEMORY_HINT],
+    [/UnsupportedClassVersionError|compiled by a more recent version of the Java Runtime|Unsupported Java detected/,
+        'Something in it needs a newer Java than it runs. Choose a newer Java in Settings.'],
+    [/incompatible mods? (found|set)|Mod resolution failed|Missing or unsupported mandatory dependencies|Mixin apply .*failed/i,
+        "A mod is missing another mod it needs, or isn't made for this version or loader. The Console says which."],
+];
 
 /** Give a tab its view: main.js does, so the tabs' modules can use this one. */
 export function addTab(tab, view) {
@@ -201,10 +211,11 @@ function loadStats(server) {
         .finally(() => { stats = null; });
 }
 
-/** A crashed or unresponsive server's last lines on the Overview, fetched once each time it gets that way. */
+/** A crashed, unresponsive or crash-looping server's last lines on the Overview, with what they most
+ * likely mean when that's known, fetched once each time it gets that way. */
 function loadTrouble(server) {
     const key = `${server.id}/${server.status}`;
-    if (!['crashed', 'unresponsive'].includes(server.status)) {
+    if (!TROUBLE_TITLES[server.status]) {
         troubleFor = '';
         $('troubleCard').hidden = true;
         return;
@@ -212,10 +223,14 @@ function loadTrouble(server) {
     if (troubleFor === key) return;
     troubleFor = key;
     $('troubleCard').hidden = true;
-    $('troubleTitle').textContent = server.status === 'crashed' ? 'It stopped with an error' : "It isn't answering";
+    $('troubleTitle').textContent = TROUBLE_TITLES[server.status];
     $('troubleConsole').href = serverHash(server.id, 'console');
     api.get(`/api/servers/${server.id}/console`, { quiet: true }).then(({ lines }) => {
         if (troubleFor !== key) return;
+        const recent = lines.slice(-200).join('\n');
+        const hint = server.oom_killed ? MEMORY_HINT : CRASH_HINTS.find(([pattern]) => pattern.test(recent))?.[1];
+        $('troubleHint').hidden = !hint;
+        $('troubleHint').textContent = hint ?? '';
         $('troubleLog').textContent = lines.slice(-TROUBLE_LINES).join('\n') || 'It wrote nothing.';
         $('troubleCard').hidden = false;
     }).catch(() => {});

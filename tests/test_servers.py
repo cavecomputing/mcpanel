@@ -129,7 +129,8 @@ def test_create_leaves_the_server_stopped_and_returns_its_dict(docker, data_dir)
     assert server == {'id': 'survival', 'name': 'Survival', 'status': 'stopped', 'type': 'PAPER',
                       'version': 'LATEST', 'java': 'java21', 'memory_gb': 4, 'cpus': None,
                       'memory_limit': 4 * GIB, 'port': 25565,
-                      'address': 'mc.example.com', 'started': None, 'game_version': None, 'progress': None}
+                      'address': 'mc.example.com', 'started': None, 'game_version': None, 'progress': None,
+                      'oom_killed': False}
     # Never started, so mods and files can go in before the world is generated. Docker leaves a
     # container it never started alone when it starts up, so a reboot doesn't start it either.
     assert docker.actions == []
@@ -336,6 +337,14 @@ def test_status_comes_from_the_container_state(docker, status, exit_code, health
     create()
     docker.set_state('mcpanel-survival', status, exit_code, health)
     assert servers.get_server('survival')['status'] == shown
+
+
+def test_a_server_killed_for_its_memory_says_so(docker):
+    create()
+    docker.set_state('mcpanel-survival', 'exited', 137)
+    assert servers.get_server('survival')['oom_killed'] is False
+    docker.live('mcpanel-survival')['State']['OOMKilled'] = True
+    assert servers.get_server('survival')['oom_killed'] is True
 
 
 def test_a_server_docker_keeps_restarting_says_so(docker):

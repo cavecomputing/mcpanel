@@ -90,7 +90,9 @@ since they disconnect them. Below it:
 
 - **Overview**: its state, address, type and version (for `LATEST`, the release it got at its last
   start, which is also in the header), how long it has been up, and while it runs the players
-  online, memory and CPU. When it has crashed or isn't answering, the last lines it wrote, to say why.
+  online, memory and CPU. When it has crashed, isn't answering or keeps crashing, the last lines it
+  wrote, and in plain words what they most likely mean when it's a common cause: out of memory, a
+  Java too old for it, or a mod missing another mod or made for another version.
 - **Console**: the server's output as it runs, and a box for commands, which go to the server over
   RCON, with or without the leading `/`.
 - **Players**: who is online, and the whitelist, operators and bans, each a click to change (Kick

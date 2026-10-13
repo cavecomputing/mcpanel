@@ -169,6 +169,7 @@ def server_dict(container):
         'started': int(log_time(attrs['State']['StartedAt'])) if up else None,
         'game_version': game_version(container, status) if up else None,  # what LATEST is today
         'progress': progress(container) if status in ('starting', 'restarting') else None,
+        'oom_killed': bool(attrs['State'].get('OOMKilled')),  # its last stop: it hit its memory limit
     }
 
 
