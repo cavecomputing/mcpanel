@@ -1,8 +1,10 @@
 """Servers: list, create, change, delete, start, stop, restart, stats and game settings. Members see
 and run only the servers an admin gave them, and change their game settings but not the servers."""
+import shutil
+
 from flask import Blueprint, abort, g
 
-from .. import accounts, auth, logs, players, properties, servers
+from .. import accounts, auth, backups, config, files, logs, players, properties, servers
 from ..db import get_db
 from .common import json_body, usable_server
 
@@ -89,6 +91,16 @@ def stats(server_id):
     return {'usage': servers.usage(server_id) if running else None,
             'players': None if names is None else len(names), 'max_players': most,
             'tps': servers.tps(server_id, server['type']) if running else None}
+
+
+@bp.get('/servers/<server_id>/disk')
+def disk(server_id):
+    """{folder, backups, free} in bytes for the Overview: the server's folder (its world, mods and the
+    rest), its backups, and what the disk they are on has free."""
+    usable_server(server_id)
+    return {'folder': files.folder_size(server_id),
+            'backups': sum(backup['size'] for backup in backups.list_backups(server_id)),
+            'free': shutil.disk_usage(config.DATA_DIR).free}
 
 
 @bp.get('/servers/<server_id>/properties')

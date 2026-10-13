@@ -3,6 +3,7 @@
  * the open server's header, Start/Stop/Restart and Overview; the empty states; the new-server dialog.
  */
 import * as api from './api.js';
+import { formatSize } from './files.js';
 import { route, serverHash, state } from './state.js';
 import { $, ask, copyText, esc, formatDate, plural, setHtml, showError, showView, toast } from './ui.js';
 
@@ -25,6 +26,8 @@ const TAB_VIEWS = { overview: { show: loadStats, update: loadStats } };
 let stats = null;   // the Overview's stats call while it runs
 let troubleFor = ''; // '<server id>/<status>' whose last lines the Overview shows, while it is crashed or not responding
 const TROUBLE_LINES = 15;
+const DISK_MS = 60 * 1000; // the Overview asks for disk use at most this often, since it walks the whole folder
+let disk = { id: '', at: 0, use: null }; // the last disk use fetched: for which server, when, and {folder, backups, free}
 const TROUBLE_TITLES = { crashed: 'It stopped with an error', unresponsive: "It isn't answering", restarting: 'It keeps stopping with an error, and Docker keeps starting it again' };
 // What a crash's lines most often mean, in plain words: the first match among its last lines wins.
 const MEMORY_HINT = 'It used all the memory it may use. Give it more memory in Settings, or run fewer mods.';
@@ -185,6 +188,10 @@ function drawServer(server) {
         button.disabled = Boolean(busy) || !action.when.includes(server.status);
         button.lastElementChild.textContent = busy === button.dataset.action ? action.doing : action.label;
     }
+    // Disk use, which loadDisk() fetches apart from the other stats: it shows while stopped too.
+    const diskUse = disk.id === server.id ? disk.use : null;
+    const [amount, unit] = diskUse ? formatSize(diskUse.folder + diskUse.backups).split(' ') : [];
+    setHtml($('statDisk'), diskUse ? `${amount} <small>${unit}</small>` : '–');
     setHtml($('serverDetails'), [
         ['Address', `<code class="cc-code">${esc(server.address)}</code>`],
         ['Port', esc(server.port)],
@@ -194,6 +201,7 @@ function drawServer(server) {
         ['Memory', `${esc(server.memory_gb)} GB`],
         ['CPU', server.cpus ? plural(server.cpus, 'core') : 'No limit'],
         ['Up for', server.started ? formatUptime(server.started) : 'Not running'],
+        ['Disk', diskUse ? `${formatSize(diskUse.folder)} in its folder, ${formatSize(diskUse.backups)} in backups; ${formatSize(diskUse.free)} free on the host` : '–'],
         ['Created', esc(formatDate(server.created))],
     ].map(([term, value]) => `<dt>${term}</dt><dd>${value}</dd>`).join(''));
 }
@@ -201,6 +209,7 @@ function drawServer(server) {
 /** The Overview's players, TPS, memory and CPU, fetched on opening it and on each poll: a dash while it can't say. */
 function loadStats(server) {
     loadTrouble(server);
+    loadDisk(server);
     if (['stopped', 'crashed'].includes(server.status)) {
         drawStats(server, null);
         return;
@@ -209,6 +218,17 @@ function loadStats(server) {
         .then((data) => route().id === server.id && drawStats(server, data))
         .catch(() => {})
         .finally(() => { stats = null; });
+}
+
+/** The Overview's disk use, stopped or not: on opening a server's Overview, then once a minute. */
+function loadDisk(server) {
+    if (disk.id === server.id && Date.now() - disk.at < DISK_MS) return;
+    disk = { id: server.id, at: Date.now(), use: disk.id === server.id ? disk.use : null };
+    api.get(`/api/servers/${server.id}/disk`, { quiet: true }).then((use) => {
+        if (disk.id !== server.id) return;
+        disk.use = use;
+        if (serverWithId(server.id) && route().id === server.id) drawServer(serverWithId(server.id));
+    }).catch(() => {});
 }
 
 /** A crashed, unresponsive or crash-looping server's last lines on the Overview, with what they most

@@ -1,8 +1,11 @@
 import json
+import os
+import shutil
+from types import SimpleNamespace
 
 import pytest
 
-from mcpanel import accounts, config
+from mcpanel import accounts, config, files
 from mcpanel.db import get_db
 
 from .conftest import make_user, signed_in_client
@@ -236,6 +239,40 @@ def test_every_server_action_is_audited(admin, member, data_dir):
         ('server_restarted', 'survival', 'Survival', 'member'),
         ('server_stopped', 'survival', 'Survival', 'admin'),
     ]
+
+
+def test_disk_counts_the_folder_and_backups_never_through_a_link(admin, member, data_dir, tmp_path_factory, monkeypatch):
+    create(admin)
+    folder = config.SERVERS_DIR / 'survival'
+    (folder / 'world' / 'region').mkdir(parents=True)
+    (folder / 'world' / 'region' / 'r.0.0.mca').write_bytes(b'x' * 3000)
+    (folder / 'server.properties').write_bytes(b'x' * 200)
+    outside = tmp_path_factory.mktemp('host')
+    (outside / 'big').write_bytes(b'x' * 10_000)
+    os.symlink(outside, folder / 'host-folder')
+    os.symlink(outside / 'big', folder / 'host-file')
+    os.mkfifo(folder / 'pipe')
+    backup = admin.post('/api/servers/survival/backups').get_json()
+    monkeypatch.setattr(shutil, 'disk_usage', lambda path: SimpleNamespace(free=123 if path == config.DATA_DIR else 0))
+    assert admin.get('/api/servers/survival/disk').get_json() == {'folder': 3200, 'backups': backup['size'], 'free': 123}
+    assert member.get('/api/servers/survival/disk').status_code == 404
+    grant(admin, member, 'survival')
+    assert member.get('/api/servers/survival/disk').status_code == 200
+
+
+def test_a_folder_changed_while_it_is_measured_is_measured_as_it_is(admin, data_dir, monkeypatch):
+    create(admin)
+    (config.SERVERS_DIR / 'survival' / 'gone').mkdir()
+    (config.SERVERS_DIR / 'survival' / 'kept').write_bytes(b'x' * 10)
+    real_open = os.open
+
+    def open_gone(path, *args, **kwargs):  # the folder deleted between its listing and its opening
+        if path == 'gone':
+            raise FileNotFoundError(path)
+        return real_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(files.os, 'open', open_gone)
+    assert admin.get('/api/servers/survival/disk').get_json()['folder'] == 10
 
 
 def test_stats_say_nothing_while_stopped_then_usage_and_players(admin, member, docker, rcon_server):

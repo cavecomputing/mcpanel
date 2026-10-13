@@ -93,9 +93,12 @@ since they disconnect them. Below it:
   online, memory and CPU, and its TPS: ticks a second, 20 when it keeps up and fewer when it lags.
   TPS comes from the server's own command (`tps` on Paper and Purpur, `forge tps`, `neoforge tps`,
   and `tick query` on the rest), which vanilla, Fabric and Quilt have only from 1.20.3, so before
-  that it shows a dash. When it has crashed, isn't answering or keeps crashing, the last lines it
-  wrote, and in plain words what they most likely mean when it's a common cause: out of memory, a
-  Java too old for it, or a mod missing another mod or made for another version.
+  that it shows a dash. Disk is what the server takes on the disk, its folder (world, mods,
+  settings, logs) and its backups together, running or not, with the two apart and what the disk
+  has free below; it is measured when the Overview opens and then once a minute. When it has
+  crashed, isn't answering or keeps crashing, the last lines it wrote, and in plain words what they
+  most likely mean when it's a common cause: out of memory, a Java too old for it, or a mod missing
+  another mod or made for another version.
 - **Console**: the server's output as it runs, and a box for commands, which go to the server over
   RCON, with or without the leading `/`.
 - **Players**: who is online, and the whitelist, operators and bans, each a click to change (Kick

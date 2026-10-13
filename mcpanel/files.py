@@ -127,6 +127,31 @@ def list_dir(server_id, path):
     return entries
 
 
+def folder_size(server_id):
+    """The bytes of the regular files in a server's folder, every folder in it walked without
+    following a link."""
+    with file_errors(), opened_dir(server_id, []) as fd:
+        return tree_size(fd)
+
+
+def tree_size(dir_fd):
+    total = 0
+    for name in os.listdir(dir_fd):
+        try:
+            info = os.stat(name, dir_fd=dir_fd, follow_symlinks=False)
+            if stat.S_ISDIR(info.st_mode):
+                inner = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=dir_fd)
+                try:
+                    total += tree_size(inner)
+                finally:
+                    os.close(inner)
+            elif stat.S_ISREG(info.st_mode):
+                total += info.st_size
+        except OSError:
+            continue  # deleted or swapped for something else since the listing
+    return total
+
+
 def masked_properties(data):
     """server.properties' bytes with the RCON password masked."""
     return RCON_PASSWORD.sub(lambda match: match[1] + MASK, data.decode('utf-8', 'replace')).encode()
