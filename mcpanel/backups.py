@@ -1,5 +1,6 @@
 """Backups of a server's folder: .tar.gz files in MCPANEL_DATA_DIR/backups/<server id>/, made, restored,
-downloaded and deleted from the Backups tab. Nothing makes them on a schedule or deletes old ones.
+downloaded and deleted from the Backups tab, and made at set times by schedules.py. Nothing deletes old
+ones.
 
 A backup reads the folder the way files.py does, never following a link (links, FIFOs and the like
 are left out), so a running server's code can't get the host's files into one. The .rcon-cli files

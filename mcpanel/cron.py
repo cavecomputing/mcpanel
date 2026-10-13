@@ -31,7 +31,7 @@ class Cron:
         self.weekdays = {day % 7 for day in weekdays}  # 7 is Sunday too
         self.day_star, self.weekday_star = day_star, weekday_star
         # Its minute or hour starts with *: every so often rather than at set times, which cron treats
-        # differently when the clock changes for daylight saving (see restarts.due()).
+        # differently when the clock changes for daylight saving (see schedules.due()).
         self.wildcard = wildcard
 
     def day_matches(self, date):

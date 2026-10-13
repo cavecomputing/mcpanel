@@ -189,7 +189,7 @@
                 </div>
                 <div class="page" data-tab-panel="backups">
                     <div class="toolbar">
-                        <p class="note">The whole server folder: world, mods and settings. Kept in the panel's <code class="cc-code">backups</code> folder until you delete them; nothing makes them on a schedule.</p>
+                        <p class="note">The whole server folder: world, mods and settings. Kept in the panel's <code class="cc-code">backups</code> folder until you delete them. The Schedule tab can make them at set times.</p>
                         <span class="toolbar__end"><button class="cc-btn cc-btn--primary cc-btn--sm" type="button" id="backupNow"><svg class="i"><use href="#i-archive"/></svg><span>Back up now</span></button></span>
                     </div>
                     <div class="table-wrap">
@@ -200,12 +200,18 @@
                     </div>
                 </div>
                 <div class="page" data-tab-panel="schedule">
-                    <form class="cc-settings-card" id="restartForm" aria-labelledby="restartsTitle" autocomplete="off">
+                    <p class="note cron-examples">Each line is read in your time zone (<span id="scheduleZone"></span>) as cron reads one: minute, hour, day of the month, month, day of the week. <code class="cc-code">0 4 * * *</code> is 4:00 every day, <code class="cc-code">0 */6 * * *</code> every 6 hours, <code class="cc-code">30 5 * * mon</code> 5:30 on Mondays.</p>
+                    <form class="cc-settings-card" data-schedule="restart" aria-labelledby="restartsTitle" autocomplete="off">
                         <div class="cc-card-header"><svg><use href="#i-restart"/></svg><h4 id="restartsTitle">Restarts</h4><p>Players are warned in game 5 minutes, 1 minute and 10 seconds before. A server that isn't running by then is left alone.</p></div>
-                        <div class="rows" id="restartRows"></div>
-                        <div class="cc-field"><div><label for="restartCron">When</label><span class="cc-field__hint">A cron line, in your time zone (<span id="restartZone"></span>)</span></div><input class="cc-input mono" id="restartCron" placeholder="0 4 * * *" maxlength="100" required spellcheck="false" autocapitalize="off"></div>
-                        <p class="note cron-examples">Minute, hour, day of the month, month, day of the week: <code class="cc-code">0 4 * * *</code> is 4:00 every day, <code class="cc-code">0 */6 * * *</code> every 6 hours, <code class="cc-code">30 5 * * mon</code> 5:30 on Mondays.</p>
-                        <div class="row-btns"><button class="cc-btn cc-btn--primary" type="submit" id="restartAdd"><svg class="i"><use href="#i-plus"/></svg><span>Add</span></button></div>
+                        <div class="rows"></div>
+                        <div class="cc-field"><div><label for="restartCron">When</label><span class="cc-field__hint">A cron line</span></div><input class="cc-input mono" id="restartCron" name="cron" placeholder="0 4 * * *" maxlength="100" required spellcheck="false" autocapitalize="off"></div>
+                        <div class="row-btns"><button class="cc-btn cc-btn--primary" type="submit"><svg class="i"><use href="#i-plus"/></svg><span>Add</span></button></div>
+                    </form>
+                    <form class="cc-settings-card" data-schedule="backup" aria-labelledby="scheduledBackupsTitle" autocomplete="off">
+                        <div class="cc-card-header"><svg><use href="#i-archive"/></svg><h4 id="scheduledBackupsTitle">Backups</h4><p>Made as Back up now makes them, running or not, and kept on the Backups tab until you delete them.</p></div>
+                        <div class="rows"></div>
+                        <div class="cc-field"><div><label for="backupCron">When</label><span class="cc-field__hint">A cron line</span></div><input class="cc-input mono" id="backupCron" name="cron" placeholder="0 3 * * *" maxlength="100" required spellcheck="false" autocapitalize="off"></div>
+                        <div class="row-btns"><button class="cc-btn cc-btn--primary" type="submit"><svg class="i"><use href="#i-plus"/></svg><span>Add</span></button></div>
                     </form>
                 </div>
                 <div class="page" data-tab-panel="settings">

@@ -6,7 +6,7 @@ Everything mcpanel keeps is in `MCPANEL_DATA_DIR` (`./data` when you run it with
 
 ```
 /srv/mcpanel/            # MCPANEL_DATA_DIR
-├── mcpanel.db           # SQLite: users, sessions, recovery codes, server access, scheduled restarts
+├── mcpanel.db           # SQLite: users, sessions, recovery codes, server access, schedules
 ├── logs/
 │   ├── mcpanel.log      # everything on stdout, rotated
 │   └── audit.log        # who did what, rotated
@@ -17,7 +17,7 @@ Everything mcpanel keeps is in `MCPANEL_DATA_DIR` (`./data` when you run it with
 ```
 
 The database holds only what Docker doesn't know: accounts, sessions, recovery codes, which member
-may use which server, and scheduled restarts. A server's state, port, type, version, memory and CPU live on its
+may use which server, and the restarts and backups scheduled for each. A server's state, port, type, version, memory and CPU live on its
 container, and the panel reads them from Docker every time. Back up the whole data folder and you
 have every world and every account.
 
@@ -32,7 +32,9 @@ before its first start.
 ## Backups
 
 A backup is a `.tar.gz` of the server's whole folder, made when someone presses Back up now on its
-Backups tab. There is no schedule, and backups are kept until someone deletes them.
+Backups tab, or at the times set on its Schedule tab (see
+[Schedules](1-getting-started.md#schedules)). Backups are kept until someone deletes them, scheduled
+ones too.
 
 - **Making one** works whether the server runs or not. A running server is told to save the world and
   stop writing it (`save-off`) until the backup is done, then to carry on.

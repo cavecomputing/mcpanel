@@ -1,5 +1,5 @@
 """SQLite access. The database holds only what Docker doesn't know: accounts, sessions, recovery
-codes, which member may use which server, and scheduled restarts. Times are Unix seconds."""
+codes, which member may use which server, and scheduled restarts and backups. Times are Unix seconds."""
 import sqlite3
 from contextlib import contextmanager
 
@@ -46,10 +46,12 @@ SCHEMA = USERS_TABLE + '''
         server TEXT NOT NULL,
         PRIMARY KEY (user_id, server)
     );
-    -- A server's restarts on a schedule (restarts.py): a cron line, read in the IANA time zone of whoever set it.
-    CREATE TABLE IF NOT EXISTS scheduled_restarts (
+    -- A server's restarts or backups on a schedule (schedules.py): a cron line, read in the IANA time
+    -- zone of whoever set it.
+    CREATE TABLE IF NOT EXISTS schedules (
         id INTEGER PRIMARY KEY,
         server TEXT NOT NULL,
+        action TEXT NOT NULL CHECK (action IN ('restart', 'backup')),
         cron TEXT NOT NULL,
         timezone TEXT NOT NULL,
         created REAL NOT NULL

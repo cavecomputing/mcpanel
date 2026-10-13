@@ -8,7 +8,7 @@ from flask import Flask, abort, request
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.sansio.utils import host_is_trusted
 
-from . import api, auth, config, logs, restarts, views
+from . import api, auth, config, logs, schedules, views
 from .db import init_db
 
 
@@ -53,7 +53,7 @@ def create_app():
     app.secret_key = secrets.token_bytes(32)
 
     app.before_request(logs.start_timer)
-    app.before_request(restarts.start_scheduler)
+    app.before_request(schedules.start_scheduler)
     app.before_request(reject_other_hosts)
     app.before_request(reject_cross_site_writes)
     app.before_request(auth.require_login)

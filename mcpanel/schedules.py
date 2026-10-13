@@ -1,11 +1,12 @@
-"""Scheduled restarts: cron lines kept per server, each read in the time zone of whoever set it, and
-the thread that runs them. Players are warned in game 5 minutes, 1 minute and 10 seconds ahead, then
-the server is restarted as Restart does; a server that isn't running then is left alone.
+"""Scheduled restarts and backups: cron lines kept per server, each read in the time zone of whoever
+set it, and the thread that runs them. Before a restart, players are warned in game 5 minutes,
+1 minute and 10 seconds ahead, then the server is restarted as Restart does, unless it isn't running
+by then. A backup is made as Back up now makes it, running or not.
 
 The clock is each time zone's wall clock, minute by minute, as cron (cronie) keeps it. When it
-jumps forward for daylight saving, a restart set in the skipped hour happens right after the jump,
-and when it goes back, one in the repeated hour doesn't happen twice; a line that runs every so often
-(* in its minute or hour) just carries on. A jump of more than 3 hours is the clock being corrected,
+jumps forward for daylight saving, a time set in the skipped hour comes right after the jump, and
+when it goes back, one in the repeated hour doesn't come twice; a line that runs every so often (*
+in its minute or hour) just carries on. A jump of more than 3 hours is the clock being corrected,
 and catches nothing up. Nothing is caught up after the panel itself was down either.
 """
 import logging
@@ -18,13 +19,13 @@ from functools import cache
 from flask import abort
 from werkzeug.exceptions import HTTPException
 
-from . import cron, logs, rcon, servers
+from . import backups, cron, logs, rcon, servers
 from .db import get_db
 
 logger = logging.getLogger(__name__)
 
-WARNINGS = ((300, '5 minutes'), (60, '1 minute'), (10, '10 seconds'))  # seconds before, said in game
-LEAD = WARNINGS[0][0]  # a restart's countdown starts this long before its time
+WARNINGS = ((300, '5 minutes'), (60, '1 minute'), (10, '10 seconds'))  # seconds before a restart, said in game
+LEADS = {'restart': WARNINGS[0][0], 'backup': 0}  # what a schedule does -> how long before its time it starts
 MAX_JUMP = 180  # minutes the clock may jump for daylight saving; more is a correction
 MINUTE = timedelta(minutes=1)
 
@@ -44,22 +45,25 @@ def wall_clock(seconds, zone):
     return datetime.fromtimestamp(seconds, zoneinfo.ZoneInfo(zone)).replace(tzinfo=None, second=0, microsecond=0)
 
 
-def restart_dict(row):
-    """What the UI shows of a scheduled restart, with when it next happens (Unix seconds)."""
+def schedule_dict(row):
+    """What the UI shows of a schedule, with when it next comes (Unix seconds)."""
     zone = zoneinfo.ZoneInfo(row['timezone'])
-    upcoming = cron.parse(row['cron']).next_after(wall_clock(time.time() + LEAD, row['timezone']))
-    return {'id': row['id'], 'cron': row['cron'], 'timezone': row['timezone'],
+    upcoming = cron.parse(row['cron']).next_after(wall_clock(time.time() + LEADS[row['action']], row['timezone']))
+    return {'id': row['id'], 'action': row['action'], 'cron': row['cron'], 'timezone': row['timezone'],
             'next': upcoming and int(upcoming.replace(tzinfo=zone).timestamp())}
 
 
 def for_server(server_id):
     with get_db() as conn:
-        rows = conn.execute('SELECT * FROM scheduled_restarts WHERE server = ? ORDER BY id', (server_id,)).fetchall()
-    return [restart_dict(row) for row in rows]
+        rows = conn.execute('SELECT * FROM schedules WHERE server = ? ORDER BY id', (server_id,)).fetchall()
+    return [schedule_dict(row) for row in rows]
 
 
-def add(server_id, line, zone):
-    """Schedule restarts of a server by a cron line in a time zone; its dict. 400 says what is wrong."""
+def add(server_id, action, line, zone):
+    """Schedule a server's restarts or backups by a cron line in a time zone; its dict. 400 says what
+    is wrong."""
+    if action not in LEADS:
+        abort(400, 'A schedule restarts the server or backs it up')
     try:
         parsed = cron.parse(line)
     except ValueError as e:
@@ -69,25 +73,24 @@ def add(server_id, line, zone):
     if parsed.next_after(wall_clock(time.time(), zone)) is None:
         abort(400, "That day never comes round")
     with get_db() as conn:
-        restart_id = conn.execute('INSERT INTO scheduled_restarts (server, cron, timezone, created) VALUES (?, ?, ?, ?)',
-                                  (server_id, ' '.join(line.split()), zone, time.time())).lastrowid
+        schedule_id = conn.execute('INSERT INTO schedules (server, action, cron, timezone, created) VALUES (?, ?, ?, ?, ?)',
+                                   (server_id, action, ' '.join(line.split()), zone, time.time())).lastrowid
         conn.commit()
-        return restart_dict(conn.execute('SELECT * FROM scheduled_restarts WHERE id = ?', (restart_id,)).fetchone())
+        return schedule_dict(conn.execute('SELECT * FROM schedules WHERE id = ?', (schedule_id,)).fetchone())
 
 
-def remove(server_id, restart_id):
-    """Unschedule one of a server's restarts; its cron line, or a 404."""
+def remove(server_id, schedule_id):
+    """Remove one of a server's schedules; its dict, or a 404."""
     with get_db() as conn:
-        row = conn.execute('DELETE FROM scheduled_restarts WHERE id = ? AND server = ? RETURNING cron',
-                           (restart_id, server_id)).fetchone()
+        row = conn.execute('DELETE FROM schedules WHERE id = ? AND server = ? RETURNING *', (schedule_id, server_id)).fetchone()
         conn.commit()
     if row is None:
-        abort(404, 'No such scheduled restart')
-    return row['cron']
+        abort(404, 'No such schedule')
+    return dict(row)
 
 
 def due(rows, virtual, clock):
-    """The rows to start counting down for as a time zone's wall clock moves from virtual, the minute
+    """The rows to start as a time zone's wall clock moves from virtual, the minute
     last handled, to clock; and the new virtual minute. cronie's rules (cron.c): a minute or a few
     late, each missed minute's; a jump forward for daylight saving, the skipped minutes' fixed times
     but only the new minute's wildcards; back, only the wildcards, until the clock catches up."""
@@ -103,23 +106,28 @@ def due(rows, virtual, clock):
 
 
 def tick(now, clocks):
-    """Handle the minute LEAD seconds from now in every time zone a restart is set in. clocks keeps,
-    per time zone, (the minute last handled, the minute the clock last said)."""
+    """Start what is due: for each time zone a schedule is set in and each thing schedules do, the
+    minute that thing's lead from now. clocks keeps, per (time zone, action), (the minute last
+    handled, the minute the clock last said)."""
     with get_db() as conn:
-        rows = conn.execute('SELECT * FROM scheduled_restarts ORDER BY id').fetchall()
-    for zone in {row['timezone'] for row in rows}:
-        clock = wall_clock(now + LEAD, zone)
-        virtual, seen = clocks.get(zone, (clock - MINUTE, None))  # one new to the panel starts now
+        rows = conn.execute('SELECT * FROM schedules ORDER BY id').fetchall()
+    for zone, action in {(row['timezone'], row['action']) for row in rows}:
+        at = now + LEADS[action]
+        clock = wall_clock(at, zone)
+        virtual, seen = clocks.get((zone, action), (clock - MINUTE, None))  # one new to the panel starts now
         if clock == seen:
             continue
-        starting, virtual = due([row for row in rows if row['timezone'] == zone], virtual, clock)
-        clocks[zone] = (virtual, clock)
+        starting, virtual = due([row for row in rows if (row['timezone'], row['action']) == (zone, action)], virtual, clock)
+        clocks[zone, action] = (virtual, clock)
         for row in starting:
+            if action == 'backup':
+                threading.Thread(target=back_up, args=(dict(row),), daemon=True).start()
+                continue
             with counting_lock:
                 if row['server'] in counting_down:
                     continue
                 counting_down.add(row['server'])
-            threading.Thread(target=count_down, args=(dict(row), now + LEAD), daemon=True).start()
+            threading.Thread(target=count_down, args=(dict(row), at), daemon=True).start()
 
 
 def count_down(row, at):
@@ -130,7 +138,7 @@ def count_down(row, at):
         for before, words in WARNINGS:
             time.sleep(max(0, at - before - time.time()))
             with get_db() as conn:
-                if not conn.execute('SELECT 1 FROM scheduled_restarts WHERE id = ?', (row['id'],)).fetchone():
+                if not conn.execute('SELECT 1 FROM schedules WHERE id = ?', (row['id'],)).fetchone():
                     return
             if servers.get_server(server_id)['status'] == 'running':
                 try:
@@ -152,6 +160,18 @@ def count_down(row, at):
             counting_down.discard(server_id)
 
 
+def back_up(row):
+    """Make a scheduled backup of a server, as Back up now does."""
+    server_id = row['server']
+    try:
+        server = servers.get_server(server_id)
+        backup = backups.create(server_id, server['status'] not in ('stopped', 'crashed'))
+        logs.audit('backup_created', server=server_id, server_name=server['name'], backup=backup['name'],
+                   schedule=row['cron'])
+    except HTTPException as e:  # one under way already, a full disk, the server deleted, Docker unreachable
+        logger.warning("Couldn't back up server %s on schedule: %s", server_id, e.description, extra={'server': server_id})
+
+
 def run():
     clocks = {}
     while True:
@@ -159,7 +179,7 @@ def run():
         try:
             tick(time.time(), clocks)
         except Exception:  # a bad minute (a locked database) mustn't end the schedules for good
-            logger.exception('Scheduled restarts failed this minute')
+            logger.exception('Schedules failed this minute')
 
 
 def start_scheduler():
@@ -168,5 +188,5 @@ def start_scheduler():
     global scheduler
     with scheduler_lock:
         if scheduler is None:
-            scheduler = threading.Thread(target=run, name='scheduled-restarts', daemon=True)
+            scheduler = threading.Thread(target=run, name='schedules', daemon=True)
             scheduler.start()

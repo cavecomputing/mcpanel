@@ -105,7 +105,7 @@ since they disconnect them. Below it:
   delete. The editor asks before it drops changes you haven't saved.
 - **Backups**: back up the whole folder, download a backup, restore one, or delete it. See
   [Data and backups](3-data-and-backups.md#backups).
-- **Schedule**: restarts on a schedule. See [Scheduled restarts](#scheduled-restarts).
+- **Schedule**: restarts and backups at set times. See [Schedules](#schedules).
 - **Settings**: the game settings (MOTD, max players, difficulty, game mode, hardcore, PvP, view and
   simulation distance, flight, whitelist, online mode, seed), saved into `server.properties` and
   used from the next start (saved while it runs, a Restart button appears beside Save). PvP is
@@ -118,12 +118,13 @@ since they disconnect them. Below it:
   Admins and platform admins also delete the server here, once it is stopped, which removes its
   folder and its backups.
 
-## Scheduled restarts
+## Schedules
 
-The Schedule tab restarts a server on a schedule, written as a cron line: minute, hour, day of the
-month, month and day of the week. Anyone who may use the server can add or remove them.
+The Schedule tab restarts a server, or backs it up, at times written as a cron line: minute, hour,
+day of the month, month and day of the week. Anyone who may use the server can add or remove them,
+and a server can have as many of each as you like.
 
-| Line | Restarts |
+| Line | Runs |
 |---|---|
 | `0 4 * * *` | every day at 4:00 |
 | `0 */6 * * *` | every 6 hours, on the hour |
@@ -138,7 +139,13 @@ Sunday is 0 or 7. As in Linux's cron, when both day fields are set, either one w
 and `@yearly` work too.
 
 A line is read in the time zone of the browser that added it, and the Schedule tab lists when each
-one next happens. Players are told in game 5 minutes, 1 minute and 10 seconds before; a server
-that isn't running by then (stopped, crashed or still starting) is left as it is. When the clocks
-change for daylight saving, a restart set in the skipped hour happens just after it, and one in the
-repeated hour happens once, as with cron. A restart due while the panel itself is down is skipped.
+one next happens. When the clocks change for daylight saving, a time in the skipped hour comes just
+after it, and one in the repeated hour comes once, as with cron. Anything due while the panel itself
+is down is skipped, not made up later.
+
+- **Restarts**: players are told in game 5 minutes, 1 minute and 10 seconds before. A server that
+  isn't running by then (stopped, crashed or still starting) is left as it is.
+- **Backups** are made as Back up now makes them, whether the server runs or not, and appear on the
+  Backups tab. Like every backup, they are kept until someone deletes them, so a line that runs
+  often fills the disk over time. One that comes while another backup or a restore of the server is
+  still under way is skipped. See [Data and backups](3-data-and-backups.md#backups).
