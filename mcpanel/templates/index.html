@@ -200,17 +200,25 @@
                         <textarea class="cc-input" id="editorText" spellcheck="false" autocapitalize="off" aria-labelledby="editorName"></textarea>
                     </section>
                 </div>
-                <div class="page" data-tab-panel="backups">
+                <div class="page" data-tab-panel="backups" id="backupsPage">
                     <div class="toolbar">
-                        <p class="note">The whole server folder: world, mods and settings. Kept in the panel's <code class="cc-code">backups</code> folder until you delete them. The Schedule tab can make them at set times, keeping only its newest few.</p>
+                        <p class="note">The whole server folder: world, mods and settings, kept in the panel's <code class="cc-code">backups</code> folder. Times are ISO 8601, in your time zone.</p>
                         <span class="toolbar__end"><button class="cc-btn cc-btn--primary cc-btn--sm" type="button" id="backupNow"><svg class="i"><use href="#i-archive"/></svg><span>Back up now</span></button></span>
                     </div>
-                    <div class="table-wrap">
-                        <table class="cc-table">
-                            <thead><tr><th>Backup</th><th class="num">Size</th><th class="hide-phone">Taken</th><th><span class="sr">Actions</span></th></tr></thead>
-                            <tbody id="backupRows"></tbody>
-                        </table>
-                    </div>
+                    <section class="backup-list" aria-labelledby="manualBackupsTitle">
+                        <h3 class="cc-section-title" id="manualBackupsTitle"><svg><use href="#i-archive"/></svg>Manual<small class="hide-phone">made with Back up now, kept until you delete them</small></h3>
+                        <div class="table-wrap"><table class="cc-table">
+                            <thead><tr><th>Taken</th><th class="num">Size</th><th><span class="sr">Actions</span></th></tr></thead>
+                            <tbody id="manualBackupRows"></tbody>
+                        </table></div>
+                    </section>
+                    <section class="backup-list" aria-labelledby="scheduledBackupsListTitle">
+                        <h3 class="cc-section-title" id="scheduledBackupsListTitle"><svg><use href="#i-clock"/></svg>Scheduled<small class="hide-phone">made by the Schedule tab, each line keeping its newest few</small></h3>
+                        <div class="table-wrap"><table class="cc-table">
+                            <thead><tr><th>Taken</th><th class="hide-phone">Schedule</th><th class="num">Size</th><th><span class="sr">Actions</span></th></tr></thead>
+                            <tbody id="scheduledBackupRows"></tbody>
+                        </table></div>
+                    </section>
                 </div>
                 <div class="page" data-tab-panel="schedule">
                     <p class="note cron-examples">Each line is read in your time zone (<span id="scheduleZone"></span>) as cron reads one: minute, hour, day of the month, month, day of the week. <code class="cc-code">0 4 * * *</code> is 4:00 every day, <code class="cc-code">0 */6 * * *</code> every 6 hours, <code class="cc-code">30 5 * * mon</code> 5:30 on Mondays.</p>

@@ -287,8 +287,10 @@ def test_a_backup_schedule_deletes_only_its_own_backups_past_the_newest_it_keeps
     row, other = backup_row(admin, keep=2), backup_row(admin, keep=1)
     folder = config.BACKUPS_DIR / 'survival'
     folder.mkdir(parents=True)
-    own = [f'2026-01-0{day}_040000-schedule-{row["id"]}.tar.gz' for day in (1, 2, 3)]
-    untouched = ['2026-01-01_120000.tar.gz', f'2026-01-01_040000-schedule-{other["id"]}.tar.gz']  # Back up now's, another's
+    own = [f'2026-01-01_040000-schedule-{row["id"]}.tar.gz',  # named as before ISO 8601
+           *(f'2026010{day}T040000Z-schedule-{row["id"]}.tar.gz' for day in (2, 3))]
+    untouched = ['2026-01-01_120000.tar.gz', '20260102T120000Z-manual.tar.gz',  # Back up now's
+                 f'20260101T040000Z-schedule-{other["id"]}.tar.gz']  # another's
     for name in own + untouched:
         (folder / name).write_bytes(b'')
     schedules.back_up(row)

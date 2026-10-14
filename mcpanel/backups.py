@@ -1,7 +1,8 @@
 """Backups of a server's folder: .tar.gz files in MCPANEL_DATA_DIR/backups/<server id>/, made, restored,
-downloaded and deleted from the Backups tab, and made at set times by schedules.py. A scheduled one's
-name says which schedule made it (<time>-schedule-<id>.tar.gz), so that schedule can delete its own
-older ones; nothing deletes the others.
+downloaded and deleted from the Backups tab, and made at set times by schedules.py. The name says when
+and how it was made, the time in ISO 8601's basic format, which has no colons, in UTC:
+20261014T004904Z-manual.tar.gz for Back up now's, 20261014T004904Z-schedule-<id>.tar.gz for a
+schedule's, so that schedule can delete its own older ones; nothing deletes the others.
 
 A backup reads the folder the way files.py does, never following a link (links, FIFOs and the like
 are left out), so a running server's code can't get the host's files into one. The .rcon-cli files
@@ -29,7 +30,8 @@ from . import config, files, rcon, servers
 
 logger = logging.getLogger(__name__)
 
-NAME = re.compile(r'\d{4}-\d{2}-\d{2}_\d{6}(?:-schedule-(\d+))?\.tar\.gz')  # group 1: the schedule's id
+# Before 2026-10-14 the time was 2026-10-14_004904, and Back up now's had no -manual.
+NAME = re.compile(r'(?P<time>\d{8}T\d{6}Z|\d{4}-\d{2}-\d{2}_\d{6})(?:-manual|-schedule-(?P<schedule>\d+))?\.tar\.gz')
 LOCKS = defaultdict(threading.Lock)  # server id -> held while a backup or restore of it runs
 
 
@@ -45,10 +47,11 @@ def path_of(server_id, name):
 
 
 def backup_dict(path):
-    info = path.stat()
-    schedule = NAME.fullmatch(path.name)[1]
-    return {'name': path.name, 'size': info.st_size, 'created': int(info.st_mtime),
-            'schedule': schedule and int(schedule)}
+    """A backup: its name, size, when it was made (Unix seconds) and the schedule that made it, if one did."""
+    match = NAME.fullmatch(path.name)
+    created = datetime.fromisoformat(match['time']).replace(tzinfo=timezone.utc)
+    return {'name': path.name, 'size': path.stat().st_size, 'created': int(created.timestamp()),
+            'schedule': match['schedule'] and int(match['schedule'])}
 
 
 def list_backups(server_id):
@@ -56,7 +59,7 @@ def list_backups(server_id):
     if not folder(server_id).is_dir():
         return []
     return sorted((backup_dict(path) for path in folder(server_id).iterdir() if NAME.fullmatch(path.name)),
-                  key=lambda backup: backup['name'], reverse=True)
+                  key=lambda backup: (backup['created'], backup['name']), reverse=True)
 
 
 def lock(server_id):
@@ -85,7 +88,7 @@ def create(server_id, running, schedule_id=None):
     try:
         if running:
             console(server_id, 'save-all flush')
-        name = datetime.now(timezone.utc).strftime('%Y-%m-%d_%H%M%S') + (f'-schedule-{schedule_id}' if schedule_id else '') + '.tar.gz'
+        name = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ') + (f'-schedule-{schedule_id}' if schedule_id else '-manual') + '.tar.gz'
         target = folder(server_id) / name
         if target.exists():
             abort(409, 'A backup was made this second already')

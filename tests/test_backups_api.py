@@ -1,7 +1,9 @@
 import io
 import json
 import os
+import re
 import tarfile
+from datetime import datetime, timezone
 
 import pytest
 
@@ -31,8 +33,10 @@ def test_a_backup_holds_the_folder_without_the_rcon_password(admin, folder):
     response = admin.post('/api/servers/survival/backups')
     assert response.status_code == 201
     backup = response.get_json()
-    assert backups.NAME.fullmatch(backup['name']) and backup['size'] > 0
-    assert admin.get('/api/servers/survival/backups').get_json() == {'backups': [backup]}
+    assert re.fullmatch(r'\d{8}T\d{6}Z-manual\.tar\.gz', backup['name']) and backup['size'] > 0
+    assert backup['created'] == int(datetime.strptime(backup['name'][:16], '%Y%m%dT%H%M%SZ').replace(tzinfo=timezone.utc).timestamp())
+    assert backup['schedule'] is None
+    assert admin.get('/api/servers/survival/backups').get_json() == {'backups': [backup | {'cron': None}]}
     download = admin.get(f'/api/servers/survival/backups/{backup["name"]}')
     assert download.status_code == 200 and download.headers['Content-Disposition'].startswith('attachment')
     content = members_of(download.data)
@@ -40,6 +44,20 @@ def test_a_backup_holds_the_folder_without_the_rcon_password(admin, folder):
     assert content == {'server.properties': f'motd=Hi\nrcon.password={files.MASK}\n'.encode(), 'world': None,
                        'world/region': None, 'world/region/r.0.0.mca': b'\0region'}
     assert sorted(os.listdir(config.BACKUPS_DIR / 'survival')) == [backup['name']]  # no partial file left
+
+
+def test_backups_say_when_and_how_they_were_made_named_either_way(admin, folder):
+    schedule = admin.post('/api/servers/survival/schedules', json={'action': 'backup', 'cron': '0 3 * * *',
+                                                                   'timezone': 'UTC', 'keep': 7}).get_json()
+    names = ['2026-01-01_120000.tar.gz', '20260102T030000Z-manual.tar.gz',  # Back up now's, before and since ISO 8601
+             f'2026-01-01_030000-schedule-{schedule["id"]}.tar.gz', '20260103T030000Z-schedule-999.tar.gz']  # 999: removed
+    (config.BACKUPS_DIR / 'survival').mkdir(parents=True)
+    for name in names:
+        (config.BACKUPS_DIR / 'survival' / name).write_bytes(b'')
+    listed = admin.get('/api/servers/survival/backups').get_json()['backups']
+    assert [(backup['name'], backup['created'], backup['schedule'], backup['cron']) for backup in listed] == [
+        (names[3], 1767409200, 999, None), (names[1], 1767322800, None, None),
+        (names[0], 1767268800, None, None), (names[2], 1767236400, schedule['id'], '0 3 * * *')]
 
 
 def test_a_backup_leaves_links_out(admin, folder, tmp_path):

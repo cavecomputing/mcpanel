@@ -1,7 +1,7 @@
 """A server's backups, for anyone who may use the server: list, make, download, restore, delete."""
 from flask import Blueprint, abort, send_file
 
-from .. import backups, logs
+from .. import backups, logs, schedules
 from .common import usable_server
 
 bp = Blueprint('backups', __name__, url_prefix='/servers/<server_id>/backups')
@@ -13,8 +13,10 @@ def audit(event, server, name):
 
 @bp.get('')
 def list_backups(server_id):
+    """Its backups, newest first, a scheduled one with its schedule's cron line (None once removed)."""
     usable_server(server_id)
-    return {'backups': backups.list_backups(server_id)}
+    lines = {schedule['id']: schedule['cron'] for schedule in schedules.for_server(server_id)}
+    return {'backups': [backup | {'cron': lines.get(backup['schedule'])} for backup in backups.list_backups(server_id)]}
 
 
 @bp.post('')

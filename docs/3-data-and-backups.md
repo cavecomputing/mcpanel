@@ -13,7 +13,7 @@ Everything mcpanel keeps is in `MCPANEL_DATA_DIR` (`./data` when you run it with
 ├── servers/
 │   └── <server id>/     # one server's /data, bind-mounted into its container
 └── backups/
-    └── <server id>/     # its backups, <UTC time>.tar.gz (<UTC time>-schedule-<n>.tar.gz on a schedule)
+    └── <server id>/     # its backups, <UTC time>-manual.tar.gz or <UTC time>-schedule-<n>.tar.gz
 ```
 
 The database holds only what Docker doesn't know: accounts, sessions, recovery codes, which member
@@ -35,6 +35,18 @@ A backup is a `.tar.gz` of the server's whole folder, made when someone presses 
 Backups tab, or at the times set on its Schedule tab (see
 [Schedules](1-getting-started.md#schedules)). Backups made with Back up now are kept until someone
 deletes them. Each scheduled line keeps only its newest few and deletes its own older ones.
+
+The tab lists the two apart: Manual for Back up now's, Scheduled for the Schedule tab's, each with
+the line that made it ("A removed schedule" once that line is gone). Each shows when it was taken
+in ISO 8601, in your browser's time zone with its offset, such as `2026-10-13T22:30:00-05:00`.
+
+A backup's file name says the same, so it still makes sense once downloaded or copied elsewhere:
+the time in UTC in ISO 8601's basic format, which has no colons for file systems to trip on, then how
+it was made. `20261014T033000Z-manual.tar.gz` is one made with Back up now, and
+`20261014T080000Z-schedule-3.tar.gz` one made by schedule line 3. A download is named after the
+server too, `survival-20261014T033000Z-manual.tar.gz`. Backups from before 14 October 2026 keep
+their old names (`2026-10-13_223000.tar.gz`, `2026-10-13_080000-schedule-3.tar.gz`); the panel
+lists, restores and prunes them as before.
 
 - **Making one** works whether the server runs or not. A running server is told to save the world and
   stop writing it (`save-off`) until the backup is done, then to carry on.
