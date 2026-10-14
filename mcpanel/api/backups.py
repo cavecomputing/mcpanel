@@ -13,7 +13,7 @@ def audit(event, server, name):
 
 @bp.get('')
 def list_backups(server_id):
-    """Its backups, newest first, and its backup schedules, which the scheduled ones are listed under."""
+    """Its backups, newest first, and its backup schedules, whose names mark the scheduled ones."""
     usable_server(server_id)
     return {'backups': backups.list_backups(server_id),
             'schedules': [schedule for schedule in schedules.for_server(server_id) if schedule['action'] == 'backup']}

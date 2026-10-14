@@ -36,11 +36,10 @@ Backups tab, or at the times set on its Schedule tab (see
 [Schedules](1-getting-started.md#schedules)). Backups made with Back up now are kept until someone
 deletes them. Each scheduled line keeps only its newest few and deletes its own older ones.
 
-The tab lists them apart: Manual for Back up now's, then one list for each backup line on the
-Schedule tab, headed by the line's name (or its cron line when it has none) with a button to rename
-it. Backups whose line has been removed are listed together under Removed schedules, and only you
-delete those. Each backup shows when it was taken in ISO 8601, in your browser's time zone with its
-offset, such as `2026-10-13T22:30:00-05:00`.
+The tab lists them all together, newest first. Each shows when it was taken in ISO 8601, in your
+browser's time zone with its offset, such as `2026-10-13T22:30:00-05:00`, and one a schedule made
+is marked with that line's name (or its cron line when it has none). A backup whose line has been
+removed is marked Removed schedule; nothing deletes those but you.
 
 A backup's file name says the same, so it still makes sense once downloaded or copied elsewhere:
 the time in UTC in ISO 8601's basic format, which has no colons for file systems to trip on, then how

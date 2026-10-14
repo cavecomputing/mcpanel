@@ -202,10 +202,15 @@
                 </div>
                 <div class="page" data-tab-panel="backups" id="backupsPage">
                     <div class="toolbar">
-                        <p class="note">The whole server folder: world, mods and settings, kept in the panel's <code class="cc-code">backups</code> folder. Times are ISO 8601, in your time zone.</p>
+                        <p class="note">The whole server folder: world, mods and settings, kept in the panel's <code class="cc-code">backups</code> folder. Times are ISO 8601, in your time zone; <svg class="i made-by-icon"><use href="#i-clock"/></svg> marks one a schedule made.</p>
                         <span class="toolbar__end"><button class="cc-btn cc-btn--primary cc-btn--sm" type="button" id="backupNow"><svg class="i"><use href="#i-archive"/></svg><span>Back up now</span></button></span>
                     </div>
-                    <div class="backup-lists" id="backupLists"></div>
+                    <div class="table-wrap">
+                        <table class="cc-table">
+                            <thead><tr><th>Taken</th><th class="num hide-phone">Size</th><th><span class="sr">Actions</span></th></tr></thead>
+                            <tbody id="backupRows"></tbody>
+                        </table>
+                    </div>
                 </div>
                 <div class="page" data-tab-panel="schedule">
                     <p class="note cron-examples">Each line is read in your time zone (<span id="scheduleZone"></span>) as cron reads one: minute, hour, day of the month, month, day of the week. <code class="cc-code">0 4 * * *</code> is 4:00 every day, <code class="cc-code">0 */6 * * *</code> every 6 hours, <code class="cc-code">30 5 * * mon</code> 5:30 on Mondays.</p>

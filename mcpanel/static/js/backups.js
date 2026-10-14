@@ -1,5 +1,5 @@
-/** The Backups tab: a server's backups, newest first, Back up now's in one list and each backup schedule's
- * in its own, named there; made on demand, downloaded, restored or deleted. */
+/** The Backups tab: a server's backups in one list, newest first, each one a schedule made marked with that
+ * schedule; made on demand, downloaded, restored or deleted. */
 import * as api from './api.js';
 import { formatSize } from './files.js';
 import { $, ask, esc, showError, toast } from './ui.js';
@@ -21,7 +21,7 @@ function isoTime(seconds) {
 
 export function showBackups(fresh) {
     server = fresh;
-    $('backupLists').innerHTML = '';
+    $('backupRows').innerHTML = '';
     load();
 }
 
@@ -47,37 +47,24 @@ async function load() {
         return;
     }
     if (id !== server.id) return;
-    const row = (backup) => `
+    // A scheduled backup is marked with its line's name, or its cron line when it has none.
+    const madeBy = (backup) => {
+        if (backup.schedule === null) return '';
+        const schedule = schedules.find((each) => each.id === backup.schedule);
+        const about = schedule ? `Made by the schedule ${schedule.cron}, which keeps its newest ${schedule.keep}`
+            : 'Made by a schedule that has since been removed, so nothing deletes it but you';
+        return `<span class="made-by${schedule ? '' : ' made-by--removed'}" title="${esc(about)}"><svg class="i"><use href="#i-clock"/></svg>${esc(schedule ? schedule.name ?? schedule.cron : 'Removed schedule')}</span>`;
+    };
+    $('backupRows').innerHTML = backups.map((backup) => `
         <tr data-name="${esc(backup.name)}" data-label="${esc(isoTime(backup.created))}">
-            <td class="mono" title="${esc(backup.name)}">${esc(isoTime(backup.created))}</td>
-            <td class="num muted">${esc(formatSize(backup.size))}</td>
+            <td><span class="mono backup-time" title="${esc(backup.name)}">${esc(isoTime(backup.created))}</span>${madeBy(backup)}</td>
+            <td class="num muted hide-phone">${esc(formatSize(backup.size))}</td>
             <td class="act">
                 <a class="cc-icon-btn" href="${esc(url(backup.name))}" download title="Download" aria-label="Download ${esc(backup.name)}"><svg><use href="#i-download"/></svg></a>
                 <button class="cc-icon-btn" type="button" data-restore title="Restore" aria-label="Restore ${esc(backup.name)}"><svg><use href="#i-restore"/></svg></button>
                 <button class="cc-icon-btn danger" type="button" data-delete title="Delete" aria-label="Delete ${esc(backup.name)}"><svg><use href="#i-trash"/></svg></button>
             </td>
-        </tr>`;
-    const list = ({ title, iconName, about, made, empty, schedule }) => `
-        <section class="backup-list" aria-label="${esc(title)}">
-            <h3 class="cc-section-title"><svg><use href="#i-${iconName}"/></svg>${esc(title)}<small class="hide-phone">${esc(about)}</small>
-                ${schedule ? `<button class="cc-icon-btn" type="button" data-rename="${esc(schedule.id)}" data-current="${esc(schedule.name ?? '')}" title="Rename" aria-label="Rename ${esc(title)}"><svg><use href="#i-edit"/></svg></button>` : ''}</h3>
-            <div class="table-wrap"><table class="cc-table">
-                <thead><tr><th>Taken</th><th class="num">Size</th><th><span class="sr">Actions</span></th></tr></thead>
-                <tbody>${made.map(row).join('') || `<tr class="empty-row"><td colspan="3">${esc(empty)}</td></tr>`}</tbody>
-            </table></div>
-        </section>`;
-    const by = (scheduleId) => backups.filter((backup) => backup.schedule === scheduleId);
-    const removed = backups.filter((backup) => backup.schedule !== null && !schedules.some((schedule) => schedule.id === backup.schedule));
-    $('backupLists').innerHTML = [
-        list({ title: 'Manual', iconName: 'archive', about: 'made with Back up now, kept until you delete them', made: by(null),
-            empty: 'None yet. Back up now makes one.' }),
-        ...schedules.map((schedule) => list({ title: schedule.name ?? schedule.cron, iconName: 'clock', schedule, made: by(schedule.id),
-            about: `${schedule.name ? `${schedule.cron} · ` : ''}keeps the newest ${schedule.keep}`,
-            empty: `None yet. The first is due at ${isoTime(schedule.next)}.` })),
-        ...(removed.length || !schedules.length ? [list({ title: schedules.length ? 'Removed schedules' : 'Scheduled', iconName: 'clock', made: removed,
-            about: schedules.length ? 'their lines are gone, so nothing deletes these but you' : 'made at set times by the Schedule tab',
-            empty: 'None yet. The Schedule tab can make them at set times.' })] : []),
-    ].join('');
+        </tr>`).join('') || '<tr class="empty-row"><td colspan="3">None yet. Back up now makes one, and the Schedule tab can make them at set times.</td></tr>';
     drawRestore();
 }
 
@@ -110,12 +97,6 @@ async function restore(name, label) {
     if (done) toast(`Restored the backup taken at <b>${esc(label)}</b>`);
 }
 
-async function rename({ rename: scheduleId, current }) {
-    const done = await ask({ title: 'Rename this schedule', iconName: 'edit', value: current, ok: 'Rename',
-        text: 'Its backups are listed under this name.', action: (name) => api.put(`/api/servers/${server.id}/schedules/${scheduleId}`, { name }) });
-    if (done) load();
-}
-
 async function remove(name, label) {
     const done = await ask({ title: 'Delete this backup?', iconName: 'archive', ok: 'Delete', danger: true,
         text: `The backup taken at ${label} will be deleted. This can't be undone.`, action: () => api.del(url(name)) });
@@ -126,8 +107,7 @@ export function initBackups() {
     $('backupNow').addEventListener('click', backUp);
     $('backupsPage').addEventListener('click', (event) => {
         const { name, label } = event.target.closest('tr[data-name]')?.dataset ?? {};
-        if (event.target.closest('[data-rename]')) rename(event.target.closest('[data-rename]').dataset);
-        else if (event.target.closest('[data-restore]')) restore(name, label);
+        if (event.target.closest('[data-restore]')) restore(name, label);
         else if (event.target.closest('[data-delete]')) remove(name, label);
     });
 }

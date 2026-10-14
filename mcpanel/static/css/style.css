@@ -248,13 +248,12 @@ svg.i { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-widt
 .upload__bar { flex: 1; min-width: 80px; height: 6px; border-radius: 3px; background: var(--bg-page); overflow: hidden; }
 .upload__bar span { display: block; width: 0; height: 100%; background: var(--accent-aqua); transition: width .2s; }
 .upload__percent { color: var(--fg-muted); }
-/* The Backups tab's lists, manual and one per schedule, each as tall as it is, so none scrolls inside the page. */
-.backup-lists { display: contents; }
-.backup-list { flex: none; max-width: 1100px; }
-.backup-list .cc-section-title .cc-icon-btn { margin-left: auto; }
-.backup-list td.mono { white-space: nowrap; }
-.backup-list th.num { width: 120px; } /* the same in every list, even one with no backups */
-.backup-list th:last-child { width: 150px; }
+/* The Backups tab: a backup a schedule made carries that schedule's name beside its time. */
+.made-by { display: inline-flex; align-items: center; gap: var(--app-space-2); margin-left: var(--app-space-4); padding: 0 var(--app-space-3) 0 var(--app-space-2); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-inset); color: var(--fg-muted); font-family: var(--font-mono); font-size: 12px; font-weight: 400; white-space: nowrap; }
+.made-by .i, .made-by-icon { width: 13px; height: 13px; color: var(--accent-alt); vertical-align: -2px; }
+.backup-time { white-space: nowrap; }
+.made-by--removed { border-style: dashed; }
+.made-by--removed .i { color: var(--fg-subtle); }
 .table-wrap.dropping { outline: 2px dashed var(--accent-text); outline-offset: 4px; }
 .cc-table .empty-row td { color: var(--fg-muted); font-weight: 400; text-align: center; padding: var(--app-space-6); }
 /* The Schedule tab: each kind's lines in a table, and the form that adds one in a dashed well under it, labelled. */
@@ -361,4 +360,5 @@ p.note { max-width: 1100px; margin: 0; color: var(--fg-muted); font-size: 13px; 
     .chips { flex-wrap: nowrap; overflow-x: auto; } /* one row that scrolls, leaving the output its room */
     .chips > * { flex: none; }
     .hide-phone { display: none; }
+    .made-by { display: flex; width: fit-content; margin: var(--app-space-1) 0 0; } /* under the time, which takes the width */
 }
