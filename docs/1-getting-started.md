@@ -102,8 +102,12 @@ after you pressed it. Below it:
   When it has crashed, isn't answering or keeps crashing, the last lines it wrote come first, and
   in plain words what they most likely mean when it's a common cause: out of memory, a Java too old
   for it, or a mod missing another mod or made for another version.
-- **Console**: the server's output as it runs, and a box for commands, which go to the server over
-  RCON, with or without the leading `/`. Buttons under the output run common ones: `list`,
+- **Console**: the server's output as it runs, each line with its time (in your own time zone) and,
+  for a warning or an error, its level; a crash's stack trace folds under its error. All, Chat and
+  Problems narrow it to chat, joins and leaves, or warnings and errors, and the search box to the
+  lines that mention something. Scroll up to read back and new lines wait behind a "new lines"
+  button instead of moving the page. Under it is a box for commands, which go to the server over
+  RCON, with or without the leading `/`, each shown with its answer. Buttons over the box run common ones: `list`,
   `save-all`, `say` and `difficulty` (which fill the box for you to finish), day and night, clear
   weather, `seed`, TPS (with the server type's own command), `plugins` on Paper and Purpur, a
   cookie for everyone online, and clearing the items dropped on the ground, which asks first. The

@@ -288,24 +288,58 @@ svg.i { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-widt
 button.fname:hover { color: var(--accent-text); }
 .fname .i { color: var(--fg-muted); }
 .fname--dir .i { color: var(--accent-alt); }
-.console-page { overflow: hidden; gap: var(--app-space-4); }
 .log { flex: 1; min-height: 0; overflow-y: auto; margin: 0; padding: var(--app-space-4) var(--app-space-5); background: var(--bg-page); border: 1px solid var(--border); border-radius: var(--radius); font: 12.5px/1.6 var(--font-mono); white-space: pre-wrap; word-break: break-word; color: var(--fg); }
 .trouble-log { flex: none; }
 .trouble-hint { margin: 0; color: var(--fg); font-size: 13px; }
 .danger-card a { color: var(--accent-cool); }
-.log .warn { color: var(--accent-warm); }
-.log .join { color: var(--accent-text); }
-.log .chat { color: var(--accent-aqua-text); }
-.log .cmd { color: var(--accent-cool); }
-.log .reply { color: var(--fg-muted); }
-.log .note { color: var(--fg-subtle); }
-.chips { display: flex; flex-wrap: wrap; gap: var(--app-space-2); }
+/* The Console: one window, a bar of filters over the output, then the quick commands and the input. */
+.console-page { overflow: hidden; }
+.term { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-page); }
+.term__bar { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: var(--app-space-3); padding: var(--app-space-3) var(--app-space-4); border-bottom: 1px solid var(--border); background: var(--bg-surface); }
+.term__bar .seg button { min-height: 30px; padding-block: 0; }
+.term__end { margin-left: auto; display: flex; gap: var(--app-space-2); }
+.search { position: relative; display: flex; align-items: center; }
+.search .i { position: absolute; left: 9px; width: 14px; height: 14px; color: var(--fg-subtle); pointer-events: none; }
+.search .cc-input { width: 190px; height: 30px; min-height: 30px; padding-left: 30px; font-family: var(--font-mono); font-size: 12px; }
+/* The output, with a button over its bottom edge for the lines that came while someone reads further up. */
+.logwrap { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.lines { flex: 1; min-height: 0; overflow-y: auto; padding: var(--app-space-3) 0; font: 12.5px/1.6 var(--font-mono); color: var(--fg); }
+.newpill { position: absolute; left: 50%; bottom: 12px; translate: -50% 0; display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border: 1px solid var(--accent-text); border-radius: 999px; background: var(--bg-raised); color: var(--accent-text); font-family: var(--font-mono); font-size: 12px; box-shadow: var(--shadow-lift); }
+.newpill .i { width: 14px; height: 14px; }
+.lines mark { padding: 0 1px; border-radius: 2px; background: var(--accent); color: var(--btn-fg); }
+.lines .note { padding: 0 var(--app-space-5); color: var(--fg-subtle); }
+/* A line: its time, its level only when it's a warning or an error, then the message. */
+.ln { display: grid; grid-template-columns: 8.5ch 5.5ch minmax(0, 1fr); gap: 0 var(--app-space-4); padding: 1px var(--app-space-5); }
+.ln:hover { background: var(--bg-surface); }
+.ln time { color: var(--fg-subtle); white-space: nowrap; }
+.ln .lvl { padding-top: 1px; color: var(--fg-subtle); font-size: 11px; font-weight: 700; letter-spacing: .06em; }
+.ln .msg { min-width: 0; white-space: pre-wrap; word-break: break-word; }
+.ln--info .msg, .ln--join .msg, .ln--left .msg, .ln--adv .msg { color: var(--fg-muted); }
+.ln--warn { background: color-mix(in srgb, var(--accent-warm) 9%, transparent); }
+.ln--warn:hover { background: color-mix(in srgb, var(--accent-warm) 14%, transparent); }
+.ln--warn .lvl, .ln--warn .msg { color: var(--accent-warm); }
+.ln .who { color: var(--accent-aqua-text); font-weight: 700; }
+.ln .who--server { color: var(--fg-muted); }
+.ln .arrow { color: var(--accent-aqua-text); }
+.ln--left .arrow { color: var(--fg-subtle); }
+.ln--cmd { margin-block: 4px; }
+.ln--cmd .lvl, .ln--cmd .msg > b, .ln--cmd .cmdtext { color: var(--accent-cool); }
+.ln .reply { display: block; margin-top: 2px; padding-left: var(--app-space-4); border-left: 2px solid var(--border); color: var(--fg-muted); }
+.trace { margin-top: 2px; }
+.trace summary { width: fit-content; color: var(--fg-muted); font-size: 11.5px; cursor: pointer; }
+.trace summary:hover { color: var(--fg); }
+.trace pre { margin: 2px 0 0; padding-left: var(--app-space-4); border-left: 2px solid var(--accent-warm); font: inherit; font-size: 11.5px; white-space: pre-wrap; tab-size: 4; }
+/* The quick commands: one row in groups, scrolling sideways, fading out where there are more. */
+.chips { flex: none; display: flex; align-items: center; gap: var(--app-space-2); overflow-x: auto; padding: var(--app-space-3) 40px 0 var(--app-space-4); border-top: 1px solid var(--border); background: var(--bg-surface); scrollbar-width: thin; mask-image: linear-gradient(to right, black calc(100% - 40px), transparent); }
+.chips > * { flex: none; }
+.chips .sep { width: 1px; height: 18px; margin-inline: var(--app-space-2); background: var(--border); }
 .chips .cc-tag { cursor: pointer; }
-.chips .cc-tag:hover { color: var(--fg); }
+.chips .cc-tag:hover:not(:disabled) { color: var(--fg); border-color: var(--fg-subtle); }
 .chips .cc-tag:disabled { opacity: .5; cursor: not-allowed; }
-.chips__end { margin-left: auto; }
-.composer { display: flex; align-items: center; gap: var(--app-space-3); }
+.chips .danger-tag { color: var(--accent-warm); }
+.composer { flex: none; display: flex; align-items: center; gap: var(--app-space-3); padding: var(--app-space-3) var(--app-space-4); background: var(--bg-surface); }
 .composer .prompt { color: var(--accent-text); font-family: var(--font-mono); font-weight: 700; }
+.composer .cc-input { flex: 1; min-width: 0; }
 .seg { display: inline-flex; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-inset); }
 .seg button, .seg label { padding: 6px 12px; border: 0; background: none; color: var(--fg-muted); font-family: var(--font-mono); font-size: 12px; }
 .seg button[aria-pressed="true"], .seg label:has(:checked) { background: var(--bg-raised); color: var(--accent-text); }
@@ -402,8 +436,10 @@ p.note { max-width: 1100px; margin: 0; color: var(--fg-muted); font-size: 13px; 
     .toolbar > .seg { max-width: 100%; overflow-x: auto; }
     .toolbar > .seg button { flex: 1; padding-inline: 8px; }
     .tabs { padding: 0 var(--app-space-4); }
-    .chips { flex-wrap: nowrap; overflow-x: auto; } /* one row that scrolls, leaving the output its room */
-    .chips > * { flex: none; }
+    .ln { grid-template-columns: 5.5ch minmax(0, 1fr); gap: 0 var(--app-space-3); padding-inline: var(--app-space-3); }
+    .ln .lvl, .ln time .sec { display: none; }
+    .search .cc-input { width: 130px; }
+    .term__bar .seg button { padding-inline: 8px; }
     .hide-phone { display: none; }
     .made-by { display: flex; width: fit-content; margin: var(--app-space-1) 0 0; } /* under the time, which takes the width */
 }

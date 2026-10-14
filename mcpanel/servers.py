@@ -551,8 +551,8 @@ def tps(server_id, type):
 
 
 def console_lines(server_id, since=None):
-    """A server's console output from Docker's log: (lines, the time of the last one) after since
-    (Unix seconds, as an earlier call returned it), the last LOG_LINES of them. Colour codes and
+    """A server's console output from Docker's log: (lines, their times, the time of the last one)
+    after since (Unix seconds, as an earlier call returned it), the last LOG_LINES of them. Colour codes and
     RCON_CHATTER go, and the RCON password, should the server ever print it, is masked."""
     check_id(server_id)
     with docker_errors():
@@ -562,7 +562,7 @@ def console_lines(server_id, since=None):
     while True:
         with docker_errors():
             raw = container.logs(timestamps=True, since=since, tail=tail)
-        lines, last = [], since
+        lines, times, last = [], [], since
         for line in raw.decode('utf-8', 'replace').splitlines():
             stamp, _, text = line.partition(' ')
             try:
@@ -575,10 +575,11 @@ def console_lines(server_id, since=None):
             text = ANSI.sub('', text).rstrip('\r')
             if not RCON_CHATTER.search(text):
                 lines.append(text.replace(password, '********') if password else text)
+                times.append(time)
         # The Overview's poll leaves two lines of chatter every 5 s, which after a while can be all of
         # Docker's last lines: look further back until there are enough of the server's own.
         if len(lines) >= LOG_LINES or raw.count(b'\n') < tail:
-            return lines[-LOG_LINES:], last
+            return lines[-LOG_LINES:], times[-LOG_LINES:], last
         tail *= 4
 
 

@@ -9,12 +9,12 @@ bp = Blueprint('console', __name__, url_prefix='/servers/<server_id>/console')
 
 @bp.get('')
 def output(server_id):
-    """?since=<time> -> {lines, since}: the console's last lines (after since, when given), and the
-    time to ask from next."""
+    """?since=<time> -> {lines, times, since}: the console's last lines (after since, when given),
+    the time Docker logged each, and the time to ask from next."""
     usable_server(server_id)
     since = request.args.get('since', type=float)
-    lines, last = servers.console_lines(server_id, since)
-    return {'lines': lines, 'since': last}
+    lines, times, last = servers.console_lines(server_id, since)
+    return {'lines': lines, 'times': times, 'since': last}
 
 
 @bp.post('')

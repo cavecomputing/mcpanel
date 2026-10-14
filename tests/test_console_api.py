@@ -21,8 +21,9 @@ def test_output_comes_from_dockers_log_then_only_whats_new(admin, docker, runnin
     ]
     first = admin.get('/api/servers/survival/console').get_json()
     assert first['lines'] == ['[16:00:00] [Server thread/INFO]: Starting', '[16:00:01] [Server thread/INFO]: Done (3.2s)!']
+    assert first['times'] == [1791648000.1, pytest.approx(1791648001.123456789)]
     assert admin.get('/api/servers/survival/console', query_string={'since': first['since']}).get_json() == \
-        {'lines': [], 'since': first['since']}
+        {'lines': [], 'times': [], 'since': first['since']}
     docker.output['mcpanel-survival'].append(('2026-10-10T16:00:02Z', 'Steve joined the game'))
     later = admin.get('/api/servers/survival/console', query_string={'since': first['since']}).get_json()
     assert later['lines'] == ['Steve joined the game'] and later['since'] > first['since']

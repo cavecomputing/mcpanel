@@ -35,6 +35,8 @@
     <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></symbol>
     <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3.5l9 16H3z"/><path d="M12 10v4M12 17v.5"/></symbol>
     <symbol id="i-term" viewBox="0 0 24 24"><path d="M4 17l6-6-6-6M12 19h8"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 20 20"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></symbol>
     <symbol id="i-send" viewBox="0 0 24 24"><path d="M4 12l16-8-6 16-2.5-6.5z"/></symbol>
     <symbol id="i-restore" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></symbol>
     <symbol id="i-archive" viewBox="0 0 24 24"><rect x="3.5" y="4" width="17" height="4.5" rx="1"/><path d="M5 8.5v11h14v-11M10 12.5h4"/></symbol>
@@ -131,30 +133,48 @@
                     </div>
                 </div>
                 <div class="page console-page" data-tab-panel="console">
-                    <pre class="log" id="consoleLog" tabindex="0" aria-label="Console output"></pre>
-                    <div class="chips" aria-label="Quick commands">
-                        <button class="cc-tag" type="button" data-command="list">list</button>
-                        <button class="cc-tag" type="button" data-command="save-all">save-all</button>
-                        <button class="cc-tag" type="button" data-command="say " data-fill>say …</button>
-                        <button class="cc-tag" type="button" data-command="time set day">time set day</button>
-                        <button class="cc-tag" type="button" data-command="time set night">time set night</button>
-                        <button class="cc-tag" type="button" data-command="weather clear">weather clear</button>
-                        <button class="cc-tag" type="button" data-command="difficulty " data-fill>difficulty …</button>
-                        <button class="cc-tag" type="button" data-command="seed">seed</button>
-                        <button class="cc-tag" type="button" data-command="tps" data-types="PAPER PURPUR" title="tps">TPS</button>
-                        <button class="cc-tag" type="button" data-command="forge tps" data-types="FORGE" title="forge tps">TPS</button>
-                        <button class="cc-tag" type="button" data-command="neoforge tps" data-types="NEOFORGE" title="neoforge tps">TPS</button>
-                        <button class="cc-tag" type="button" data-command="tick query" data-types="VANILLA FABRIC QUILT" title="tick query, from 1.20.3">TPS</button>
-                        <button class="cc-tag" type="button" data-command="plugins" data-types="PAPER PURPUR">plugins</button>
-                        <button class="cc-tag" type="button" data-command="give @a minecraft:cookie" title="give @a minecraft:cookie">cookie for everyone</button>
-                        <button class="cc-tag" type="button" data-command="kill @e[type=item]" data-ask="Every item lying on the ground near players or at spawn is deleted, for good." title="kill @e[type=item]">clear dropped items</button>
-                        <button class="cc-btn cc-btn--ghost cc-btn--sm chips__end" type="button" id="downloadLog" title="Download the server's log since it last started, logs/latest.log"><svg class="i"><use href="#i-download"/></svg><span>latest.log</span></button>
+                    <div class="term">
+                        <div class="term__bar">
+                            <div class="seg" role="group" aria-label="Which lines">
+                                <button type="button" data-filter="all" aria-pressed="true">All</button>
+                                <button type="button" data-filter="chat" aria-pressed="false">Chat</button>
+                                <button type="button" data-filter="problems" aria-pressed="false">Problems</button>
+                            </div>
+                            <div class="term__end">
+                                <label class="search"><svg class="i"><use href="#i-search"/></svg><input class="cc-input" type="search" id="consoleSearch" placeholder="Search" aria-label="Search the output" spellcheck="false" autocapitalize="off"></label>
+                                <button class="cc-btn cc-btn--ghost cc-btn--sm" type="button" id="downloadLog" title="Download the server's log since it last started, logs/latest.log"><svg class="i"><use href="#i-download"/></svg><span>latest.log</span></button>
+                            </div>
+                        </div>
+                        <div class="logwrap">
+                            <div class="lines" id="consoleLog" tabindex="0" aria-label="Console output"></div>
+                            <button class="newpill" type="button" id="consoleNew" hidden></button>
+                        </div>
+                        <div class="chips" aria-label="Quick commands">
+                            <button class="cc-tag" type="button" data-command="list">list</button>
+                            <button class="cc-tag" type="button" data-command="say " data-fill>say …</button>
+                            <button class="cc-tag" type="button" data-command="give @a minecraft:cookie" title="give @a minecraft:cookie">cookie for everyone</button>
+                            <span class="sep" aria-hidden="true"></span>
+                            <button class="cc-tag" type="button" data-command="time set day">time set day</button>
+                            <button class="cc-tag" type="button" data-command="time set night">time set night</button>
+                            <button class="cc-tag" type="button" data-command="weather clear">weather clear</button>
+                            <button class="cc-tag" type="button" data-command="difficulty " data-fill>difficulty …</button>
+                            <button class="cc-tag" type="button" data-command="seed">seed</button>
+                            <span class="sep" aria-hidden="true"></span>
+                            <button class="cc-tag" type="button" data-command="save-all">save-all</button>
+                            <button class="cc-tag" type="button" data-command="tps" data-types="PAPER PURPUR" title="tps">TPS</button>
+                            <button class="cc-tag" type="button" data-command="forge tps" data-types="FORGE" title="forge tps">TPS</button>
+                            <button class="cc-tag" type="button" data-command="neoforge tps" data-types="NEOFORGE" title="neoforge tps">TPS</button>
+                            <button class="cc-tag" type="button" data-command="tick query" data-types="VANILLA FABRIC QUILT" title="tick query, from 1.20.3">TPS</button>
+                            <button class="cc-tag" type="button" data-command="plugins" data-types="PAPER PURPUR">plugins</button>
+                            <span class="sep" aria-hidden="true"></span>
+                            <button class="cc-tag danger-tag" type="button" data-command="kill @e[type=item]" data-ask="Every item lying on the ground near players or at spawn is deleted, for good." title="kill @e[type=item]">clear dropped items</button>
+                        </div>
+                        <form class="composer" id="commandForm" autocomplete="off">
+                            <span class="prompt" aria-hidden="true">&gt;</span>
+                            <input class="cc-input mono" id="commandInput" aria-label="Command" spellcheck="false" autocapitalize="off" maxlength="1446">
+                            <button class="cc-btn cc-btn--primary" type="submit" id="commandSend"><svg class="i"><use href="#i-send"/></svg><span>Send</span></button>
+                        </form>
                     </div>
-                    <form class="composer" id="commandForm" autocomplete="off">
-                        <span class="prompt" aria-hidden="true">&gt;</span>
-                        <input class="cc-input mono" id="commandInput" aria-label="Command" spellcheck="false" autocapitalize="off" maxlength="1446">
-                        <button class="cc-btn cc-btn--primary" type="submit" id="commandSend"><svg class="i"><use href="#i-send"/></svg><span>Send</span></button>
-                    </form>
                 </div>
                 <div class="page" data-tab-panel="players">
                     <div class="toolbar">
