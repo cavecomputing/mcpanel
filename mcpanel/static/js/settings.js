@@ -56,6 +56,7 @@ function fillGame(values, onlyUnread = false) {
     for (const input of $('gameForm').elements) {
         if (!(input.name in values) || (onlyUnread && saved[input.name] !== null && values[input.name] !== null)) continue;
         if (input.type === 'checkbox') input.checked = values[input.name];
+        else if (input.type === 'radio') input.checked = input.value === values[input.name];
         else input.value = values[input.name];
         input.disabled = values[input.name] === null;
         saved[input.name] = values[input.name];
@@ -89,7 +90,7 @@ async function saveGame(event) {
     event.preventDefault();
     const changes = {};
     for (const input of $('gameForm').elements) {
-        if (!input.name || input.disabled) continue;
+        if (!input.name || input.disabled || (input.type === 'radio' && !input.checked)) continue;
         const value = input.type === 'checkbox' ? input.checked : input.type === 'number' ? Number(input.value) : input.value;
         if (value !== saved[input.name]) changes[input.name] = value;
     }

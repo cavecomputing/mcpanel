@@ -294,8 +294,15 @@ button.fname:hover { color: var(--accent-text); }
 .composer { display: flex; align-items: center; gap: var(--app-space-3); }
 .composer .prompt { color: var(--accent-text); font-family: var(--font-mono); font-weight: 700; }
 .seg { display: inline-flex; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-inset); }
-.seg button { padding: 6px 12px; border: 0; background: none; color: var(--fg-muted); font-family: var(--font-mono); font-size: 12px; }
-.seg button[aria-pressed="true"] { background: var(--bg-raised); color: var(--accent-text); }
+.seg button, .seg label { padding: 6px 12px; border: 0; background: none; color: var(--fg-muted); font-family: var(--font-mono); font-size: 12px; }
+.seg button[aria-pressed="true"], .seg label:has(:checked) { background: var(--bg-raised); color: var(--accent-text); }
+/* A choice of a few as a .seg of labels: each radio hidden in its label, which shows it. */
+.seg label { position: relative; display: flex; align-items: center; min-height: calc(var(--control-height) - 2px); padding-block: 0; cursor: pointer; }
+.seg label + label { border-left: 1px solid var(--border); }
+.seg label:hover { color: var(--fg); }
+.seg label:has(:focus-visible) { outline: 2px solid var(--accent-text); outline-offset: -2px; }
+.seg label:has(:disabled) { opacity: .5; cursor: not-allowed; }
+.seg label input { position: absolute; opacity: 0; pointer-events: none; }
 .seg span { color: var(--fg-subtle); }
 .add-player .cc-input { width: 180px; min-height: 0; padding-block: .35em; }
 p.note { max-width: 1100px; margin: 0; color: var(--fg-muted); font-size: 13px; }
@@ -304,12 +311,26 @@ p.note { max-width: 1100px; margin: 0; color: var(--fg-muted); font-size: 13px; 
 .editor { max-width: 1100px; }
 .mono { font-family: var(--font-mono); }
 .small-input { max-width: 120px; }
-.small-select { max-width: 240px; }
-.checks { display: flex; flex-direction: column; gap: var(--app-space-3); }
-.checks .cc-checkbox:has(.cc-field__hint) { align-items: flex-start; } /* the box beside its first line, not between it and the hint */
-.checks .cc-checkbox:has(.cc-field__hint) input { margin-top: 2px; }
 .cc-checkbox:has(input:disabled) { color: var(--fg-muted); }
-.cc-field > span { font-size: 13px; }
+/* The Settings tab: one setting a row, its name and hint on the left and its control flush right, in
+   groups under a small heading. Numbers are short, with their unit; on/off settings are switches. */
+.group-label { margin: var(--app-space-5) 0 0; color: var(--fg-muted); font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; }
+.cc-card-header + .group-label { margin-top: var(--app-space-2); }
+.setting { display: flex; flex-wrap: wrap; align-items: center; gap: var(--app-space-3) var(--app-space-5); padding: var(--app-space-4) 0; border-top: 1px solid var(--border-soft); }
+.group-label + .setting, .cc-card-header + .setting { padding-top: var(--app-space-3); border-top: 0; }
+.setting__text { flex: 1; min-width: min(100%, 220px); display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+.setting__text .cc-field__hint { margin: 0; }
+.setting__control { flex: none; display: flex; align-items: center; justify-content: flex-end; gap: var(--app-space-3); }
+.setting__control .cc-input { width: 300px; max-width: 100%; }
+.setting__control .cc-input.num { width: 96px; text-align: right; font-variant-numeric: tabular-nums; }
+.setting__control .unit { width: 4.2em; color: var(--fg-muted); font-size: 12px; }
+.setting:has(:disabled) .setting__text { color: var(--fg-muted); }
+.switch { position: relative; flex: none; width: 40px; height: 22px; margin: 0; appearance: none; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-inset); cursor: pointer; transition: background 160ms ease, border-color 160ms ease; }
+.switch::before { content: ""; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: var(--fg-muted); transition: translate 160ms ease; }
+.switch:checked { border-color: var(--accent); background: var(--accent); }
+.switch:checked::before { translate: 18px 0; background: var(--btn-fg); }
+.switch:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+.switch:disabled { opacity: .5; cursor: not-allowed; }
 .danger-card .cc-card-header svg { stroke: var(--accent-warm); }
 .editor textarea { min-height: 420px; resize: vertical; font: 12.5px/1.6 var(--font-mono); white-space: pre; tab-size: 4; }
 
@@ -356,6 +377,8 @@ p.note { max-width: 1100px; margin: 0; color: var(--fg-muted); font-size: 13px; 
     .head__actions { width: 100%; margin-left: 0; }
     .page { padding: var(--app-space-5); }
     .cc-field { grid-template-columns: minmax(0, 1fr); }
+    .setting__control:not(:has(.switch, .num)), .setting__control .cc-input:not(.num), .setting__control .seg { width: 100%; }
+    .setting__control .seg label { flex: 1; justify-content: center; padding-inline: 4px; }
     .tabs { padding: 0 var(--app-space-4); }
     .chips { flex-wrap: nowrap; overflow-x: auto; } /* one row that scrolls, leaving the output its room */
     .chips > * { flex: none; }
