@@ -22,12 +22,15 @@ let polling = null; // the poll's list call while it runs: one at a time, so a s
 let options = null; // /api/servers/options, fetched when a form first needs it
 let shownTab = '';  // '<server id>/<tab>' last opened, so a poll redraws a tab without reloading it
 // tab -> what it does when it opens (show) and when a poll brings the server's fresh dict (update).
-const TAB_VIEWS = { overview: { show: loadStats, update: loadStats } };
+const TAB_VIEWS = { overview: { show: (server) => { coming.at = 0; loadStats(server); }, update: loadStats } };
 let stats = null;   // the Overview's stats call while it runs
+let statsFor = '';  // the server whose stats the Overview shows
 let troubleFor = ''; // '<server id>/<status>' whose last lines the Overview shows, while it is crashed or not responding
 const TROUBLE_LINES = 15;
 const DISK_MS = 60 * 1000; // the Overview asks for disk use at most this often, since it walks the whole folder
 let disk = { id: '', at: 0, use: null }; // the last disk use fetched: for which server, when, and {folder, backups, free}
+// Its schedules and backups for Coming up, fetched on opening the Overview, then once a minute like disk use.
+let coming = { id: '', at: 0, schedules: null, backups: null };
 const TROUBLE_TITLES = { crashed: 'It stopped with an error', unresponsive: "It isn't answering", restarting: 'It keeps stopping with an error, and Docker keeps starting it again' };
 // What a crash's lines most often mean, in plain words: the first match among its last lines wins.
 const MEMORY_HINT = 'It used all the memory it may use. Give it more memory in Settings, or run fewer mods.';
@@ -51,10 +54,19 @@ const runningVersion = (server) => (server.version === 'LATEST' && server.game_v
 export const javaName = (java) => java.replace(/^java/, 'Java ');
 const statusName = (status) => STATUS[status] ?? status;
 const serverWithId = (id) => state.servers.find((server) => server.id === id);
+// A Unix time as its clock time when it's today, else with its date.
+const formatWhen = (seconds) => (new Date(seconds * 1000).toDateString() === new Date().toDateString()
+    ? new Date(seconds * 1000).toLocaleTimeString([], { timeStyle: 'short' }) : formatDate(seconds));
+/** A bar's part: share (0 to 1) of its width, orange when warn. */
+const barPart = (share, warn = false) => `<span class="${warn ? 'warn' : ''}" style="width:${Math.min(100, share * 100)}%"></span>`;
 
-/** How long since a time (Unix seconds), as "45 min", "3 h 12 min" or "2 days 4 h". */
-function formatUptime(seconds) {
-    const minutes = Math.floor((Date.now() / 1000 - seconds) / 60);
+/** A Health row: what it is, what that means, its number, and a bar of barParts (none when null). */
+const healthRow = (name, note, value, bar = '') => `<span class="hrow__label">${name}${note ? `<small>${note}</small>` : ''}</span>`
+    + `<span class="hrow__value">${value}</span>${bar === null ? '' : `<div class="bar">${bar}</div>`}`;
+
+/** How long a span of seconds is, as "45 min", "3 h 12 min" or "2 days 4 h". */
+function formatSpan(seconds) {
+    const minutes = Math.floor(seconds / 60);
     if (minutes < 1) return 'under a minute';
     if (minutes < 60) return `${minutes} min`;
     if (minutes < 24 * 60) return `${Math.floor(minutes / 60)} h ${minutes % 60} min`;
@@ -188,30 +200,45 @@ function drawServer(server) {
         button.disabled = Boolean(busy) || !action.when.includes(server.status);
         button.lastElementChild.textContent = busy === button.dataset.action ? action.doing : action.label;
     }
-    // Disk use, which loadDisk() fetches apart from the other stats: it shows while stopped too.
+    $('playersLink').href = serverHash(server.id, 'players');
+    // Disk use, which loadDisk() fetches apart from the other stats: it shows while stopped too. The bar
+    // is its folder beside its backups.
     const diskUse = disk.id === server.id ? disk.use : null;
     const [amount, unit] = diskUse ? formatSize(diskUse.folder + diskUse.backups).split(' ') : [];
-    setHtml($('statDisk'), diskUse ? `${amount} <small>${unit}</small>` : '–');
-    setHtml($('serverDetails'), [
-        ['Address', `<code class="cc-code">${esc(server.address)}</code>`],
-        ['Port', esc(server.port)],
-        ['Type', esc(typeName(server.type))],
-        ['Version', esc(runningVersion(server))],
-        ['Java', esc(javaName(server.java))],
-        ['Memory', `${esc(server.memory_gb)} GB`],
-        ['CPU', server.cpus ? plural(server.cpus, 'core') : 'No limit'],
-        ['Up for', server.started ? formatUptime(server.started) : 'Not running'],
-        ['Disk', diskUse ? `${formatSize(diskUse.folder)} in its folder, ${formatSize(diskUse.backups)} in backups; ${formatSize(diskUse.free)} free on the host` : '–'],
-        ['Created', esc(formatDate(server.created))],
-    ].map(([term, value]) => `<dt>${term}</dt><dd>${value}</dd>`).join(''));
+    const used = diskUse && diskUse.folder + diskUse.backups;
+    setHtml($('healthDisk'), healthRow('Disk',
+        diskUse ? `<span class="swatch"></span>${formatSize(diskUse.folder)} folder · <span class="swatch alt"></span>${formatSize(diskUse.backups)} backups · ${formatSize(diskUse.free)} free` : '',
+        diskUse ? `${amount} <small>${unit}</small>` : '–',
+        used ? `<span style="flex:${diskUse.folder} 0 0"></span><span class="alt" style="flex:${diskUse.backups} 0 0"></span>` : ''));
+    drawComingUp(server);
+}
+
+/** Coming up: how long it has run, its next scheduled restart and backup, and its newest backup. */
+function drawComingUp(server) {
+    const now = Date.now() / 1000;
+    const known = coming.id === server.id && coming.backups;
+    const upcoming = (action) => {
+        if (!known) return ['–'];
+        const at = Math.min(...coming.schedules.filter((schedule) => schedule.action === action && schedule.next).map((schedule) => schedule.next));
+        if (at === Infinity) return ['None', 'Add one on Schedule'];
+        return [formatWhen(at), at > now ? `in ${formatSpan(at - now)}` : 'now'];
+    };
+    const last = known && coming.backups[0];
+    setHtml($('comingUp'), [
+        ['Up for', server.started ? formatSpan(now - server.started) : 'Not running', `Created ${formatDate(server.created)}`],
+        ['Next restart', ...upcoming('restart')],
+        ['Next backup', ...upcoming('backup')],
+        ['Last backup', !known ? '–' : last ? formatWhen(last.created) : 'None yet', last && `${formatSpan(now - last.created)} ago, ${formatSize(last.size)}`],
+    ].map(([term, value, note]) => `<div><dt>${term}</dt><dd>${esc(value)}${note ? `<small>${esc(note)}</small>` : ''}</dd></div>`).join(''));
 }
 
 /** The Overview's players, TPS, memory and CPU, fetched on opening it and on each poll: a dash while it can't say. */
 function loadStats(server) {
     loadTrouble(server);
     loadDisk(server);
+    loadComingUp(server);
+    if (statsFor !== server.id || ['stopped', 'crashed'].includes(server.status)) drawStats(server, null);
     if (['stopped', 'crashed'].includes(server.status)) {
-        drawStats(server, null);
         return;
     }
     stats ??= api.get(`/api/servers/${server.id}/stats`, { quiet: true })
@@ -229,6 +256,18 @@ function loadDisk(server) {
         disk.use = use;
         if (serverWithId(server.id) && route().id === server.id) drawServer(serverWithId(server.id));
     }).catch(() => {});
+}
+
+/** Its schedules and backups for Coming up: on opening its Overview, then once a minute. */
+function loadComingUp(server) {
+    if (coming.id === server.id && Date.now() - coming.at < DISK_MS) return;
+    coming = { id: server.id, at: Date.now(), schedules: coming.id === server.id ? coming.schedules : null, backups: coming.id === server.id ? coming.backups : null };
+    Promise.all([api.get(`/api/servers/${server.id}/schedules`, { quiet: true }), api.get(`/api/servers/${server.id}/backups`, { quiet: true })])
+        .then(([{ schedules }, { backups }]) => {
+            if (coming.id !== server.id) return;
+            Object.assign(coming, { schedules, backups });
+            if (serverWithId(server.id) && route().id === server.id) drawServer(serverWithId(server.id));
+        }).catch(() => {});
 }
 
 /** A crashed, unresponsive or crash-looping server's last lines on the Overview, with what they most
@@ -256,14 +295,27 @@ function loadTrouble(server) {
     }).catch(() => {});
 }
 
+/** Online and Health from the stats call, or what to say while it can't. Orange near a limit. */
 function drawStats(server, data) {
+    statsFor = server.id;
     const gb = (bytes) => (bytes / 1024 ** 3).toFixed(1);
-    const usage = data?.usage;
-    setHtml($('statPlayers'), data?.players == null ? '–' : `${esc(data.players)} <small>/ ${esc(data.max_players)}</small>`);
-    setHtml($('statTps'), data?.tps == null ? '–' : `${data.tps.toFixed(1)} <small>/ 20</small>`);
-    setHtml($('statMemory'), usage ? `${gb(usage.memory)} <small>/ ${+gb(usage.memory_limit)} GB</small>` : '–');
-    // In cores, like the CPU limit an admin sets: "1.5 of 2 cores", or "0.4 cores" with no limit.
-    setHtml($('statCpu'), usage ? `${(usage.cpu / 100).toFixed(1)} <small>${server.cpus ? `of ${plural(server.cpus, 'core')}` : 'cores'}</small>` : '–');
+    const { usage, players: online, tps } = data ?? {};
+    setHtml($('onlineCount'), online ? `${online.length} <span>/ ${esc(data.max_players)}</span>` : '');
+    const silent = ['stopped', 'crashed'].includes(server.status) ? "It's not running, so nobody can join."
+        : ['starting', 'restarting'].includes(server.status) ? 'Players can join once it has started.' : "It isn't saying who's on right now.";
+    setHtml($('onlineList'), online?.length ? `<ul class="who">${online.map(({ name, op }) => `
+        <li><span class="face" aria-hidden="true">${esc(name[0].toUpperCase())}</span><span>${esc(name)}</span>${op ? '<span class="cc-tag">operator</span>' : ''}</li>`).join('')}</ul>`
+        : `<p class="card-note">${online ? "Nobody's on." : silent}</p>`);
+    setHtml($('healthTps'), healthRow('TPS', tps == null ? '' : tps >= 19.5 ? 'Keeping up' : tps >= 18 ? 'A little behind' : 'Lagging',
+        tps == null ? '–' : `${tps.toFixed(1)} <small>/ 20</small>`, tps == null ? '' : barPart(tps / 20, tps < 18)));
+    const memory = usage && usage.memory / usage.memory_limit;
+    setHtml($('healthMemory'), healthRow('Memory', memory > 0.9 ? 'Nearly all it may use' : '',
+        usage ? `${gb(usage.memory)} <small>/ ${+gb(usage.memory_limit)} GB</small>` : '–', usage ? barPart(memory, memory > 0.9) : ''));
+    // In cores, like the CPU limit an admin sets: "1.5 / 2 cores", or "0.4 cores" and no bar with no limit.
+    const cores = usage && usage.cpu / 100;
+    setHtml($('healthCpu'), healthRow('CPU', usage && !server.cpus ? 'No limit' : '',
+        usage ? `${cores.toFixed(1)} <small>${server.cpus ? `/ ${plural(server.cpus, 'core')}` : 'cores'}</small>` : '–',
+        !usage ? '' : server.cpus ? barPart(cores / server.cpus) : null));
 }
 
 /** Stop and Restart disconnect whoever is on, so they ask first while someone is, offering to warn

@@ -30,6 +30,7 @@
     <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></symbol>
     <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
     <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5v.2a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1h-.2a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h0a1.7 1.7 0 0 0 1-1.5v-.2a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v0a1.7 1.7 0 0 0 1.5 1h.2a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+    <symbol id="i-pulse" viewBox="0 0 24 24"><path d="M3 12h4l2.5-6 4 12 2.5-6H21"/></symbol>
     <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
     <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></symbol>
     <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3.5l9 16H3z"/><path d="M12 10v4M12 17v.5"/></symbol>
@@ -109,21 +110,28 @@
                     <a class="tab" data-tab="settings"><svg class="i"><use href="#i-gear"/></svg>Settings</a>
                 </nav>
                 <div class="page" data-tab-panel="overview">
-                    <div class="stats">
-                        <div class="cc-settings-card stat"><div class="stat__label">Players</div><div class="stat__value" id="statPlayers">–</div></div>
-                        <div class="cc-settings-card stat" title="Ticks a second: 20 when the server keeps up, fewer when it lags"><div class="stat__label">TPS</div><div class="stat__value" id="statTps">–</div></div>
-                        <div class="cc-settings-card stat"><div class="stat__label">Memory</div><div class="stat__value" id="statMemory">–</div></div>
-                        <div class="cc-settings-card stat"><div class="stat__label">CPU</div><div class="stat__value" id="statCpu">–</div></div>
-                        <div class="cc-settings-card stat" title="Its folder and its backups"><div class="stat__label">Disk</div><div class="stat__value" id="statDisk">–</div></div>
-                    </div>
                     <section class="cc-settings-card danger-card" id="troubleCard" aria-labelledby="troubleTitle" hidden>
                         <div class="cc-card-header"><svg><use href="#i-alert"/></svg><h4 id="troubleTitle"></h4><p>The last lines it wrote. The <a id="troubleConsole">Console</a> has the rest.</p></div>
                         <p class="trouble-hint" id="troubleHint" hidden></p>
                         <pre class="log trouble-log" id="troubleLog" tabindex="0" aria-label="The server's last lines"></pre>
                     </section>
-                    <section class="cc-settings-card" aria-labelledby="overviewTitle">
-                        <div class="cc-card-header"><svg><use href="#i-chip"/></svg><h4 id="overviewTitle">Overview</h4></div>
-                        <dl class="kv" id="serverDetails"></dl>
+                    <div class="duo">
+                        <section class="cc-settings-card" aria-labelledby="onlineTitle">
+                            <div class="cc-card-header"><svg><use href="#i-users"/></svg><h4 id="onlineTitle">Online</h4><span class="count" id="onlineCount"></span></div>
+                            <div id="onlineList"></div>
+                            <a class="card-link" id="playersLink">Whitelist, operators and bans are on Players</a>
+                        </section>
+                        <section class="cc-settings-card" aria-labelledby="healthTitle">
+                            <div class="cc-card-header"><svg><use href="#i-pulse"/></svg><h4 id="healthTitle">Health</h4></div>
+                            <div class="hrow" id="healthTps" title="Ticks a second: 20 when the server keeps up, fewer when it lags"></div>
+                            <div class="hrow" id="healthMemory"></div>
+                            <div class="hrow" id="healthCpu"></div>
+                            <div class="hrow" id="healthDisk" title="Its folder and its backups"></div>
+                        </section>
+                    </div>
+                    <section class="cc-settings-card" aria-labelledby="comingTitle">
+                        <div class="cc-card-header"><svg><use href="#i-clock"/></svg><h4 id="comingTitle">Coming up</h4></div>
+                        <dl class="coming" id="comingUp"></dl>
                     </section>
                 </div>
                 <div class="page console-page" data-tab-panel="console">

@@ -90,17 +90,18 @@ since they disconnect them. The question offers to warn them in game first, tick
 the server says it stops (or restarts) in 30 seconds, then in 10 seconds, and goes ahead 30 seconds
 after you pressed it. Below it:
 
-- **Overview**: its state, address, type and version (for `LATEST`, the release it got at its last
-  start, which is also in the header), how long it has been up, and while it runs the players
-  online, memory and CPU, and its TPS: ticks a second, 20 when it keeps up and fewer when it lags.
+- **Overview**: in Online, who is on by name, operators marked, out of how many it takes; in
+  Health, its TPS (ticks a second, 20 when it keeps up and fewer when it lags), memory, CPU and disk,
+  each with a bar against its limit that turns orange near it (TPS under 18, memory over 90%); in
+  Coming up, how long it has been up, its next scheduled restart and backup, and its newest backup.
   TPS comes from the server's own command (`tps` on Paper and Purpur, `forge tps`, `neoforge tps`,
   and `tick query` on the rest), which vanilla, Fabric and Quilt have only from 1.20.3, so before
   that it shows a dash. Disk is what the server takes on the disk, its folder (world, mods,
   settings, logs) and its backups together, running or not, with the two apart and what the disk
-  has free below; it is measured when the Overview opens and then once a minute. When it has
-  crashed, isn't answering or keeps crashing, the last lines it wrote, and in plain words what they
-  most likely mean when it's a common cause: out of memory, a Java too old for it, or a mod missing
-  another mod or made for another version.
+  has free below; it is measured when the Overview opens and then once a minute, as Coming up is.
+  When it has crashed, isn't answering or keeps crashing, the last lines it wrote come first, and
+  in plain words what they most likely mean when it's a common cause: out of memory, a Java too old
+  for it, or a mod missing another mod or made for another version.
 - **Console**: the server's output as it runs, and a box for commands, which go to the server over
   RCON, with or without the leading `/`. Buttons under the output run common ones: `list`,
   `save-all`, `say` and `difficulty` (which fill the box for you to finish), day and night, clear

@@ -87,13 +87,15 @@ def delete(server_id):
 @bp.get('/servers/<server_id>/stats')
 def stats(server_id):
     """{usage, players, max_players, tps} for the Overview: usage is servers.usage(), players who
-    is online and tps its ticks a second. Each is null when the server isn't running or can't say yet."""
+    is online ([{name, op}], op when ops.json names them) and tps its ticks a second. Each is null when
+    the server isn't running or can't say yet."""
     server = usable_server(server_id)
     running = server['status'] not in ('stopped', 'crashed')
     names, most = (players.online(server_id) if running else None) or (None, None)
+    ops = {entry['name'].casefold() for entry in players.saved_list(server_id, 'ops.json')} if names else set()
     return {'usage': servers.usage(server_id) if running else None,
-            'players': None if names is None else len(names), 'max_players': most,
-            'tps': servers.tps(server_id, server['type']) if running else None}
+            'players': None if names is None else [{'name': name, 'op': name.casefold() in ops} for name in names],
+            'max_players': most, 'tps': servers.tps(server_id, server['type']) if running else None}
 
 
 @bp.get('/servers/<server_id>/disk')
