@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 WARNINGS = ((300, '5 minutes'), (60, '1 minute'), (10, '10 seconds'))  # seconds before a restart, said in game
 LEADS = {'restart': WARNINGS[0][0], 'backup': 0}  # what a schedule does -> how long before its time it starts
 MAX_KEEP = 1000  # backups a backup schedule may keep
+MAX_NAME = 60  # characters in a schedule's name
 MAX_JUMP = 180  # minutes the clock may jump for daylight saving; more is a correction
 MINUTE = timedelta(minutes=1)
 
@@ -52,7 +53,7 @@ def schedule_dict(row):
     """What the UI shows of a schedule, with when it next comes (Unix seconds)."""
     zone = zoneinfo.ZoneInfo(row['timezone'])
     upcoming = cron.parse(row['cron']).next_after(wall_clock(time.time() + LEADS[row['action']], row['timezone']))
-    return {'id': row['id'], 'action': row['action'], 'cron': row['cron'], 'timezone': row['timezone'],
+    return {'id': row['id'], 'name': row['name'], 'action': row['action'], 'cron': row['cron'], 'timezone': row['timezone'],
             'keep': row['keep'], 'next': upcoming and int(upcoming.replace(tzinfo=zone).timestamp())}
 
 
@@ -62,9 +63,20 @@ def for_server(server_id):
     return [schedule_dict(row) for row in rows]
 
 
-def add(server_id, action, line, zone, keep):
+def checked_name(name):
+    """A schedule's name, its spaces tidied, or None for none; 400 if it can't be one."""
+    if name is not None and not isinstance(name, str):
+        abort(400, 'A name is text')
+    name = ' '.join((name or '').split())
+    if len(name) > MAX_NAME:
+        abort(400, f'A name has at most {MAX_NAME} characters')
+    return name or None
+
+
+def add(server_id, action, line, zone, keep, name=None):
     """Schedule a server's restarts or backups by a cron line in a time zone, a backup schedule
-    keeping its newest keep backups; its dict. 400 says what is wrong."""
+    keeping its newest keep backups, called name if given; its dict. 400 says what is wrong."""
+    name = checked_name(name)
     if action not in LEADS:
         abort(400, 'A schedule restarts the server or backs it up')
     if action == 'restart':
@@ -80,10 +92,21 @@ def add(server_id, action, line, zone, keep):
     if parsed.next_after(wall_clock(time.time(), zone)) is None:
         abort(400, "That day never comes round")
     with get_db() as conn:
-        schedule_id = conn.execute('INSERT INTO schedules (server, action, cron, timezone, keep, created) VALUES (?, ?, ?, ?, ?, ?)',
-                                   (server_id, action, ' '.join(line.split()), zone, keep, time.time())).lastrowid
+        schedule_id = conn.execute('INSERT INTO schedules (server, action, cron, timezone, keep, created, name) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                                   (server_id, action, ' '.join(line.split()), zone, keep, time.time(), name)).lastrowid
         conn.commit()
         return schedule_dict(conn.execute('SELECT * FROM schedules WHERE id = ?', (schedule_id,)).fetchone())
+
+
+def rename(server_id, schedule_id, name):
+    """Call one of a server's schedules name (None or '' for no name); its dict, or a 404."""
+    name = checked_name(name)
+    with get_db() as conn:
+        row = conn.execute('UPDATE schedules SET name = ? WHERE id = ? AND server = ? RETURNING *', (name, schedule_id, server_id)).fetchone()
+        conn.commit()
+    if row is None:
+        abort(404, 'No such schedule')
+    return schedule_dict(row)
 
 
 def remove(server_id, schedule_id):

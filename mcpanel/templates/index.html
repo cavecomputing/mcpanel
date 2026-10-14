@@ -205,20 +205,7 @@
                         <p class="note">The whole server folder: world, mods and settings, kept in the panel's <code class="cc-code">backups</code> folder. Times are ISO 8601, in your time zone.</p>
                         <span class="toolbar__end"><button class="cc-btn cc-btn--primary cc-btn--sm" type="button" id="backupNow"><svg class="i"><use href="#i-archive"/></svg><span>Back up now</span></button></span>
                     </div>
-                    <section class="backup-list" aria-labelledby="manualBackupsTitle">
-                        <h3 class="cc-section-title" id="manualBackupsTitle"><svg><use href="#i-archive"/></svg>Manual<small class="hide-phone">made with Back up now, kept until you delete them</small></h3>
-                        <div class="table-wrap"><table class="cc-table">
-                            <thead><tr><th>Taken</th><th class="num">Size</th><th><span class="sr">Actions</span></th></tr></thead>
-                            <tbody id="manualBackupRows"></tbody>
-                        </table></div>
-                    </section>
-                    <section class="backup-list" aria-labelledby="scheduledBackupsListTitle">
-                        <h3 class="cc-section-title" id="scheduledBackupsListTitle"><svg><use href="#i-clock"/></svg>Scheduled<small class="hide-phone">made by the Schedule tab, each line keeping its newest few</small></h3>
-                        <div class="table-wrap"><table class="cc-table">
-                            <thead><tr><th>Taken</th><th class="hide-phone">Schedule</th><th class="num">Size</th><th><span class="sr">Actions</span></th></tr></thead>
-                            <tbody id="scheduledBackupRows"></tbody>
-                        </table></div>
-                    </section>
+                    <div class="backup-lists" id="backupLists"></div>
                 </div>
                 <div class="page" data-tab-panel="schedule">
                     <p class="note cron-examples">Each line is read in your time zone (<span id="scheduleZone"></span>) as cron reads one: minute, hour, day of the month, month, day of the week. <code class="cc-code">0 4 * * *</code> is 4:00 every day, <code class="cc-code">0 */6 * * *</code> every 6 hours, <code class="cc-code">30 5 * * mon</code> 5:30 on Mondays.</p>
@@ -232,6 +219,7 @@
                         <div class="cc-card-header"><svg><use href="#i-archive"/></svg><h4 id="scheduledBackupsTitle">Backups</h4><p>Made as Back up now makes them, running or not. Each line keeps its newest few and deletes its older ones; backups made with Back up now are never deleted.</p></div>
                         <div class="rows"></div>
                         <div class="cc-field"><div><label for="backupCron">When</label><span class="cc-field__hint">A cron line</span></div><input class="cc-input mono" id="backupCron" name="cron" placeholder="0 3 * * *" maxlength="100" required spellcheck="false" autocapitalize="off"></div>
+                        <div class="cc-field"><div><label for="backupName">Name</label><span class="cc-field__hint">Optional. Its backups are listed under it on the Backups tab</span></div><input class="cc-input" id="backupName" name="name" placeholder="Nightly" maxlength="60"></div>
                         <div class="cc-field"><div><label for="backupKeep">Keep</label><span class="cc-field__hint">How many of this line's backups to keep, newest first</span></div><input class="cc-input small-input" id="backupKeep" name="keep" type="number" min="1" max="1000" value="7" required></div>
                         <div class="row-btns"><button class="cc-btn cc-btn--primary" type="submit"><svg class="i"><use href="#i-plus"/></svg><span>Add</span></button></div>
                     </form>

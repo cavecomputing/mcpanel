@@ -56,7 +56,8 @@ SCHEMA = USERS_TABLE + '''
         cron TEXT NOT NULL,
         timezone TEXT NOT NULL,
         keep INTEGER,  -- how many of its own backups a backup schedule keeps; NULL for a restart
-        created REAL NOT NULL
+        created REAL NOT NULL,
+        name TEXT  -- what whoever set it called it, or NULL
     );
 '''
 
@@ -76,8 +77,8 @@ def get_db():
 
 
 def init_db():
-    """Create the schema if needed, and bring a database from before the platform admin role up to
-    it. Safe to run on every start."""
+    """Create the schema if needed, and bring a database from before the platform admin role or
+    schedules' names up to it. Safe to run on every start."""
     with get_db() as conn:
         conn.executescript(SCHEMA)
         users_table = conn.execute("SELECT sql FROM sqlite_master WHERE name = 'users'").fetchone()['sql']
@@ -92,6 +93,8 @@ def init_db():
                                    ALTER TABLE users_new RENAME TO users;
                                    COMMIT;
                                    PRAGMA foreign_keys=ON;''')
+        if 'name' not in [column['name'] for column in conn.execute('PRAGMA table_info(schedules)')]:
+            conn.execute('ALTER TABLE schedules ADD COLUMN name TEXT')
         # There is always a platform admin: the earliest admin becomes one when none is, which
         # upgrades an older panel, and one whose first account create-user made a plain admin.
         conn.execute('''UPDATE users SET role = 'platform_admin'

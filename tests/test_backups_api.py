@@ -36,7 +36,7 @@ def test_a_backup_holds_the_folder_without_the_rcon_password(admin, folder):
     assert re.fullmatch(r'\d{8}T\d{6}Z-manual\.tar\.gz', backup['name']) and backup['size'] > 0
     assert backup['created'] == int(datetime.strptime(backup['name'][:16], '%Y%m%dT%H%M%SZ').replace(tzinfo=timezone.utc).timestamp())
     assert backup['schedule'] is None
-    assert admin.get('/api/servers/survival/backups').get_json() == {'backups': [backup | {'cron': None}]}
+    assert admin.get('/api/servers/survival/backups').get_json() == {'backups': [backup], 'schedules': []}
     download = admin.get(f'/api/servers/survival/backups/{backup["name"]}')
     assert download.status_code == 200 and download.headers['Content-Disposition'].startswith('attachment')
     content = members_of(download.data)
@@ -54,10 +54,12 @@ def test_backups_say_when_and_how_they_were_made_named_either_way(admin, folder)
     (config.BACKUPS_DIR / 'survival').mkdir(parents=True)
     for name in names:
         (config.BACKUPS_DIR / 'survival' / name).write_bytes(b'')
-    listed = admin.get('/api/servers/survival/backups').get_json()['backups']
-    assert [(backup['name'], backup['created'], backup['schedule'], backup['cron']) for backup in listed] == [
-        (names[3], 1767409200, 999, None), (names[1], 1767322800, None, None),
-        (names[0], 1767268800, None, None), (names[2], 1767236400, schedule['id'], '0 3 * * *')]
+    admin.post('/api/servers/survival/schedules', json={'action': 'restart', 'cron': '0 4 * * *', 'timezone': 'UTC'})
+    listed = admin.get('/api/servers/survival/backups').get_json()
+    assert [(backup['name'], backup['created'], backup['schedule']) for backup in listed['backups']] == [
+        (names[3], 1767409200, 999), (names[1], 1767322800, None),
+        (names[0], 1767268800, None), (names[2], 1767236400, schedule['id'])]
+    assert listed['schedules'] == [schedule]  # the backup schedules their lists are named after, no restarts
 
 
 def test_a_backup_leaves_links_out(admin, folder, tmp_path):
@@ -132,7 +134,7 @@ def test_delete_and_one_at_a_time(admin, folder):
     finally:
         backups.LOCKS['survival'].release()
     assert admin.delete(f'/api/servers/survival/backups/{name}').status_code == 200
-    assert admin.get('/api/servers/survival/backups').get_json() == {'backups': []}
+    assert admin.get('/api/servers/survival/backups').get_json() == {'backups': [], 'schedules': []}
 
 
 def test_deleting_the_server_deletes_its_backups(admin, folder):

@@ -42,8 +42,9 @@ async function add(event) {
     button.disabled = true;
     try {
         const schedule = await api.post(url(), { action: form.dataset.schedule, cron: form.elements.cron.value, timezone: ZONE,
-            keep: form.elements.keep?.valueAsNumber });
+            keep: form.elements.keep?.valueAsNumber, name: form.elements.name?.value });
         form.elements.cron.value = '';
+        if (form.elements.name) form.elements.name.value = '';
         toast(`${NEXT[schedule.action]} ${esc(formatDate(schedule.next))}`);
         load();
     } catch { /* api.js showed why; the line stays to fix */ }

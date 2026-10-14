@@ -1,5 +1,5 @@
 """A server's schedules of restarts and backups, for anyone who may use the server, as Restart and
-Back up now are: list, add, remove."""
+Back up now are: list, add, rename, remove."""
 from flask import Blueprint
 
 from .. import logs, schedules
@@ -10,21 +10,32 @@ bp = Blueprint('schedules', __name__, url_prefix='/servers/<server_id>/schedules
 
 @bp.get('')
 def list_schedules(server_id):
-    """{schedules: [{id, action, cron, timezone, next}]}, next being when it next comes (Unix seconds)."""
+    """{schedules: [{id, name, action, cron, timezone, keep, next}]}, next being when it next comes (Unix seconds)."""
     usable_server(server_id)
     return {'schedules': schedules.for_server(server_id)}
 
 
 @bp.post('')
 def add(server_id):
-    """{action, cron, timezone, keep} -> the new schedule. action is restart or backup, timezone IANA's,
-    e.g. America/Chicago, keep how many of its own backups a backup schedule keeps."""
+    """{action, cron, timezone, keep, name} -> the new schedule. action is restart or backup, timezone IANA's,
+    e.g. America/Chicago, keep how many of its own backups a backup schedule keeps, name optional."""
     server = usable_server(server_id)
     data = json_body()
-    schedule = schedules.add(server_id, data.get('action'), data.get('cron'), data.get('timezone'), data.get('keep'))
-    logs.audit('schedule_added', server=server['id'], server_name=server['name'], action=schedule['action'],
+    schedule = schedules.add(server_id, data.get('action'), data.get('cron'), data.get('timezone'), data.get('keep'),
+                              data.get('name'))
+    logs.audit('schedule_added', server=server['id'], server_name=server['name'], schedule_name=schedule['name'], action=schedule['action'],
                cron=schedule['cron'], timezone=schedule['timezone'], keep=schedule['keep'])
     return schedule, 201
+
+
+@bp.put('/<int:schedule_id>')
+def rename(server_id, schedule_id):
+    """{name} -> the schedule, called that now; an empty name takes its name away."""
+    server = usable_server(server_id)
+    schedule = schedules.rename(server_id, schedule_id, json_body().get('name'))
+    logs.audit('schedule_renamed', server=server['id'], server_name=server['name'], schedule_name=schedule['name'],
+               action=schedule['action'], cron=schedule['cron'])
+    return schedule
 
 
 @bp.delete('/<int:schedule_id>')

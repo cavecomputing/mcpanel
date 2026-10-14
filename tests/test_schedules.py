@@ -4,9 +4,12 @@ from datetime import datetime
 from types import SimpleNamespace
 from zoneinfo import ZoneInfo
 
+import sqlite3
+
 import pytest
 
 from mcpanel import backups, config, schedules, servers
+from mcpanel.db import init_db
 
 from .test_servers_api import create, grant
 
@@ -19,8 +22,8 @@ def survival(admin):
     return 'survival'
 
 
-def schedule(client, line='0 4 * * *', zone=CHICAGO, action='restart', keep=7):
-    return client.post('/api/servers/survival/schedules', json={'action': action, 'cron': line, 'timezone': zone, 'keep': keep})
+def schedule(client, line='0 4 * * *', zone=CHICAGO, action='restart', keep=7, **fields):
+    return client.post('/api/servers/survival/schedules', json={'action': action, 'cron': line, 'timezone': zone, 'keep': keep, **fields})
 
 
 def test_add_list_and_remove(admin, survival, clock, data_dir):
@@ -29,7 +32,7 @@ def test_add_list_and_remove(admin, survival, clock, data_dir):
     assert response.status_code == 201
     restart = response.get_json()
     next_time = datetime(2026, 10, 13, 4, 0, tzinfo=ZoneInfo(CHICAGO)).timestamp()
-    assert restart == {'id': restart['id'], 'action': 'restart', 'cron': '0 4 * * *', 'timezone': CHICAGO, 'keep': None,
+    assert restart == {'id': restart['id'], 'name': None, 'action': 'restart', 'cron': '0 4 * * *', 'timezone': CHICAGO, 'keep': None,
                        'next': next_time}  # a restart keeps no backups, whatever was sent
     backup = schedule(admin, '0 3 * * *', action='backup', keep=14).get_json()
     assert (backup['action'], backup['keep']) == ('backup', 14)
@@ -67,6 +70,28 @@ def test_a_restarts_next_is_after_the_warnings_have_had_time(admin, survival, cl
 def test_refused_with_why(admin, survival, body, message):
     response = admin.post('/api/servers/survival/schedules', json={'action': 'restart', **body})
     assert response.status_code == 400 and message in response.get_json()['error']
+
+
+def test_a_schedule_is_named_and_renamed(admin, survival, data_dir):
+    backup = schedule(admin, action='backup', name='  Nightly\n world ').get_json()
+    assert backup['name'] == 'Nightly world'
+    url = f'/api/servers/survival/schedules/{backup["id"]}'
+    assert admin.put(url, json={'name': 'Before updates'}).get_json() == backup | {'name': 'Before updates'}
+    assert admin.put(url, json={'name': ' '}).get_json()['name'] is None  # no name
+    assert admin.put(url, json={'name': 'x' * 61}).get_json() == {'error': 'A name has at most 60 characters'}
+    assert admin.put(url, json={'name': 7}).status_code == 400
+    assert schedule(admin, name=['x']).status_code == 400
+    assert admin.put('/api/servers/survival/schedules/999', json={'name': 'Gone'}).status_code == 404
+    assert admin.get('/api/servers/survival/schedules').get_json()['schedules'][0]['name'] is None
+    events = [json.loads(line) for line in (data_dir / 'logs' / 'audit.log').read_text().splitlines()]
+    assert [event['schedule_name'] for event in events if event['event'] == 'schedule_renamed'] == ['Before updates', None]
+
+
+def test_a_database_from_before_names_gets_them(admin, survival):
+    with sqlite3.connect(config.DATABASE) as conn:
+        conn.execute('ALTER TABLE schedules DROP COLUMN name')
+    init_db()
+    assert schedule(admin, name='Nightly').get_json()['name'] == 'Nightly'
 
 
 def test_members_schedule_only_their_servers(admin, member, survival):

@@ -248,9 +248,13 @@ svg.i { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-widt
 .upload__bar { flex: 1; min-width: 80px; height: 6px; border-radius: 3px; background: var(--bg-page); overflow: hidden; }
 .upload__bar span { display: block; width: 0; height: 100%; background: var(--accent-aqua); transition: width .2s; }
 .upload__percent { color: var(--fg-muted); }
-/* The Backups tab's two lists, each as tall as it is, so neither scrolls inside the page. */
+/* The Backups tab's lists, manual and one per schedule, each as tall as it is, so none scrolls inside the page. */
+.backup-lists { display: contents; }
 .backup-list { flex: none; max-width: 1100px; }
+.backup-list .cc-section-title .cc-icon-btn { margin-left: auto; }
 .backup-list td.mono { white-space: nowrap; }
+.backup-list th.num { width: 120px; } /* the same in every list, even one with no backups */
+.backup-list th:last-child { width: 150px; }
 .table-wrap.dropping { outline: 2px dashed var(--accent-text); outline-offset: 4px; }
 .cc-table .empty-row td { color: var(--fg-muted); font-weight: 400; text-align: center; padding: var(--app-space-6); }
 .crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; min-width: 0; font-family: var(--font-mono); font-size: 13px; }

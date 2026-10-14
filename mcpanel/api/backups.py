@@ -13,10 +13,10 @@ def audit(event, server, name):
 
 @bp.get('')
 def list_backups(server_id):
-    """Its backups, newest first, a scheduled one with its schedule's cron line (None once removed)."""
+    """Its backups, newest first, and its backup schedules, which the scheduled ones are listed under."""
     usable_server(server_id)
-    lines = {schedule['id']: schedule['cron'] for schedule in schedules.for_server(server_id)}
-    return {'backups': [backup | {'cron': lines.get(backup['schedule'])} for backup in backups.list_backups(server_id)]}
+    return {'backups': backups.list_backups(server_id),
+            'schedules': [schedule for schedule in schedules.for_server(server_id) if schedule['action'] == 'backup']}
 
 
 @bp.post('')
