@@ -116,23 +116,19 @@
                         <pre class="log trouble-log" id="troubleLog" tabindex="0" aria-label="The server's last lines"></pre>
                     </section>
                     <div class="duo">
-                        <section class="cc-settings-card" aria-labelledby="onlineTitle">
-                            <div class="cc-card-header"><svg><use href="#i-users"/></svg><h4 id="onlineTitle">Online</h4><span class="count" id="onlineCount"></span></div>
-                            <div id="onlineList"></div>
-                            <a class="card-link" id="playersLink">Whitelist, operators and bans are on Players</a>
-                        </section>
                         <section class="cc-settings-card" aria-labelledby="healthTitle">
                             <div class="cc-card-header"><svg><use href="#i-pulse"/></svg><h4 id="healthTitle">Health</h4></div>
+                            <div class="hrow" id="healthPlayers"></div>
                             <div class="hrow" id="healthTps" title="Ticks a second: 20 when the server keeps up, fewer when it lags"></div>
                             <div class="hrow" id="healthMemory"></div>
                             <div class="hrow" id="healthCpu"></div>
                             <div class="hrow" id="healthDisk" title="Its folder and its backups"></div>
                         </section>
+                        <section class="cc-settings-card" aria-labelledby="comingTitle">
+                            <div class="cc-card-header"><svg><use href="#i-clock"/></svg><h4 id="comingTitle">Coming up</h4></div>
+                            <dl class="coming" id="comingUp"></dl>
+                        </section>
                     </div>
-                    <section class="cc-settings-card" aria-labelledby="comingTitle">
-                        <div class="cc-card-header"><svg><use href="#i-clock"/></svg><h4 id="comingTitle">Coming up</h4></div>
-                        <dl class="coming" id="comingUp"></dl>
-                    </section>
                 </div>
                 <div class="page console-page" data-tab-panel="console">
                     <pre class="log" id="consoleLog" tabindex="0" aria-label="Console output"></pre>

@@ -200,7 +200,6 @@ function drawServer(server) {
         button.disabled = Boolean(busy) || !action.when.includes(server.status);
         button.lastElementChild.textContent = busy === button.dataset.action ? action.doing : action.label;
     }
-    $('playersLink').href = serverHash(server.id, 'players');
     // Disk use, which loadDisk() fetches apart from the other stats: it shows while stopped too. The bar
     // is its folder beside its backups.
     const diskUse = disk.id === server.id ? disk.use : null;
@@ -295,17 +294,13 @@ function loadTrouble(server) {
     }).catch(() => {});
 }
 
-/** Online and Health from the stats call, or what to say while it can't. Orange near a limit. */
+/** Health from the stats call, a dash while it can't say. Orange near a limit. */
 function drawStats(server, data) {
     statsFor = server.id;
     const gb = (bytes) => (bytes / 1024 ** 3).toFixed(1);
-    const { usage, players: online, tps } = data ?? {};
-    setHtml($('onlineCount'), online ? `${online.length} <span>/ ${esc(data.max_players)}</span>` : '');
-    const silent = ['stopped', 'crashed'].includes(server.status) ? "It's not running, so nobody can join."
-        : ['starting', 'restarting'].includes(server.status) ? 'Players can join once it has started.' : "It isn't saying who's on right now.";
-    setHtml($('onlineList'), online?.length ? `<ul class="who">${online.map(({ name, op }) => `
-        <li><span class="face" aria-hidden="true">${esc(name[0].toUpperCase())}</span><span>${esc(name)}</span>${op ? '<span class="cc-tag">operator</span>' : ''}</li>`).join('')}</ul>`
-        : `<p class="card-note">${online ? "Nobody's on." : silent}</p>`);
+    const { usage, players, tps } = data ?? {};
+    setHtml($('healthPlayers'), healthRow('Players', '', players == null ? '–' : `${esc(players)} <small>/ ${esc(data.max_players)}</small>`,
+        players == null ? '' : barPart(players / data.max_players)));
     setHtml($('healthTps'), healthRow('TPS', tps == null ? '' : tps >= 19.5 ? 'Keeping up' : tps >= 18 ? 'A little behind' : 'Lagging',
         tps == null ? '–' : `${tps.toFixed(1)} <small>/ 20</small>`, tps == null ? '' : barPart(tps / 20, tps < 18)));
     const memory = usage && usage.memory / usage.memory_limit;

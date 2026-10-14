@@ -90,8 +90,8 @@ since they disconnect them. The question offers to warn them in game first, tick
 the server says it stops (or restarts) in 30 seconds, then in 10 seconds, and goes ahead 30 seconds
 after you pressed it. Below it:
 
-- **Overview**: in Online, who is on by name, operators marked, out of how many it takes; in
-  Health, its TPS (ticks a second, 20 when it keeps up and fewer when it lags), memory, CPU and disk,
+- **Overview**: in Health, how many players are on out of how many it takes, its TPS (ticks a
+  second, 20 when it keeps up and fewer when it lags), memory, CPU and disk,
   each with a bar against its limit that turns orange near it (TPS under 18, memory over 90%); in
   Coming up, how long it has been up, its next scheduled restart and backup, and its newest backup.
   TPS comes from the server's own command (`tps` on Paper and Purpur, `forge tps`, `neoforge tps`,

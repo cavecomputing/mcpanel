@@ -308,8 +308,7 @@ def test_stats_say_nothing_while_stopped_then_usage_and_players(admin, member, d
     admin.post('/api/servers/survival/start')
     rcon_server.answers['list'] = 'There are 2 of a max of 20 players online: Steve, Alex'
     rcon_server.answers['tps'] = 'TPS from last 1m, 5m, 15m: 19.7, 19.9, 20.0'
-    (config.SERVERS_DIR / 'survival' / 'ops.json').write_text(json.dumps([{'uuid': '1', 'name': 'steve', 'level': 4}]))
     assert admin.get('/api/servers/survival/stats').get_json() == {
         'usage': {'memory': int(2.5 * 1024 ** 3), 'memory_limit': 5 * 1024 ** 3, 'cpu': 400.0},
-        'players': [{'name': 'Steve', 'op': True}, {'name': 'Alex', 'op': False}], 'max_players': 20, 'tps': 19.7}
+        'players': 2, 'max_players': 20, 'tps': 19.7}
     assert member.get('/api/servers/survival/stats').status_code == 404
