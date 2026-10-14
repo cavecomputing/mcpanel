@@ -257,6 +257,17 @@ svg.i { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-widt
 .backup-list th:last-child { width: 150px; }
 .table-wrap.dropping { outline: 2px dashed var(--accent-text); outline-offset: 4px; }
 .cc-table .empty-row td { color: var(--fg-muted); font-weight: 400; text-align: center; padding: var(--app-space-6); }
+/* The Schedule tab: each kind's lines in a table, and the form that adds one in a dashed well under it, labelled. */
+.schedule-table td.cron { font-weight: 400; white-space: nowrap; }
+.schedule-table td.cron:first-child { font-weight: 700; }
+.schedule-table .cc-note { display: block; font-family: var(--font-sans); white-space: normal; }
+.schedule-table .unnamed { color: var(--fg-muted); font-weight: 400; }
+.addbar { display: flex; flex-direction: column; gap: var(--app-space-3); margin-top: var(--app-space-5); padding: var(--app-space-4) var(--app-space-5) var(--app-space-5); background: var(--bg-surface); border: 1px dashed var(--border); border-radius: var(--radius); }
+.addbar__label { color: var(--fg-muted); font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; }
+.addbar__fields { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--app-space-4); }
+.addbar__field { display: flex; flex-direction: column; gap: var(--app-space-1); color: var(--fg-muted); font-size: 12px; }
+.addbar__field--grow { flex: 1; min-width: min(100%, 180px); }
+.keep-input { width: 90px; }
 .crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; min-width: 0; font-family: var(--font-mono); font-size: 13px; }
 .crumbs button { padding: 2px 4px; border: 0; border-radius: 4px; background: none; color: var(--accent-cool); }
 .crumbs button:hover { background: var(--border); }

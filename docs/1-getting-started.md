@@ -151,16 +151,16 @@ Sunday is 0 or 7. As in Linux's cron, when both day fields are set, either one w
 `0 4 1 * mon` is the 1st of the month and every Monday. `@hourly`, `@daily`, `@weekly`, `@monthly`
 and `@yearly` work too.
 
-A line is read in the time zone of the browser that added it, and the Schedule tab lists when each
-one next happens. When the clocks change for daylight saving, a time in the skipped hour comes just
+A line is read in the time zone of the browser that added it. The Schedule tab lists each kind in a
+table, with when each line next happens, and adds a line from the box under the table. When the clocks change for daylight saving, a time in the skipped hour comes just
 after it, and one in the repeated hour comes once, as with cron. Anything due while the panel itself
 is down is skipped, not made up later.
 
 - **Restarts**: players are told in game 5 minutes, 1 minute and 10 seconds before. A server that
   isn't running by then (stopped, crashed or still starting) is left as it is.
 - **Backups** are made as Back up now makes them, whether the server runs or not, and appear on the
-  Backups tab in a list of their own, under the line's Name (optional, such as "Nightly"; it can be
-  changed there) or its cron line. Each line keeps its newest backups, as many
+  Backups tab in a list of their own, under the line's Name (optional, such as "Nightly"; the pencil
+  beside the line changes it) or its cron line. Each line keeps its newest backups, as many
   as its Keep says, and deletes its own older ones after each new one. It never deletes a backup
   made with Back up now or by another line, and removing a line keeps the backups it made. One that
   comes while another backup or a restore of the server is still under way is skipped. See

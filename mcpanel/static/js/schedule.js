@@ -1,17 +1,18 @@
-/** The Schedule tab: a server's restarts and backups by cron line, when each next happens, add and remove. */
+/** The Schedule tab: a server's restarts and backups by cron line, each kind's in a table with its add bar under
+ * it; when each next happens, add, rename a backup line, remove. */
 import * as api from './api.js';
-import { $, esc, formatDate, toast } from './ui.js';
+import { $, ask, esc, formatDate, toast } from './ui.js';
 
 const ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone; // a new line is read in this time zone
 const NEXT = { restart: 'Restarts next at', backup: 'Backs up next at' };
 let serverId = '';
 
 const url = (scheduleId = '') => `/api/servers/${serverId}/schedules${scheduleId === '' ? '' : `/${scheduleId}`}`;
-const forms = () => document.querySelectorAll('form[data-schedule]');
+const sections = () => document.querySelectorAll('section[data-schedule]');
 
 export function showSchedule(server) {
     serverId = server.id;
-    for (const form of forms()) form.querySelector('.rows').innerHTML = '';
+    for (const section of sections()) section.querySelector('tbody').innerHTML = '';
     load();
 }
 
@@ -25,23 +26,30 @@ async function load() {
     }
     if (id !== serverId) return;
     // The next time in the browser's own time zone; a line set in another zone says which.
-    for (const form of forms()) {
-        form.querySelector('.rows').innerHTML = schedules.filter((schedule) => schedule.action === form.dataset.schedule).map((schedule) => `
-            <div class="list-row" data-id="${esc(schedule.id)}">
-                <span class="list-row__main"><b>${esc(schedule.cron)}</b>
-                    <span class="sub">Next: ${esc(formatDate(schedule.next))}${schedule.keep ? ` · keeps the newest ${esc(schedule.keep)}` : ''}${schedule.timezone === ZONE ? '' : ` · read in ${esc(schedule.timezone)} time`}</span></span>
-                <button class="cc-icon-btn danger" type="button" data-remove title="Remove" aria-label="Remove ${esc(schedule.cron)}"><svg><use href="#i-trash"/></svg></button>
-            </div>`).join('') || '<div class="list-row"><span class="list-row__main"><span class="sub">None yet.</span></span></div>';
+    for (const section of sections()) {
+        const backup = section.dataset.schedule === 'backup';
+        section.querySelector('tbody').innerHTML = schedules.filter((schedule) => schedule.action === section.dataset.schedule).map((schedule) => `
+            <tr data-id="${esc(schedule.id)}" data-name="${esc(schedule.name ?? '')}">
+                ${backup ? `<td>${schedule.name ? esc(schedule.name) : '<span class="unnamed">No name</span>'}</td>` : ''}
+                <td class="mono cron">${esc(schedule.cron)}${schedule.timezone === ZONE ? '' : `<span class="cc-note">read in ${esc(schedule.timezone)} time</span>`}</td>
+                <td class="muted${backup ? ' hide-phone' : ''}">${esc(formatDate(schedule.next))}</td>
+                ${backup ? `<td class="num">${esc(schedule.keep)}</td>` : ''}
+                <td class="act">
+                    ${backup ? `<button class="cc-icon-btn" type="button" data-rename title="Rename" aria-label="Rename ${esc(schedule.name ?? schedule.cron)}"><svg><use href="#i-edit"/></svg></button>` : ''}
+                    <button class="cc-icon-btn danger" type="button" data-remove title="Remove" aria-label="Remove ${esc(schedule.cron)}"><svg><use href="#i-trash"/></svg></button>
+                </td>
+            </tr>`).join('') || `<tr class="empty-row"><td colspan="${backup ? 5 : 3}">None yet.</td></tr>`;
     }
 }
 
 async function add(event) {
     event.preventDefault();
     const form = event.currentTarget;
+    const action = form.closest('[data-schedule]').dataset.schedule;
     const button = form.querySelector('[type=submit]');
     button.disabled = true;
     try {
-        const schedule = await api.post(url(), { action: form.dataset.schedule, cron: form.elements.cron.value, timezone: ZONE,
+        const schedule = await api.post(url(), { action, cron: form.elements.cron.value, timezone: ZONE,
             keep: form.elements.keep?.valueAsNumber, name: form.elements.name?.value });
         form.elements.cron.value = '';
         if (form.elements.name) form.elements.name.value = '';
@@ -49,6 +57,12 @@ async function add(event) {
         load();
     } catch { /* api.js showed why; the line stays to fix */ }
     button.disabled = false;
+}
+
+async function rename(scheduleId, current) {
+    const done = await ask({ title: 'Rename this schedule', iconName: 'edit', value: current, ok: 'Rename',
+        text: 'Its backups on the Backups tab show this name.', action: (name) => api.put(url(scheduleId), { name }) });
+    if (done) load();
 }
 
 async function remove(scheduleId) {
@@ -62,10 +76,12 @@ async function remove(scheduleId) {
 
 export function initSchedule() {
     $('scheduleZone').textContent = ZONE;
-    for (const form of forms()) {
-        form.addEventListener('submit', add);
-        form.querySelector('.rows').addEventListener('click', (event) => {
-            if (event.target.closest('[data-remove]')) remove(event.target.closest('[data-id]').dataset.id);
+    for (const section of sections()) {
+        section.querySelector('form').addEventListener('submit', add);
+        section.querySelector('tbody').addEventListener('click', (event) => {
+            const { id, name } = event.target.closest('[data-id]')?.dataset ?? {};
+            if (event.target.closest('[data-rename]')) rename(id, name);
+            else if (event.target.closest('[data-remove]')) remove(id);
         });
     }
 }
