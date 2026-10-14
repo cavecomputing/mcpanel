@@ -62,12 +62,12 @@ export async function copyText(text, what) {
 /**
  * Ask a question in the dialog. With a value it asks for text (a password with password: true)
  * and resolves to it; without, it asks for a yes and resolves to true. check, if given, labels a
- * box that starts ticked, whose state action gets after the answer. action(answer, ticked), if given,
+ * box that starts ticked unless checked is false, whose state action gets after the answer. action(answer, ticked), if given,
  * runs on submit; when it throws, the dialog stays open so the answer can be fixed. Cancel and
  * Escape resolve to null, or, while the action runs, to what it comes to, so a change it makes
  * still gets shown.
  */
-export function ask({ title, iconName, text = '', value = null, password = false, check = null, ok = 'OK', danger = false, action }) {
+export function ask({ title, iconName, text = '', value = null, placeholder = '', password = false, check = null, checked = true, ok = 'OK', danger = false, action }) {
     const dialog = $('askDialog');
     const input = $('askInput');
     const okButton = $('askOk');
@@ -80,9 +80,10 @@ export function ask({ title, iconName, text = '', value = null, password = false
     input.type = password ? 'password' : 'text';
     input.autocomplete = password ? 'current-password' : 'off';
     input.value = value ?? '';
+    input.placeholder = placeholder;
     $('askCheck').hidden = check === null;
     $('askCheckText').textContent = check ?? '';
-    $('askCheckBox').checked = true;
+    $('askCheckBox').checked = checked;
     okButton.firstElementChild.textContent = ok;
     okButton.className = `cc-btn ${danger ? 'cc-btn--danger' : 'cc-btn--primary'}`;
     dialog.showModal(); // a yes/no question starts on Cancel

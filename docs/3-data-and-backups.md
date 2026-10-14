@@ -6,7 +6,7 @@ Everything mcpanel keeps is in `MCPANEL_DATA_DIR` (`./data` when you run it with
 
 ```
 /srv/mcpanel/            # MCPANEL_DATA_DIR
-├── mcpanel.db           # SQLite: users, sessions, recovery codes, server access, schedules
+├── mcpanel.db           # SQLite: users, sessions, recovery codes, server access, schedules, who banned whom
 ├── logs/
 │   ├── mcpanel.log      # everything on stdout, rotated
 │   └── audit.log        # who did what, rotated
@@ -17,7 +17,8 @@ Everything mcpanel keeps is in `MCPANEL_DATA_DIR` (`./data` when you run it with
 ```
 
 The database holds only what Docker doesn't know: accounts, sessions, recovery codes, which member
-may use which server, and the restarts and backups scheduled for each. A server's state, port, type, version, memory and CPU live on its
+may use which server, the restarts and backups scheduled for each, and which panel user made each ban (the
+ban itself, with its reason, is in the server's own `banned-players.json`). A server's state, port, type, version, memory and CPU live on its
 container, and the panel reads them from Docker every time. Back up the whole data folder and you
 have every world and every account.
 

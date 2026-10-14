@@ -109,8 +109,13 @@ after you pressed it. Below it:
   cookie for everyone online, and clearing the items dropped on the ground, which asks first. The
   latest.log button downloads `logs/latest.log`, the server's log since it last started, which is
   what people ask for when they help with a problem.
-- **Players**: who is online, and the whitelist, operators and bans, each a click to change (Kick
-  and Ban ask first). While it runs, changes are console commands. While it's stopped, the panel
+- **Players**: All lists everyone who has ever joined, with when they were last on (from the
+  world's player files, so to within a few minutes); then who is online, and the whitelist,
+  operators and bans, each a click to change. Each player is tagged with what else they are (online,
+  operator, whitelisted, banned). Kick asks first, and Ban asks for a reason, which the player sees
+  when they try to join; Banned shows each ban's reason, when it was made and who made it (the panel
+  user, or whoever the server says for a ban made another way), and can offer to take them off the
+  whitelist too. While it runs, changes are console commands. While it's stopped, the panel
   writes them into the server's own list files, so the whitelist can be set before the first start;
   it looks each player's account up with Mojang, unless online mode is off.
 - **Files**: the server's folder. Browse it, open and edit text files up to 1 MB (such as

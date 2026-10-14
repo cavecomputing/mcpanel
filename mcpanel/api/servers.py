@@ -76,9 +76,10 @@ def delete(server_id):
     auth.require_admin()
     server = usable_server(server_id)
     servers.delete_server(server_id)
-    with get_db() as conn:  # so a server made later with the same id isn't given to them, or scheduled
+    with get_db() as conn:  # so a server made later with the same id isn't given to them, scheduled, or its bans
         conn.execute('DELETE FROM server_access WHERE server = ?', (server_id,))
         conn.execute('DELETE FROM schedules WHERE server = ?', (server_id,))
+        conn.execute('DELETE FROM bans WHERE server = ?', (server_id,))
         conn.commit()
     logs.audit('server_deleted', server=server['id'], server_name=server['name'])
     return {}

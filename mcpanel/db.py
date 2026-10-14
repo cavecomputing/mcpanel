@@ -1,5 +1,6 @@
 """SQLite access. The database holds only what Docker doesn't know: accounts, sessions, recovery
-codes, which member may use which server, and scheduled restarts and backups. Times are Unix seconds."""
+codes, which member may use which server, scheduled restarts and backups, and who banned whom.
+Times are Unix seconds."""
 import sqlite3
 from contextlib import contextmanager
 
@@ -58,6 +59,14 @@ SCHEMA = USERS_TABLE + '''
         keep INTEGER,  -- how many of its own backups a backup schedule keeps; NULL for a restart
         created REAL NOT NULL,
         name TEXT  -- what whoever set it called it, or NULL
+    );
+    -- Who in the panel banned a player: the server's banned-players.json says only "Rcon", so
+    -- players.banned() matches a note to the ban there by name and time.
+    CREATE TABLE IF NOT EXISTS bans (
+        server TEXT NOT NULL,
+        player TEXT NOT NULL,  -- as typed; matched in any case
+        banned_by TEXT NOT NULL,  -- the panel user's name
+        created REAL NOT NULL
     );
 '''
 
