@@ -21,6 +21,18 @@ Create a server, start and stop it, use its console, manage its players, files, 
 settings, and hand it to the people who should run it. Every account signs in with a password and a
 TOTP code (unless you switch that off), because the panel is meant to be on the internet.
 
+## Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/overview.png" alt="A running server's Overview: players, TPS, memory, CPU and disk, and its next restart and backup">
+</p>
+<p align="center">
+  <img src="docs/screenshots/console.png" alt="The Console tab: the server's output with times, chat highlighted, and quick commands" width="49%">
+  <img src="docs/screenshots/players.png" alt="The Players tab: everyone who has joined, who is online, whitelisted, an operator or banned" width="49%">
+  <img src="docs/screenshots/settings.png" alt="The Settings tab: game settings one to a row, with button groups and switches" width="49%">
+  <img src="docs/screenshots/backups.png" alt="The Backups tab: one list of backups, those a schedule made marked with its name" width="49%">
+</p>
+
 ## Quick start
 
 You need a Linux machine with Docker and the Compose plugin, and a reverse proxy such as Caddy for
